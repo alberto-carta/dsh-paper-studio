@@ -35,6 +35,17 @@ test("routes reject callers without the page token", async () => {
   assert.equal(response.status, 403);
 });
 
+test("the bundled editor asset is served, and only by name", async () => {
+  const response = await fetch(api("asset", { name: "codemirror.js" }));
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type") || "", /javascript/u);
+  const body = await response.text();
+  assert.ok(body.length > 100_000, "bundled editor should be substantial");
+  assert.match(body, /vim/iu);
+  assert.equal((await fetch(api("asset", { name: "missing.js" }))).status, 404);
+  assert.equal((await fetch(api("asset", { name: "../index.js" }))).status, 400);
+});
+
 test("info lists the registered demo project", async () => {
   const { status, body } = await json(api("info"));
   assert.equal(status, 200);

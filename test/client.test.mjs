@@ -26,7 +26,7 @@ const plugin = definition.factory((id) => {
   if (id === "react") return React;
   throw new Error(`unexpected require: ${id}`);
 });
-const { highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject } = plugin.__internals;
+const { highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject, shouldCompileAfterSave } = plugin.__internals;
 
 test("highlighter marks commands, braces and comments and escapes HTML", () => {
   const html = highlightLatex("\\section{Intro} % note <b>\nText $x^2$ here");
@@ -184,4 +184,11 @@ test("vim text objects cover words, brackets and quotes", () => {
   assert.deepEqual(vimTextObject('say "hi" now', 6, false, '"'), { start: 5, end: 7 });
   assert.deepEqual(vimTextObject("\\cite{key}", 6, false, "w"), { start: 6, end: 9 });
   assert.equal(vimTextObject("plain", 2, false, "("), null);
+});
+
+test("manual saves compile by default; autosaves follow the auto option", () => {
+  assert.equal(shouldCompileAfterSave({ manual: true, compileOnSave: true, autoCompile: false }), true);
+  assert.equal(shouldCompileAfterSave({ manual: true, compileOnSave: false, autoCompile: true }), false);
+  assert.equal(shouldCompileAfterSave({ manual: false, compileOnSave: true, autoCompile: false }), false);
+  assert.equal(shouldCompileAfterSave({ manual: false, compileOnSave: false, autoCompile: true }), true);
 });

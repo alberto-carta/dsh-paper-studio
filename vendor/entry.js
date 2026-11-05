@@ -1,0 +1,15 @@
+// Bundled for the browser by `npm run build:editor`; served at /paper-studio/api/asset.
+export { EditorState, Compartment } from "@codemirror/state";
+export {
+  EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter,
+  drawSelection, dropCursor, rectangularSelection, crosshairCursor, highlightSpecialChars,
+} from "@codemirror/view";
+export {
+  defaultHighlightStyle, syntaxHighlighting, StreamLanguage, indentOnInput,
+  bracketMatching, foldGutter, foldKeymap,
+} from "@codemirror/language";
+export { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
+export { search, searchKeymap, highlightSelectionMatches } from "@codemirror/search";
+export { autocompletion, completionKeymap, closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
+export { vim, Vim } from "@replit/codemirror-vim";
+export { stex } from "@codemirror/legacy-modes/mode/stex";

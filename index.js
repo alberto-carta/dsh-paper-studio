@@ -16,6 +16,7 @@ import {
   chmod, mkdir, readFile, readdir, rename, rm, stat, writeFile,
 } from "node:fs/promises";
 import { homedir } from "node:os";
+import { fileURLToPath } from "node:url";
 import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path";
 
 /** Cordis plugin identity. */
@@ -2038,6 +2039,24 @@ function readJsonBody(request) {
   });
 }
 
+const VENDOR_DIR = join(dirname(fileURLToPath(import.meta.url)), "vendor");
+
+/** Serve a pre-bundled browser asset (currently the CodeMirror+vim editor). */
+async function sendAsset(response, name) {
+  const file = String(name ?? "");
+  if (!/^[A-Za-z0-9._-]+\.js$/u.test(file) || file.includes("..")) {
+    return sendJson(response, 400, { error: "Invalid asset" });
+  }
+  const source = await readFile(join(VENDOR_DIR, file)).catch(() => null);
+  if (!source) return sendJson(response, 404, { error: "Not found" });
+  response.writeHead(200, {
+    "content-type": "text/javascript; charset=utf-8",
+    "content-length": source.length,
+    "cache-control": "public, max-age=3600",
+  });
+  response.end(source);
+}
+
 function createHandler(token) {
   const authorized = (request) => {
     const header = request.headers["x-paper-token"];
@@ -2051,6 +2070,7 @@ function createHandler(token) {
       await readyStore();
       const url = new URL(request.url ?? "/", "http://127.0.0.1");
       const action = decodeURIComponent(url.pathname.slice(ROUTE.length)).replace(/^\/+|\/+$/gu, "");
+      if (request.method === "GET" && action === "asset") return sendAsset(response, url.searchParams.get("name"));
       if (request.method === "GET" && action === "info") return sendJson(response, 200, await ops.info());
       if (request.method === "GET" && action === "tree") return sendJson(response, 200, await ops.tree({ project: url.searchParams.get("project") }));
       if (request.method === "GET" && action === "file") {

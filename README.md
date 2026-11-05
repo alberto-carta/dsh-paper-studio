@@ -6,6 +6,9 @@ A persistent Overleaf-style LaTeX workspace for the DeepSeek Harness Web GUI.
   editor, and the compiled PDF on the right.
 - **Project registry** in `~/.dsh/paper-studio/projects.json` (mode 600), so
   projects survive sessions, restarts, and profile upgrades.
+- **Compile on manual save** is on by default: the Save button, Ctrl/Cmd+S and
+  Vim `:w` save and then compile; autosaves compile only with the separate
+  auto-compile toggle. Both live in Settings → Editor → Editing.
 - **Manual save** next to the compile button (disabled when everything is saved),
   an **autosave** toggle and delay in Settings (default 1 s), and a split compile
   button: click the centre for an incremental build, or the caret → **Full
@@ -34,9 +37,16 @@ A persistent Overleaf-style LaTeX workspace for the DeepSeek Harness Web GUI.
   use, and a guarded *Reset to origin* (fetch → reset --hard → clean, keeping
   `.paper-studio`).
 - **Editor**: soft-wrap toggle (line numbers stay aligned), Vim mode
-  (normal/insert/visual, motions, operators and `:w`/`:%s///g`/`:<n>`), aspell
-  spellcheck (US/UK) with wavy underlines, Cut/Copy/Paste + Bold/Italic/Underline
-  context menu, configurable shortcuts, word-level undo, and a save button.
+  (normal/insert/visual, motions, operators, text objects such as `ciw`, and
+  `:w`/`:%s///g`/`:<n>` — scoped to the editor textarea only, never to dialogs,
+  rename fields or the terminal), bracket matching, aspell spellcheck (US/UK)
+  with wavy underlines, Cut/Copy/Paste + Bold/Italic/Underline context menu,
+  clipboard shortcuts in insert mode only (native Ctrl/Cmd+C/V/X plus
+  Ctrl+Insert / Shift+Insert / Shift+Delete and Ctrl+Shift+C/X/V where the
+  browser does not reserve them; normal/visual mode refuse them, and with
+  diagnostics on they warn “vim bindings, ctrl-v not allowed in normal mode”),
+  configurable shortcuts,
+  word-level undo, and a save button.
 - **Completion** now indexes project macros (`\newcommand`, `\def`, …) and custom
   environments, inserts required argument braces, and expands whole blocks for
   figure/table/itemize/equation/align/theorem/…

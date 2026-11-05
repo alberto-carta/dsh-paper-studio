@@ -8,7 +8,7 @@ window.__ModuleLoader__.load({
 
     const PANEL_ID = "paper-studio";
     /** Shown in Settings so the loaded client can be matched to the source file. */
-    const CLIENT_BUILD = "2026-11-05T07:55";
+    const CLIENT_BUILD = "2026-11-05T08:45";
     const NS = "paperStudio";
     const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
 
@@ -103,6 +103,7 @@ window.__ModuleLoader__.load({
         lineCol: "Ln {line}, Col {col}",
         lines: "{count} lines",
         autoCompile: "Auto-compile on save",
+        compileOnSave: "Compile on manual save",
         autosave: "Autosave",
         autosaveDelay: "Save changes after",
         save: "Save",
@@ -730,6 +731,7 @@ body.ps-resizing *{cursor:inherit!important}
       spellLang: "en_US",
       wrap: false,
       autoCompile: false,
+      compileOnSave: true,
       autosave: true,
       autosaveDelay: 850,
       diagnostics: false,
@@ -743,6 +745,11 @@ body.ps-resizing *{cursor:inherit!important}
         redo: "mod+shift+z",
       },
     };
+
+    /** Manual saves compile when enabled; autosaves use the autoCompile toggle. */
+    function shouldCompileAfterSave({ manual, compileOnSave, autoCompile }) {
+      return manual ? Boolean(compileOnSave) : Boolean(autoCompile);
+    }
 
     function readSyntax() {
       try {
@@ -1539,6 +1546,7 @@ body.ps-resizing *{cursor:inherit!important}
       }, [editorRef, onCursor, onEdit, tab]);
 
       const [vimMode, setVimMode] = useState(theme.vim ? "normal" : "insert");
+      const [vimVisualType, setVimVisualType] = useState("char");
       const [exLine, setExLine] = useState(null);
       const [caretBox, setCaretBox] = useState(null);
       const [diagnostics, setDiagnostics] = useState("");
@@ -1714,10 +1722,29 @@ body.ps-resizing *{cursor:inherit!important}
 
       const handleVimKey = useCallback((event) => {
         const textarea = editorRef.current;
-        if (!textarea || !tab) return;
+        if (!textarea || !tab || event.target !== textarea) return;
         const keysNow = theme.keys || DEFAULT_SYNTAX.keys;
         if (event.ctrlKey || event.metaKey) {
           if (event.shiftKey && ["c", "x", "v"].includes(event.key.toLowerCase())) return;
+          if (event.key === "v" && !event.shiftKey) {
+            event.preventDefault();
+            const start = textarea.selectionStart;
+            vimAnchor.current = start;
+            vimCursor.current = start;
+            setVimVisualType("block");
+            setVimMode("visual");
+            return;
+          }
+          // Plain copy/cut must not modify the buffer in normal/visual mode.
+          if (!event.shiftKey && ["c", "x"].includes(event.key.toLowerCase())) {
+            event.preventDefault();
+            if (theme.diagnostics) {
+              const warning = `warning, vim bindings, ctrl-${event.key.toLowerCase()} not allowed in normal mode`;
+              console.warn(warning);
+              if (notify) notify(warning, "err");
+            }
+            return;
+          }
           if (matchesBinding(event, keysNow.undo)) {
             event.preventDefault();
             if (onUndo) onUndo(tab.path);
@@ -1730,28 +1757,70 @@ body.ps-resizing *{cursor:inherit!important}
           return;
         }
         const navigation = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End", "PageUp", "PageDown"];
-        if (navigation.includes(event.key)) return;
+        let key = event.key;
+        if (navigation.includes(key)) {
+          if (vimMode !== "visual") return;
+          // In visual mode arrows must extend the selection, not collapse it.
+          key = { ArrowLeft: "h", ArrowRight: "l", ArrowUp: "k", ArrowDown: "j", Home: "0", End: "$" }[key] ?? "";
+          if (!key) return;
+        }
         event.preventDefault();
-        const key = event.key;
         const value = textarea.value;
         const position = vimMode === "visual" ? vimCursor.current : textarea.selectionStart;
         const { line, col } = lineColOf(position);
 
         if (vimMode === "visual") {
-          if (key === "d" || key === "x") {
-            deleteRange(Math.min(vimAnchor.current, position), Math.max(vimAnchor.current, position));
-            setVimMode("normal");
-            return;
-          }
-          if (key === "y") {
-            vimRegister.current = value.slice(Math.min(vimAnchor.current, position), Math.max(vimAnchor.current, position));
-            setVimMode("normal");
-            return;
-          }
-          if (key === "Escape") {
-            setVimMode("normal");
-            return;
-          }
+          const visualRange = () => {
+            const anchor = vimAnchor.current;
+            const first = Math.min(anchor, position);
+            const last = Math.max(anchor, position);
+            if (vimVisualType === "line") {
+              const from = lineBounds(first);
+              const to = lineBounds(last);
+              return { start: from.start, end: to.end < value.length ? to.end + 1 : to.end };
+            }
+            if (vimVisualType === "block") {
+              const a = lineColOf(first);
+              const b = lineColOf(last);
+              return {
+                block: true,
+                lineFrom: Math.min(a.line, b.line),
+                lineTo: Math.max(a.line, b.line),
+                colFrom: Math.min(a.col, b.col),
+                colTo: Math.max(a.col, b.col),
+              };
+            }
+            return { start: first, end: Math.min(value.length, last + 1) };
+          };
+          const finishVisual = (operator) => {
+            const range = visualRange();
+            if (range.block) {
+              const rows = value.split("\n");
+              const removed = [];
+              for (let line = range.lineFrom; line <= range.lineTo; line += 1) {
+                const text = rows[line] ?? "";
+                const from = Math.min(range.colFrom, text.length);
+                const to = Math.min(range.colTo + 1, text.length);
+                removed.push(text.slice(from, to));
+                rows[line] = text.slice(0, from) + text.slice(to);
+              }
+              const caret = positionAt(range.lineFrom, range.colFrom);
+              vimRegister.current = removed.join("\n");
+              if (operator === "y") { setCaret(caret); setVimMode("normal"); return; }
+              applyVim(rows.join("\n"), caret);
+              setVimMode(operator === "c" ? "insert" : "normal");
+              return;
+            }
+            vimRegister.current = value.slice(range.start, range.end);
+            if (operator === "y") { setCaret(range.start); setVimMode("normal"); return; }
+            applyVimOperator(operator, range.start, range.end);
+            setVimMode(operator === "c" ? "insert" : "normal");
+          };
+          if (key === "d" || key === "x") { finishVisual("d"); return; }
+          if (key === "y") { finishVisual("y"); return; }
+          if (key === "c") { finishVisual("c"); return; }
+          if (key === "v" || key === "V") { setVimMode("normal"); return; }
+          if (key === "Escape") { setVimMode("normal"); return; }
         }
 
         if (vimPending.current === "g") {
@@ -1831,12 +1900,20 @@ body.ps-resizing *{cursor:inherit!important}
           case "p": insertAt(Math.min(value.length, position + 1), vimRegister.current); return;
           case "P": insertAt(position, vimRegister.current); return;
           case "u": if (onUndo) onUndo(tab.path); return;
-          case "v": vimAnchor.current = position; vimCursor.current = position; setVimMode("visual"); return;
+          case "v": vimAnchor.current = position; vimCursor.current = position; setVimVisualType("char"); setVimMode("visual"); return;
+          case "V": {
+            const bounds = lineBounds(position);
+            vimAnchor.current = bounds.start;
+            vimCursor.current = bounds.end;
+            setVimVisualType("line");
+            setVimMode("visual");
+            return;
+          }
           case ":": setExLine(""); return;
           case "Escape": setVimMode("normal"); return;
           default: return;
         }
-      }, [applyVim, deleteRange, insertAt, lineBounds, lineColOf, moveTo, nextWordStart, onRedo, onUndo, positionAt, prevWordStart, setCaret, tab, theme.keys, vimMode, wordEnd]);
+      }, [applyVim, deleteRange, insertAt, lineBounds, lineColOf, moveTo, nextWordStart, notify, onRedo, onUndo, positionAt, prevWordStart, setCaret, tab, theme.diagnostics, theme.keys, vimMode, wordEnd]);
 
       // Pin the layer to the textarea's exact content box, scrollbar included, so
       // both wrap at identical widths and line positions never drift apart.
@@ -2038,6 +2115,17 @@ body.ps-resizing *{cursor:inherit!important}
         const cut = (mod && event.shiftKey && (key === "X" || key === "x")) || (event.shiftKey && key === "Delete");
         const paste = (mod && event.shiftKey && (key === "V" || key === "v")) || (event.shiftKey && key === "Insert");
         if (!copy && !cut && !paste) return false;
+        const insertMode = !theme.vim || vimMode === "insert";
+        if (!insertMode) {
+          event.preventDefault();
+          if (theme.diagnostics) {
+            const combo = paste ? "ctrl-v" : cut ? "ctrl-x" : "ctrl-c";
+            const warning = `warning, vim bindings, ${combo} not allowed in normal mode`;
+            console.warn(warning);
+            if (notify) notify(warning, "err");
+          }
+          return true;
+        }
         event.preventDefault();
         const textarea = editorRef.current;
         if (!textarea || !tab) return true;
@@ -2070,10 +2158,11 @@ body.ps-resizing *{cursor:inherit!important}
           })
           .catch(() => { if (notify) notify(t("clipboardDenied"), "err"); });
         return true;
-      }, [notify, onEdit, setCaret, t, tab]);
+      }, [notify, onEdit, setCaret, t, tab, theme.diagnostics, theme.vim, vimMode]);
 
       const handleKeyDown = useCallback((event) => {
         if (event.defaultPrevented) return;
+        if (event.target !== editorRef.current) return;
         if (handleClipboardShortcut(event)) return;
         if (theme.vim) {
           if (exLine !== null) {
@@ -2321,7 +2410,10 @@ body.ps-resizing *{cursor:inherit!important}
         tab && exLine !== null ? h("div", { className: "ps-exline" }, `:${exLine}`) : null,
         tab ? h("div", { className: "ps-code-foot" },
           h("span", { className: "ps-grow", title: tab.path }, tab.path),
-          theme.vim ? h("span", { className: "ps-vim" }, vimMode.toUpperCase()) : null,
+          theme.vim ? h("span", { className: "ps-vim" },
+            vimMode !== "visual"
+              ? vimMode.toUpperCase()
+              : vimVisualType === "line" ? "V-LINE" : vimVisualType === "block" ? "V-BLOCK" : "VISUAL") : null,
           h("button", {
             className: `ps-btn${theme.wrap ? " active" : ""}`, type: "button",
             title: t("wrapLines"), "aria-pressed": Boolean(theme.wrap),
@@ -2958,6 +3050,7 @@ body.ps-resizing *{cursor:inherit!important}
       const scrollByPath = useRef({});
       const pendingLine = useRef(null);
       const autoCompileRef = useRef(Boolean(syntax.autoCompile));
+      const compileOnSaveRef = useRef(syntax.compileOnSave !== false);
       const autosaveRef = useRef({ enabled: syntax.autosave !== false, delay: Math.max(200, Number(syntax.autosaveDelay) || 850) });
       const compileTimer = useRef(null);
       const toastTimer = useRef(null);
@@ -2973,6 +3066,7 @@ body.ps-resizing *{cursor:inherit!important}
       useEffect(() => { projectIdRef.current = project ? project.id : null; projectRef.current = project; }, [project]);
       useEffect(() => { activeRef.current = active; }, [active]);
       useEffect(() => { autoCompileRef.current = Boolean(syntax.autoCompile); }, [syntax.autoCompile]);
+      useEffect(() => { compileOnSaveRef.current = syntax.compileOnSave !== false; }, [syntax.compileOnSave]);
       useEffect(() => {
         autosaveRef.current = { enabled: syntax.autosave !== false, delay: Math.max(200, Number(syntax.autosaveDelay) || 850) };
       }, [syntax.autosave, syntax.autosaveDelay]);
@@ -3284,9 +3378,10 @@ body.ps-resizing *{cursor:inherit!important}
             return { ...item, saving: false, mtime: result.mtime, saved: tab.content, dirty: unchanged ? false : item.dirty, conflict: null };
           }));
           setStatus({ kind: "saved", at: Date.now() });
-          if (autoCompileRef.current) {
+          const manual = Boolean(options && options.manual);
+          if (shouldCompileAfterSave({ manual, compileOnSave: compileOnSaveRef.current, autoCompile: autoCompileRef.current })) {
             clearTimeout(compileTimer.current);
-            compileTimer.current = setTimeout(() => { void runCompileRef.current(); }, 900);
+            compileTimer.current = setTimeout(() => { void runCompileRef.current(); }, manual ? 120 : 900);
           }
           return result;
         } catch (error) {
@@ -3303,9 +3398,9 @@ body.ps-resizing *{cursor:inherit!important}
         return next;
       }, [doSave]);
 
-      const saveAll = useCallback(async () => {
+      const saveAll = useCallback(async (options) => {
         const dirty = tabsRef.current.filter((item) => item.dirty && !item.conflict);
-        await Promise.all(dirty.map((item) => saveTab(item.path)));
+        await Promise.all(dirty.map((item) => saveTab(item.path, options)));
       }, [saveTab]);
 
       const scheduleAutosave = useCallback((path) => {
@@ -3369,7 +3464,7 @@ body.ps-resizing *{cursor:inherit!important}
         setElapsed(0);
         compileStartedRef.current = Date.now();
         try {
-          await saveAll();
+          await saveAll({ manual: false });
           const started = await request("compile/start", { method: "POST", body: { project: id, force } });
           if (jobSourceRef.current) jobSourceRef.current.close();
           const source = new EventSource(apiUrl("compile/events", { job: started.jobId }));
@@ -3454,6 +3549,13 @@ body.ps-resizing *{cursor:inherit!important}
         const onKeyDown = (event) => {
           // While a dialog is open, keys belong to it (including binding capture).
           if (dialog) return;
+          const target = event.target;
+          const tag = target && target.tagName;
+          const typing = tag === "INPUT" || tag === "SELECT" || target?.isContentEditable
+            || (tag === "TEXTAREA" && target !== editorRef.current);
+          // Inputs, dialogs and rename fields keep their own keys; the editor
+          // handles its own shortcuts (except Ctrl/Cmd+Enter for compile).
+          if (typing) return;
           const keys = syntax.keys || DEFAULT_SYNTAX.keys;
           if (matchesBinding(event, keys.save)) {
             event.preventDefault();
@@ -3954,6 +4056,7 @@ body.ps-resizing *{cursor:inherit!important}
                 }, [
                   [500, "0.5 s"], [1000, "1 s"], [2000, "2 s"], [5000, "5 s"], [10000, "10 s"],
                 ].map(([value, label]) => h("option", { key: value, value: String(value) }, label)))),
+              toggle(t("compileOnSave"), "compileOnSave"),
               toggle(t("autoCompile"), "autoCompile"),
               toggle(t("diagnostics"), "diagnostics")),
           ];
@@ -4207,7 +4310,7 @@ body.ps-resizing *{cursor:inherit!important}
           h("button", {
             className: "ps-btn", type: "button", disabled: !hasDirty,
             title: `${t("save")} — ${t("saveHint")}`,
-            onClick: () => { void saveAll(); },
+            onClick: () => { void saveAll({ manual: true }); },
           }, h(Icon.save), h("span", { className: "ps-hide-narrow" }, t("save"))),
           h("span", { className: `ps-status ${statusView.kind}` },
             statusView.spin ? h(Icon.refresh, { className: "ps-spin" }) : h("span", { className: "ps-dot" }),
@@ -4346,7 +4449,7 @@ body.ps-resizing *{cursor:inherit!important}
             symbols,
             syntax,
             misspelled,
-            onSave: (path) => { void saveTab(path); },
+            onSave: (path) => { void saveTab(path, { manual: true }); },
             onUndo: undo,
             onRedo: redo,
             notify,
@@ -4446,7 +4549,7 @@ body.ps-resizing *{cursor:inherit!important}
     return {
       inject: ["slots", "locale", "layout"],
       /** Pure helpers exercised by test/client.test.mjs (no browser needed). */
-      __internals: { Studio, EditorPane, Dock, FolderPicker, PdfPage, GitView, Explosion, highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject },
+      __internals: { Studio, EditorPane, Dock, FolderPicker, PdfPage, GitView, Explosion, highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject, shouldCompileAfterSave },
       apply(ctx) {
         ctx.effect(() => {
           const style = document.createElement("style");

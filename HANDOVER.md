@@ -41,6 +41,11 @@ page actually loaded.
   reference in the host-side scroll handler (which threw and aborted the sync)
   was removed.
 - **Soft wrap:** toggle in Settings → Editor → Editing and in the editor footer;
+- **Clipboard scope:** shortcuts only act in insert mode (or with Vim off).
+  Normal/visual mode refuse paste/cut (Ctrl+V is visual-block there) and, when
+  diagnostics are on, log/toast `warning, vim bindings, ctrl-v not allowed in
+  normal mode`. Ctrl+Shift+C is reserved by browsers for DevTools; Ctrl+C or
+  Ctrl+Insert are the reliable copy shortcuts.
 - **Bracket matching:** the pair around the caret is measured with the same mirror
   as the caret and drawn in a layer that scrolls with the text; escaped braces
   are skipped and unmatched brackets are red.
@@ -73,6 +78,10 @@ page actually loaded.
   button and a missing-PDF state.
 - **Header:** Terminal and Problems merged into one Output button; auto-compile
   moved to Settings (off by default).
+- **Compile on manual save:** a toggle in Settings → Editor → Editing, on by
+  default. Manual saves (header Save, Ctrl/Cmd+S, Vim `:w`) schedule a compile
+  120 ms later; autosaves do not, unless the separate Auto-compile toggle is on.
+  The compile pass saves with `manual: false` so it cannot re-trigger itself.
 - **Saving/compiling:** manual Save button beside the status (disabled when clean);
   autosave on by default with a 0.5–10 s delay selectable in Settings → Editor →
   Editing; the compile button is split — centre click is the incremental build,
@@ -107,6 +116,24 @@ alignment confirmed against the diagnostics readout (`cw` == `pw`).
   and persisted in `localStorage` (`dsh.paper-studio.ui`).
 - Host additions: `GET symbols`, `POST compile/start`, `GET compile/events`,
   on-demand `GET page`, structured `warningsList` on compile results.
+
+## CodeMirror groundwork (2026-11-05)
+
+The long-term editor migration to CodeMirror 6 (for complete Vim via the MIT
+`@replit/codemirror-vim`, which Overleaf also forks) starts with a shippable
+bundle rather than a rewrite in place:
+
+```sh
+npm install            # devDependencies (esbuild + CodeMirror + vim)
+npm run build:editor   # vendor/entry.js -> vendor/codemirror.js (~493 KB, committed)
+```
+
+The bundle is served to the page at
+`GET /paper-studio/api/asset?name=codemirror.js` (token-guarded, whitelisted
+names only), so the plugin needs no DSH client-bundle changes and no
+`node_modules` at runtime. The current textarea editor is untouched; the
+CM6 editor will be added behind a “Use CodeMirror editor” setting and switched
+on only once highlighting, completion, spellcheck and Vim match.
 
 ## 1.2.0 — colour themes, environment bands, cursor line, PDF inverse search
 
