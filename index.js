@@ -618,7 +618,7 @@ async function compileProject(project, emit) {
   let bibtexRan = false;
   let bibtexChanged = false;
   let bibtexPass = null;
-  const rerunHint = (pass) => /Rerun to get|Label\(s\) may have changed|undefined/iu.test(`${pass.stdout}\n${pass.stderr}`);
+  const rerunHint = (pass) => /Rerun to get|Label\(s\) may have changed/iu.test(`${pass.stdout}\n${pass.stderr}`);
   if (tooling.bibtex && /\\bibdata\{/u.test(auxText)) {
     const bblBefore = await hashFile(bblPath);
     // Rerun bibtex only when the citations or the .bib changed, or no .bbl exists.
@@ -674,13 +674,10 @@ async function compileProject(project, emit) {
   const pages = ok ? await pdfPageCount(pdfPath, tooling) : 0;
   let files = [];
   if (ok) {
-    // Page images belong to exactly one PDF revision: drop the previous rev,
-    // draw page 1 immediately (the panel's first paint) and leave the rest to
-    // the on-demand `/page` route.
+    // Page images belong to exactly one PDF revision. Dropping the old ones is
+    // enough: the panel requests page 1 immediately, and the `/page` route
+    // rasterizes each page on demand, so compile does not wait for pdftoppm.
     await rm(join(buildDir, "pages"), { recursive: true, force: true });
-    signal({ type: "stage", label: "rendering page 1" });
-    const firstPage = await renderPage(pdfPath, buildDir, 1, tooling);
-    files = firstPage ? [{ file: firstPage, page: 1 }] : [];
   }
   const durationMs = Date.now() - started;
   const cache = {
@@ -1321,14 +1318,48 @@ function createJob(project) {
 function startCompileJob(project) {
   const job = createJob(project);
   job.emit({ type: "start", project: { id: project.id, name: project.name, path: project.path } });
-  void serializeCompile(project.id, () => compileProject(project, job.emit))
+  let buffer = "";
+  let channel = "stdout";
+  let flushTimer = null;
+  const flush = () => {
+    if (buffer.length === 0) return;
+    job.emit({ type: "out", channel, text: buffer });
+    buffer = "";
+  };
+  const emit = (event) => {
+    if (event.type === "out") {
+      if (event.channel !== channel) {
+        flush();
+        channel = event.channel;
+      }
+      buffer += event.text;
+      if (buffer.length >= 24_000) flush();
+      if (!flushTimer) {
+        flushTimer = setInterval(flush, 120);
+        flushTimer.unref?.();
+      }
+      return;
+    }
+    flush();
+    job.emit(event);
+  };
+  const stopStreaming = () => {
+    flush();
+    if (flushTimer) {
+      clearInterval(flushTimer);
+      flushTimer = null;
+    }
+  };
+  void serializeCompile(project.id, () => compileProject(project, emit))
     .then((result) => {
+      stopStreaming();
       job.result = result;
       job.done = true;
       job.finishedAt = Date.now();
       job.emit({ type: "finish", ok: Boolean(result.ok), result });
     })
     .catch((error) => {
+      stopStreaming();
       job.error = error?.message ?? String(error);
       job.done = true;
       job.finishedAt = Date.now();

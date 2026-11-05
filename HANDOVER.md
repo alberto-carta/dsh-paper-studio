@@ -53,6 +53,38 @@ time). A page reload alone is enough for `client.js`-only changes; anything in
 - Host additions: `GET symbols`, `POST compile/start`, `GET compile/events`,
   on-demand `GET page`, structured `warningsList` on compile results.
 
+## 1.1.2 — highlighting, one-pass edits, filename completion
+
+- **Highlighting fix:** the textarea must render its own glyphs transparently for
+  the coloured layer beneath to show. A bare `.ps-code` selector lost the
+  cascade to the harness theme's own `textarea` rule, so the plain text was
+  painted over the highlight. The transparency, caret colour and layer colour
+  are now set on `.ps-root textarea.ps-code` / `.ps-root pre.ps-highlight` with
+  `!important`. Environment names get their own colour too.
+- **One-pass minimal edits:** the rerun trigger no longer matches the word
+  `undefined`. A permanently undefined `\ref` used to force a second (and often
+  a third) full pdflatex pass on every compile; now only a changed `.bbl` or the
+  cross-reference messages trigger extra passes.
+- **No rasterization in the compile path:** page 1 is no longer rendered eagerly;
+  the panel's own `<img>` request rasterizes it. Compile returns as soon as the
+  PDF exists, and the pane mode falls back to the PDF iframe when `pdftoppm` is
+  missing.
+- **Coalesced output:** compiler stdout/stderr is buffered and flushed to the
+  terminal at most every 120 ms (or 24 KB), instead of one SSE event per chunk.
+- **Filename completion:** a bare path/filename word now completes against the
+  project's images, `.tex` and `.bib` files (basename prefix, or path substring
+  when it contains `/`), so `figures/plot` completes inside a `figure`
+  environment. Non-matching prose yields no popup.
+
+Benchmark (synthetic 10-page, 30-section paper, this machine):
+
+| Case | Time | Passes |
+| --- | --- | --- |
+| First full build | 1.27 s | 3 pdflatex + bibtex |
+| Unchanged recompile | 5 ms | 0 (cached) |
+| One section edited | 0.39 s | 1 (bibtex skipped) |
+| Render page 1 / 5 / 10 | 79 / 154 / 51 ms | on demand |
+
 ## 1.1.1 — missing folders and the folder picker
 
 - **Fixed:** with no usable project the pane grid still emitted its 5px splitter

@@ -30,13 +30,12 @@ test("compile streams commands and output, then reports one page and no errors",
   assert.ok(commands.includes("pdflatex"), "terminal should see the pdflatex command");
   assert.ok(commands.includes("bibtex"), "terminal should see the bibtex command");
   assert.ok(events.some((event) => event.type === "out" && event.text.length > 0), "terminal should receive output");
-  assert.ok(events.some((event) => event.type === "stage"), "terminal should receive stage markers");
 
   assert.match(first.log, /plain\.bst/u, "bibtex must resolve the system plain.bst");
   assert.equal(/undefined (?:citation|reference)/iu.test(first.log), false);
 
-  // Page 1 is rendered eagerly for the first paint; page 2 does not exist.
-  assert.equal(first.renderedPages, 1);
+  // Pages are rasterized on demand, so a compile no longer waits for pdftoppm.
+  assert.equal(first.renderedPages, 0);
   const pageOne = await __test.renderPage(join(demo, ".paper-studio", "build", "main.pdf"), join(demo, ".paper-studio", "build"), 1, await __test.detectTooling());
   assert.equal(pageOne, "page-1.png");
 });
@@ -48,6 +47,27 @@ test("recompiling unchanged sources is served from the incremental cache", async
   assert.equal(second.passes, 0);
   assert.equal(second.durationMs, 0);
   assert.equal(second.pages, 1);
+});
+
+test("a prose-only edit compiles in one pass and skips bibtex", async () => {
+  const { readFile, writeFile } = await import("node:fs/promises");
+  const touched = join(demo, "sections", "methods.tex");
+  const original = await readFile(touched, "utf8");
+  await writeFile(touched, `${original}\n% prose-only edit\n`, "utf8");
+  try {
+    const events = [];
+    const result = await __test.compileProject(project, (event) => events.push(event));
+    assert.equal(result.ok, true);
+    assert.equal(result.cached, false);
+    assert.equal(result.passes, 1, "only one pdflatex pass for a prose edit");
+    assert.equal(result.bibtex, false, "bibtex must not rerun when citations did not change");
+    assert.ok(
+      events.some((event) => event.type === "stage" && /bibtex skipped/u.test(event.label || "")),
+      "terminal should explain the skipped bibtex",
+    );
+  } finally {
+    await writeFile(touched, original, "utf8");
+  }
 });
 
 test("warning parser surfaces LaTeX warnings, boxes and bibtex warnings", () => {

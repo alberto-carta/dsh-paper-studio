@@ -33,6 +33,9 @@ test("highlighter marks commands, braces and comments and escapes HTML", () => {
   assert.match(html, /ps-hl-brace[^>]*>\{/u);
   assert.match(html, /ps-hl-comment[^>]*>% note &lt;b&gt;/u);
   assert.match(html, /ps-hl-math[^>]*>\$x\^2\$/u);
+
+  const env = highlightLatex("\\begin{figure}\n\\centering\n\\end{figure}");
+  assert.match(env, /ps-hl-env[^>]*>figure</u, "environment names are highlighted");
   assert.equal(escapeHtml('<a>&"'), "&lt;a&gt;&amp;&quot;");
 });
 
@@ -42,7 +45,9 @@ test("completion context recognises cites, refs, commands, packages and paths", 
   assert.deepEqual(completionContext("\\begi", 5), { kind: "command", query: "begi", start: 1, end: 5 });
   assert.deepEqual(completionContext("\\usepackage{ams", 15), { kind: "package", query: "ams", start: 12, end: 15 });
   assert.deepEqual(completionContext("\\includegraphics[width=1\\linewidth]{fig", 39), { kind: "image", query: "fig", start: 36, end: 39 });
-  assert.equal(completionContext("plain text", 10), null);
+  // Outside a command, a bare word is a candidate filename: completion filters
+  // it against the project's files before showing anything.
+  assert.deepEqual(completionContext("plain text", 10), { kind: "anyfile", query: "text", start: 6, end: 10 });
 });
 
 test("completion ranking prefers prefixes and filters by type", () => {
@@ -66,4 +71,12 @@ test("completion ranking prefers prefixes and filters by type", () => {
 
   const bibs = completionItems("bibfile", "", symbols);
   assert.deepEqual(bibs.map((item) => item.insert), ["references.bib"]);
+
+  // Typing a bare filename inside a figure completes against project files.
+  const bareImage = completionItems("anyfile", "plo", symbols);
+  assert.deepEqual(bareImage.map((item) => item.insert), ["figures/plot.png"]);
+  const barePath = completionItems("anyfile", "figures/", symbols);
+  assert.deepEqual(barePath.map((item) => item.insert), ["figures/plot.png"]);
+  // Prose that matches no file yields nothing, so the popup stays closed.
+  assert.deepEqual(completionItems("anyfile", "text", symbols), []);
 });

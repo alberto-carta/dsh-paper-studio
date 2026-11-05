@@ -11,8 +11,10 @@ A persistent Overleaf-style LaTeX workspace for the DeepSeek Harness Web GUI.
 - **Problems list** with one click from the header: errors and warnings
   (LaTeX/package warnings, over/underfull boxes, bibtex warnings), each row
   jumping to its source line.
-- **LaTeX syntax highlighting** in the editor and **completion** for commands,
-  environments, packages, `\ref` labels, `\cite` keys and file paths.
+- **LaTeX syntax highlighting** in the editor (commands, environments, math,
+  comments, braces) and **completion** for commands, environments, packages,
+  `\ref` labels, `\cite` keys, and file paths — including bare filenames such
+  as `figures/plot` typed inside a figure environment.
 - **Resizable panes**: drag the dividers between explorer, editor, PDF and the
   bottom dock; widths and heights persist.
 - **Folder picker**: Add folder, New paper, Clone and Locate offer an inline
@@ -22,8 +24,10 @@ A persistent Overleaf-style LaTeX workspace for the DeepSeek Harness Web GUI.
   panel shows a dedicated view with Locate folder, Remove from Paper Studio and
   Retry, and the project is marked `missing` in the dropdown — no broken layout.
 - **Incremental builds**: unchanged sources reuse the last PDF instantly, a
-  prose-only edit skips bibtex and the second pass, and pages render on demand,
-  so a compile no longer rasterizes the whole document.
+  prose-only edit is a single pdflatex pass with bibtex skipped, pages render on
+  demand, and compiler output is coalesced before it reaches the terminal. On a
+  10-page, 30-section benchmark: first build 1.3 s, unchanged 5 ms, one-section
+  edit 0.4 s.
 - **Agent tool** `paper_studio` (`list`, `create`, `add`, `compile`) so the
   assistant can scaffold and compile papers while you watch.
 - **Overleaf git bridge**: clone `https://www.overleaf.com/project/<id>` (or

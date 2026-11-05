@@ -217,8 +217,11 @@ window.__ModuleLoader__.load({
 .ps-code-area{flex:1;min-width:0;position:relative;display:flex;overflow:hidden}
 .ps-gutter{flex:none;min-width:44px;overflow:hidden;padding:8px 6px 8px 10px;text-align:right;font:13px/20px ${MONO};color:var(--dsw-alias-label-secondary);user-select:none;border-right:.5px solid var(--dsw-alias-border-l1);opacity:.75}
 .ps-gutter-inner{will-change:transform}
-.ps-code{flex:1;min-width:0;border:0;outline:0;resize:none;background:transparent;color:transparent;-webkit-text-fill-color:transparent;caret-color:var(--dsw-alias-label-primary);font:13px/20px ${MONO};padding:8px 18px 8px 10px;tab-size:2;white-space:pre;overflow:auto;position:relative;z-index:1}
+.ps-code{flex:1;min-width:0;border:0;outline:0;resize:none;background:transparent;font:13px/20px ${MONO};padding:8px 18px 8px 10px;tab-size:2;white-space:pre;overflow:auto;position:relative;z-index:1}
+.ps-root textarea.ps-code{color:transparent!important;-webkit-text-fill-color:transparent!important;caret-color:var(--dsw-alias-label-primary)!important;background:transparent!important}
 .ps-highlight{position:absolute;inset:0;z-index:0;margin:0;padding:8px 18px 8px 10px;font:13px/20px ${MONO};tab-size:2;white-space:pre;overflow:hidden;pointer-events:none;color:var(--dsw-alias-label-primary);background:transparent}
+.ps-root pre.ps-highlight{color:var(--dsw-alias-label-primary)!important;background:transparent!important}
+.ps-hl-env{color:var(--dsw-alias-state-warn-primary)}
 .ps-hl-cmd{color:var(--dsw-alias-brand-primary)}
 .ps-hl-math{color:var(--dsw-alias-state-success-primary)}
 .ps-hl-comment{color:var(--dsw-alias-label-secondary);font-style:italic;opacity:.8}
@@ -542,6 +545,7 @@ body.ps-resizing *{cursor:inherit!important}
         if (!text) return;
         html += cls ? `<span class="${cls}">${escapeHtml(text)}</span>` : escapeHtml(text);
       };
+      let pendingEnv = false;
       while (index < length) {
         const character = source[index];
         if (character === "%") {
@@ -574,10 +578,29 @@ body.ps-resizing *{cursor:inherit!important}
           const match = /^\\(?:[a-zA-Z@]+\*?|.)/u.exec(source.slice(index, index + 64));
           const token = match ? match[0] : "\\";
           emit(token, "ps-hl-cmd");
+          if (token === "\\begin" || token === "\\end") pendingEnv = true;
           index += token.length;
           continue;
         }
-        if (character === "{" || character === "}" || character === "[" || character === "]") {
+        if (character === "{") {
+          if (pendingEnv) {
+            const close = source.indexOf("}", index);
+            if (close !== -1) {
+              emit("{", "ps-hl-brace");
+              emit(source.slice(index + 1, close), "ps-hl-env");
+              emit("}", "ps-hl-brace");
+              index = close + 1;
+              pendingEnv = false;
+              continue;
+            }
+          }
+          pendingEnv = false;
+          emit(character, "ps-hl-brace");
+          index += 1;
+          continue;
+        }
+        if (character === "}" || character === "[" || character === "]") {
+          pendingEnv = false;
           emit(character, "ps-hl-brace");
           index += 1;
           continue;
@@ -675,6 +698,10 @@ body.ps-resizing *{cursor:inherit!important}
       }
       const command = /\\([a-zA-Z@]*)$/u.exec(before);
       if (command) return { kind: "command", query: command[1], start: position - command[1].length, end: position };
+      // A bare path or filename (e.g. typing `figures/plot` inside a figure):
+      // matches are filtered against the project's files, so prose rarely pops.
+      const word = /([A-Za-z0-9_./-]+)$/u.exec(before);
+      if (word && word[1].length >= 2) return { kind: "anyfile", query: word[1], start: position - word[1].length, end: position };
       return null;
     }
 
@@ -705,6 +732,22 @@ body.ps-resizing *{cursor:inherit!important}
       if (kind === "image") return pack((symbols.files || []).filter((file) => /\.(?:png|jpe?g|pdf|eps|svg)$/iu.test(file)), () => "image");
       if (kind === "bibfile") return pack((symbols.files || []).filter((file) => /\.bib$/iu.test(file)), () => "bib");
       if (kind === "file") return pack((symbols.files || []).filter((file) => /\.tex$/iu.test(file)), () => "tex");
+      if (kind === "anyfile") {
+        const files = symbols.files || [];
+        const matches = files.filter((file) => {
+          const base = file.split("/").pop() || file;
+          if (needle.includes("/")) return file.toLowerCase().includes(needle);
+          return base.toLowerCase().startsWith(needle);
+        });
+        return matches
+          .sort((left, right) => left.length - right.length || left.localeCompare(right))
+          .slice(0, 60)
+          .map((file) => ({
+            label: file,
+            insert: file,
+            detail: /\.(?:png|jpe?g|pdf|eps|svg)$/iu.test(file) ? "image" : /\.bib$/iu.test(file) ? "bib" : "tex",
+          }));
+      }
       return [];
     }
 
@@ -1222,7 +1265,7 @@ body.ps-resizing *{cursor:inherit!important}
           activeRef.current = preferred;
           request("pdf-info", { query: { project: id } }).then((info) => {
             if (projectIdRef.current !== id) return;
-            if (info && info.exists) setPdf({ rev: info.rev, pages: info.pages, mode: info.pages > 0 ? "pages" : "iframe" });
+            if (info && info.exists) setPdf({ rev: info.rev, pages: info.pages, mode: paneMode(info.pages) });
           }).catch(() => {});
           request("symbols", { query: { project: id } }).then((data) => {
             if (projectIdRef.current !== id) return;
@@ -1369,7 +1412,7 @@ body.ps-resizing *{cursor:inherit!important}
         setElapsed(0);
         setCompile(result);
         if (result.ok) {
-          setPdf({ rev: result.rev, pages: result.pages, mode: result.pages > 0 ? "pages" : "iframe" });
+          setPdf({ rev: result.rev, pages: result.pages, mode: paneMode(result.pages) });
           setStatus({ kind: "ok", at: Date.now() });
           notify(result.cached
             ? t("cachedBuild")
@@ -1899,6 +1942,11 @@ body.ps-resizing *{cursor:inherit!important}
       if (showPdf) columns.push("5px", `${pdfPct}%`);
 
       const problemCount = compile ? ((compile.errors || []).length + (compile.warningsList || []).length) : 0;
+      const canRenderPages = () => {
+        const tooling = catalogRef.current && catalogRef.current.tooling;
+        return !tooling || tooling.pdftoppm !== false;
+      };
+      const paneMode = (pages) => (pages > 0 ? (canRenderPages() ? "pages" : "iframe") : "none");
 
       return h("div", { className: "ps-root" },
         h("header", { className: "ps-head" },
