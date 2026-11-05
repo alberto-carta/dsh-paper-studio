@@ -25,7 +25,7 @@ const plugin = definition.factory((id) => {
   if (id === "react") return React;
   throw new Error(`unexpected require: ${id}`);
 });
-const { highlightLatex, completionContext, completionItems, escapeHtml } = plugin.__internals;
+const { highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables } = plugin.__internals;
 
 test("highlighter marks commands, braces and comments and escapes HTML", () => {
   const html = highlightLatex("\\section{Intro} % note <b>\nText $x^2$ here");
@@ -39,6 +39,16 @@ test("highlighter marks commands, braces and comments and escapes HTML", () => {
   assert.equal(escapeHtml('<a>&"'), "&lt;a&gt;&amp;&quot;");
 });
 
+test("environment bands cover their whole block", () => {
+  const lines = highlightLines("\\begin{figure}\n\\centering\n\\end{figure}\nplain text");
+  assert.deepEqual(lines.map((line) => line.bg), ["figure", "figure", "figure", null]);
+  const math = highlightLines("\\begin{align}\na &= b\n\\end{align}");
+  assert.deepEqual(math.map((line) => line.bg), ["math", "math", "math"]);
+  const inline = highlightLines("text $x$ and \\section{Intro}");
+  assert.equal(inline.length, 1);
+  assert.equal(inline[0].bg, null);
+});
+
 test("completion context recognises cites, refs, commands, packages and paths", () => {
   assert.deepEqual(completionContext("\\cite{ein", 9), { kind: "citation", query: "ein", start: 6, end: 9 });
   assert.deepEqual(completionContext("See \\ref{sec:", 13), { kind: "label", query: "sec:", start: 9, end: 13 });
@@ -48,6 +58,14 @@ test("completion context recognises cites, refs, commands, packages and paths", 
   // Outside a command, a bare word is a candidate filename: completion filters
   // it against the project's files before showing anything.
   assert.deepEqual(completionContext("plain text", 10), { kind: "anyfile", query: "text", start: 6, end: 10 });
+});
+
+test("defaults are purple commands with translucent environment bands", () => {
+  assert.equal(DEFAULT_SYNTAX.command, "#8b5cf6");
+  const vars = syntaxVariables(DEFAULT_SYNTAX);
+  assert.equal(vars["--ps-hl-command"], "#8b5cf6");
+  assert.match(vars["--ps-bg-figure"], /^rgba\(59, 130, 246, 0\.12\)$/u);
+  assert.match(vars["--ps-current-line"], /^rgba\(139, 92, 246, 0\.85\)$/u);
 });
 
 test("completion ranking prefers prefixes and filters by type", () => {

@@ -53,6 +53,34 @@ time). A page reload alone is enough for `client.js`-only changes; anything in
 - Host additions: `GET symbols`, `POST compile/start`, `GET compile/events`,
   on-demand `GET page`, structured `warningsList` on compile results.
 
+## 1.2.0 — colour themes, environment bands, cursor line, PDF inverse search
+
+- **Colours:** commands default to purple (`#8b5cf6`), environment names amber,
+  math green, comments/braces grey. Each environment family gets a translucent
+  band: figure/table/math/theorem/code. Translucency (`rgba`, 12 %) keeps the
+  bands readable in both light and dark themes.
+- **Settings:** the palette button in the header opens *Highlight colors* —
+  five token colours, five band colours with an enable switch, and the cursor
+  line switch/colour. Changes preview live, *Reset* restores defaults, *Save*
+  persists to `localStorage` (`dsh.paper-studio.syntax`); dismissing the dialog
+  or pressing Escape restores the previous theme.
+- **Cursor line:** the current line carries an `outline` box in the highlight
+  layer; it tracks typing and caret moves and scrolls with the text.
+- **PDF inverse search:** pages carry `-synctex=1` data. Double-clicking a point
+  converts the image pixel to PDF points (`72 / pageDpi`, with `pageDpi` exposed
+  by `info`) and calls `POST pdf/locate`:
+  1. `synctex edit -o page:x:y:pdf` → exact `Input:` file/`Line:`;
+  2. otherwise `pdftotext -bbox` finds the nearest word (≤ 140 pt, skipping
+     punctuation and one-letter tokens) and `findInSources` returns the first
+     matching line, preferring the open file;
+  3. otherwise the panel shows "No matching source found at that point."
+  The editor jumps to the line and selects it (SyncTeX's `Column` is `-1` for
+  most LaTeX files, so word-level selection is not attempted).
+
+Verified point mapping on the demo: `(300,300)` → `sections/introduction.tex:4`,
+`(300,500)` → `sections/methods.tex:8`, `(300,120)` → `main.tex:17`; with the
+`.synctex` removed the fallback returned `main.tex:19` via the word `short`.
+
 ## 1.1.2 — highlighting, one-pass edits, filename completion
 
 - **Highlighting fix:** the textarea must render its own glyphs transparently for

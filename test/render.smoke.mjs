@@ -61,9 +61,14 @@ assert.match(empty, /ps-head/u);
 assert.doesNotMatch(empty, /ps-split/u);
 
 // 2. Editor with LaTeX highlighting and the completion popup closed.
+const syntax = {
+  command: "#8b5cf6", environment: "#d97706", math: "#059669", comment: "#94a3b8", brace: "#94a3b8",
+  bgFigure: "#3b82f6", bgMath: "#10b981", bgTable: "#f59e0b", bgTheorem: "#8b5cf6", bgCode: "#6b7280",
+  backgrounds: true, currentLine: true, currentLineColor: "#8b5cf6",
+};
 const tab = {
   path: "main.tex",
-  content: "\\section{Intro}\nText $x^2$ % a note\n",
+  content: "\\section{Intro}\n\\begin{figure}\nText $x^2$ % a note\n\\end{figure}\n",
   dirty: false,
   saving: false,
   conflict: null,
@@ -81,11 +86,16 @@ const editor = renderToStaticMarkup(h(EditorPane, {
   editorRef: { current: null },
   gutterInnerRef: { current: null },
   symbols: { labels: [], citations: [], files: [] },
+  syntax,
 }));
 assert.match(editor, /ps-highlight/u);
 assert.match(editor, /ps-hl-cmd/u);
 assert.match(editor, /ps-code-area/u);
 assert.match(editor, /ps-gutter/u);
+assert.match(editor, /ps-hl-line/u, "one wrapper per source line");
+assert.match(editor, /data-bg="figure"/u, "figure block is shaded");
+assert.match(editor, /ps-hl-line current/u, "cursor line is boxed");
+assert.match(editor, /--ps-hl-command:#8b5cf6/u, "theme variables reach the layer");
 
 // 3. Terminal tab with streamed commands and output.
 const terminal = renderToStaticMarkup(h(Dock, {

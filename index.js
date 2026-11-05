@@ -597,7 +597,7 @@ async function compileProject(project, emit) {
 
   const passes = [];
   const latexArgv = [
-    "pdflatex", "-interaction=nonstopmode", "-file-line-error", "-output-directory", buildDir, basename(mainFile),
+    "pdflatex", "-interaction=nonstopmode", "-file-line-error", "-synctex=1", "-output-directory", buildDir, basename(mainFile),
   ];
   const streamOutput = (chunk, channel) => signal({ type: "out", channel, text: chunk });
   const hashFile = async (path) => {
@@ -950,6 +950,125 @@ pdflatex -output-directory .paper-studio/build main.tex
 }
 
 // ---------------------------------------------------------------------------
+// PDF → source lookup (SyncTeX inverse search, with a text fallback)
+// ---------------------------------------------------------------------------
+
+function decodeXmlEntities(text) {
+  return String(text)
+    .replace(/&lt;/gu, "<")
+    .replace(/&gt;/gu, ">")
+    .replace(/&quot;/gu, '"')
+    .replace(/&#39;/gu, "'")
+    .replace(/&amp;/gu, "&");
+}
+
+async function listSourceFiles(root, relative, out) {
+  let entries;
+  try {
+    entries = await readdir(relative.length === 0 ? root : join(root, relative), { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    if (entry.name.startsWith(".") || SKIP_DIRS.has(entry.name)) continue;
+    const child = relative.length === 0 ? entry.name : `${relative}/${entry.name}`;
+    if (entry.isDirectory()) await listSourceFiles(root, child, out);
+    else if (/\.tex$/iu.test(entry.name)) out.push(child);
+  }
+}
+
+/** First source line containing `needle`, preferring the file already open. */
+async function findInSources(project, needle, preferred) {
+  const files = [];
+  await listSourceFiles(project.path, "", files);
+  const ordered = preferred && files.includes(preferred)
+    ? [preferred, ...files.filter((file) => file !== preferred)]
+    : files;
+  const lower = needle.toLowerCase();
+  for (const file of ordered) {
+    const text = await readFile(join(project.path, file), "utf8").catch(() => "");
+    if (text.length === 0) continue;
+    const index = text.toLowerCase().indexOf(lower);
+    if (index >= 0) return { file, line: text.slice(0, index).split("\n").length };
+  }
+  return null;
+}
+
+/**
+ * Map a point on a rendered page back to a source line. SyncTeX is exact; when it
+ * has nothing (or the point is outside the .synctex map), fall back to the word
+ * nearest the click and its first occurrence in the .tex sources.
+ */
+async function locateInPdf(project, options) {
+  const { page, x, y, current } = options || {};
+  const cache = await ensureCompiled(project);
+  if (!cache?.pdfPath) throw new HttpError(409, "No compiled PDF yet; compile first.");
+  const pdfPath = cache.pdfPath;
+  const pageNumberValue = Math.max(1, Math.floor(Number(page) || 1));
+  const px = Number(x);
+  const py = Number(y);
+  if (!Number.isFinite(px) || !Number.isFinite(py) || px < 0 || py < 0) {
+    throw new HttpError(400, "Invalid PDF coordinates");
+  }
+  const relative = (input) => {
+    let value = String(input ?? "").trim();
+    if (value === project.path) return "";
+    if (value.startsWith(project.path + sep)) value = value.slice(project.path.length + 1);
+    return value.replace(/^\.\//u, "");
+  };
+
+  const sync = await run(
+    ["synctex", "edit", "-o", `${pageNumberValue}:${px.toFixed(2)}:${py.toFixed(2)}:${pdfPath}`],
+    { cwd: project.path, timeoutMs: 20_000 },
+  );
+  if (sync.code === 0) {
+    const input = /^Input:(.+)$/mu.exec(sync.stdout);
+    const line = /^Line:(\d+)/mu.exec(sync.stdout);
+    if (input && line) {
+      const file = relative(input[1]);
+      if (file.length > 0 && !isAbsolute(file) && !file.startsWith("..")) {
+        return { ok: true, file, line: Number(line[1]), method: "synctex" };
+      }
+    }
+  }
+
+  const bbox = await run(
+    ["pdftotext", "-f", String(pageNumberValue), "-l", String(pageNumberValue), "-bbox", pdfPath, "-"],
+    { timeoutMs: 20_000 },
+  );
+  const words = [];
+  const wordPattern = /<word xMin="([\d.]+)" yMin="([\d.]+)" xMax="([\d.]+)" yMax="([\d.]+)">([^<]*)<\/word>/gu;
+  let match;
+  while ((match = wordPattern.exec(bbox.stdout))) {
+    words.push({
+      xMin: Number(match[1]),
+      yMin: Number(match[2]),
+      xMax: Number(match[3]),
+      yMax: Number(match[4]),
+      text: decodeXmlEntities(match[5]),
+    });
+  }
+  const candidates = words
+    .map((word) => {
+      const dx = Math.max(word.xMin - px, 0, px - word.xMax);
+      const dy = Math.max(word.yMin - py, 0, py - word.yMax);
+      return { word, distance: Math.hypot(dx, dy) };
+    })
+    .filter((candidate) => candidate.distance <= 140)
+    .sort((left, right) => left.distance - right.distance);
+  for (const candidate of candidates) {
+    const needle = candidate.word.text.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+    // Skip punctuation and one-letter tokens (articles, list markers) and look
+    // for the next useful word instead of giving up on the click.
+    if (needle.length < 2) continue;
+    const found = await findInSources(project, needle, current);
+    if (found) return { ok: true, file: found.file, line: found.line, method: "text", word: needle };
+    return { ok: false, word: needle, reason: "That text is not in the .tex sources." };
+  }
+  return { ok: false, reason: "No source position at that point." };
+}
+
+// ---------------------------------------------------------------------------
 // Operations (shared by the HTTP API and the agent tool)
 // ---------------------------------------------------------------------------
 
@@ -963,6 +1082,7 @@ const ops = {
     return {
       panelId: PANEL_ID,
       dataDir,
+      pageDpi: PAGE_DPI,
       projects,
       lastProjectId: store.lastProjectId,
       newProjectRoot: papersRoot(),
@@ -1160,6 +1280,11 @@ const ops = {
     await rename(source, destination);
     symbolsCache.delete(project.id);
     return { ok: true, from, to };
+  },
+
+  async locate({ project: reference, page, x, y, current }) {
+    const project = projectRef(reference);
+    return locateInPdf(project, { page, x, y, current });
   },
 
   async compile({ project: reference }) {
@@ -1666,6 +1791,7 @@ function createHandler(token) {
         case "file/delete": return sendJson(response, 200, await ops.deleteEntry(body));
         case "file/rename": return sendJson(response, 200, await ops.renameEntry(body));
         case "compile": return sendJson(response, 200, await ops.compile(body));
+        case "pdf/locate": return sendJson(response, 200, await ops.locate(body));
         case "compile/start": {
           const project = projectRef(body.project);
           const job = startCompileJob(project);
@@ -1767,6 +1893,9 @@ export const __test = {
   ops,
   compileProject,
   collectSymbols,
+  locateInPdf,
+  findInSources,
+  run,
   parseBibEntries,
   parseLatexErrors,
   parseLatexWarnings,

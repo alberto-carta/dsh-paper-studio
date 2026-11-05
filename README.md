@@ -11,10 +11,17 @@ A persistent Overleaf-style LaTeX workspace for the DeepSeek Harness Web GUI.
 - **Problems list** with one click from the header: errors and warnings
   (LaTeX/package warnings, over/underfull boxes, bibtex warnings), each row
   jumping to its source line.
-- **LaTeX syntax highlighting** in the editor (commands, environments, math,
-  comments, braces) and **completion** for commands, environments, packages,
-  `\ref` labels, `\cite` keys, and file paths — including bare filenames such
-  as `figures/plot` typed inside a figure environment.
+- **LaTeX syntax highlighting** with per-token colours (purple commands,
+  environment names, math, comments, braces), **translucent background bands**
+  for figure / equation / table / theorem / code blocks, and a **box around the
+  cursor line**. A palette button opens *Highlight colors* with live preview,
+  a reset, and per-preference persistence.
+- **Completion** for commands, environments, packages, `\ref` labels,
+  `\cite` keys, and file paths — including bare filenames such as
+  `figures/plot` typed inside a figure environment.
+- **PDF → source jump**: double-click a word in the rendered page and the editor
+  opens the matching file/line via SyncTeX, falling back to nearest-word text
+  matching when SyncTeX has no position (or no `.synctex` exists).
 - **Resizable panes**: drag the dividers between explorer, editor, PDF and the
   bottom dock; widths and heights persist.
 - **Folder picker**: Add folder, New paper, Clone and Locate offer an inline

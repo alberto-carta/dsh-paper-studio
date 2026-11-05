@@ -144,6 +144,26 @@ window.__ModuleLoader__.load({
         locateTitle: "Locate the project folder",
         projectMissingBadge: "missing",
         retry: "Retry",
+        highlightSettings: "Highlight colors",
+        syntaxColors: "Syntax colors",
+        colorCommand: "Commands (\\section, \\begin)",
+        colorEnvironment: "Environment names",
+        colorMath: "Math",
+        colorComment: "Comments",
+        colorBrace: "Braces",
+        environmentShading: "Environment background",
+        enableShading: "Shade environment blocks",
+        colorFigure: "Figure",
+        colorMathEnv: "Equation / align",
+        colorTable: "Table",
+        colorTheorem: "Theorem",
+        colorCode: "Code",
+        cursorLine: "Cursor line",
+        enableCursorLine: "Box the cursor line",
+        colorCursorLine: "Cursor line color",
+        resetDefaults: "Reset",
+        pdfLocateHint: "Double-click a word to jump to its source",
+        locateFailed: "No matching source found at that point.",
       },
     };
 
@@ -221,12 +241,18 @@ window.__ModuleLoader__.load({
 .ps-root textarea.ps-code{color:transparent!important;-webkit-text-fill-color:transparent!important;caret-color:var(--dsw-alias-label-primary)!important;background:transparent!important}
 .ps-highlight{position:absolute;inset:0;z-index:0;margin:0;padding:8px 18px 8px 10px;font:13px/20px ${MONO};tab-size:2;white-space:pre;overflow:hidden;pointer-events:none;color:var(--dsw-alias-label-primary);background:transparent}
 .ps-root pre.ps-highlight{color:var(--dsw-alias-label-primary)!important;background:transparent!important}
-.ps-hl-env{color:var(--dsw-alias-state-warn-primary)}
-.ps-hl-cmd{color:var(--dsw-alias-brand-primary)}
-.ps-hl-math{color:var(--dsw-alias-state-success-primary)}
-.ps-hl-comment{color:var(--dsw-alias-label-secondary);font-style:italic;opacity:.8}
-.ps-hl-brace{color:var(--dsw-alias-label-secondary);opacity:.85}
-.ps-hl-arg{color:var(--dsw-alias-state-warn-primary)}
+.ps-hl-cmd{color:var(--ps-hl-command,#8b5cf6)}
+.ps-hl-env{color:var(--ps-hl-env,#d97706)}
+.ps-hl-math{color:var(--ps-hl-math,#059669)}
+.ps-hl-comment{color:var(--ps-hl-comment,#94a3b8);font-style:italic}
+.ps-hl-brace{color:var(--ps-hl-brace,#94a3b8)}
+.ps-hl-line{min-height:20px;line-height:20px;margin:0 -18px 0 -10px;padding:0 18px 0 10px;border-radius:3px}
+.ps-hl-line[data-bg="figure"]{background:var(--ps-bg-figure)}
+.ps-hl-line[data-bg="math"]{background:var(--ps-bg-math)}
+.ps-hl-line[data-bg="table"]{background:var(--ps-bg-table)}
+.ps-hl-line[data-bg="theorem"]{background:var(--ps-bg-theorem)}
+.ps-hl-line[data-bg="code"]{background:var(--ps-bg-code)}
+.ps-hl-line.current{outline:1px solid var(--ps-current-line);outline-offset:-1px}
 .ps-code::selection{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 30%,transparent)}
 .ps-code-foot{flex:none;display:flex;align-items:center;gap:12px;height:26px;padding:0 10px;border-top:.5px solid var(--dsw-alias-border-l1);font-size:11px;color:var(--dsw-alias-label-secondary);white-space:nowrap;overflow:hidden}
 .ps-code-foot .ps-grow{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
@@ -315,6 +341,13 @@ body.ps-resizing *{cursor:inherit!important}
 .ps-browser-row .ps-browser-tag{margin-left:auto;font-size:10px;color:var(--dsw-alias-label-secondary);padding-left:8px}
 .ps-browser-foot{display:flex;align-items:center;gap:6px;padding:4px 6px;border-top:.5px solid var(--dsw-alias-border-l1)}
 .ps-browser-empty{padding:10px 8px;font-size:11.5px;color:var(--dsw-alias-label-secondary)}
+.ps-color-group{display:flex;flex-direction:column;gap:5px}
+.ps-color-group h3{margin:8px 0 2px;font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dsw-alias-label-secondary)}
+.ps-color-row{display:flex;align-items:center;gap:9px;font-size:12px}
+.ps-color-row input[type=color]{width:34px;height:22px;padding:0;border:.5px solid var(--dsw-alias-border-l2);border-radius:5px;background:transparent;cursor:pointer}
+.ps-color-label{flex:1;min-width:0}
+.ps-color-value{font:11px/1 ${MONO};color:var(--dsw-alias-label-secondary)}
+.ps-check-row{display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer}
 .ps-git-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .ps-badge{display:inline-flex;align-items:center;gap:4px;padding:1px 6px;border-radius:9px;border:.5px solid var(--dsw-alias-border-l2);font-size:10.5px;color:var(--dsw-alias-label-secondary)}
 @media (max-width: 1080px){.ps-hide-narrow{display:none}}
@@ -387,6 +420,12 @@ body.ps-resizing *{cursor:inherit!important}
         h("path", { key: 1, d: "M13.5 3.5H7a1 1 0 0 0-1 1v15a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V8z" }),
         h("path", { key: 2, d: "M13.5 3.5V8H18" }),
       ], extra),
+      palette: (extra) => svg([
+        h("path", { key: 1, d: "M12 3.5a8.5 8.5 0 1 0 0 17c1.2 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-1 .8-1.7 1.8-1.7h1.3a4.6 4.6 0 0 0 4.6-4.6c0-3.7-3.8-6.6-8.5-6.6z" }),
+        h("circle", { key: 2, cx: 8, cy: 10.4, r: 1.1 }),
+        h("circle", { key: 3, cx: 12, cy: 7.6, r: 1.1 }),
+        h("circle", { key: 4, cx: 15.8, cy: 10.2, r: 1.1 }),
+      ], extra),
       terminal: (extra) => svg([
         h("rect", { key: 1, x: 3.5, y: 4.5, width: 17, height: 15, rx: 2 }),
         h("path", { key: 2, d: "M7.5 9.5l2.5 2.5-2.5 2.5" }),
@@ -440,6 +479,63 @@ body.ps-resizing *{cursor:inherit!important}
         throw error;
       }
       return payload;
+    }
+
+    const SYNTAX_KEY = "dsh.paper-studio.syntax";
+    const DEFAULT_SYNTAX = {
+      command: "#8b5cf6",
+      environment: "#d97706",
+      math: "#059669",
+      comment: "#94a3b8",
+      brace: "#94a3b8",
+      bgFigure: "#3b82f6",
+      bgMath: "#10b981",
+      bgTable: "#f59e0b",
+      bgTheorem: "#8b5cf6",
+      bgCode: "#6b7280",
+      backgrounds: true,
+      currentLine: true,
+      currentLineColor: "#8b5cf6",
+    };
+
+    function readSyntax() {
+      try {
+        const raw = window.localStorage.getItem(SYNTAX_KEY);
+        return raw ? { ...DEFAULT_SYNTAX, ...JSON.parse(raw) } : { ...DEFAULT_SYNTAX };
+      } catch {
+        return { ...DEFAULT_SYNTAX };
+      }
+    }
+    function writeSyntax(value) {
+      try {
+        window.localStorage.setItem(SYNTAX_KEY, JSON.stringify(value));
+      } catch {
+        // Preferences are best-effort; the editor still works without storage.
+      }
+    }
+    function tint(hex, alpha) {
+      const raw = String(hex || "").replace(/^#/u, "");
+      const full = raw.length === 3 ? raw.split("").map((part) => part + part).join("") : raw;
+      if (!/^[0-9a-f]{6}$/iu.test(full)) return `rgba(139, 92, 246, ${alpha})`;
+      const red = Number.parseInt(full.slice(0, 2), 16);
+      const green = Number.parseInt(full.slice(2, 4), 16);
+      const blue = Number.parseInt(full.slice(4, 6), 16);
+      return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+    }
+    function syntaxVariables(syntax) {
+      return {
+        "--ps-hl-command": syntax.command,
+        "--ps-hl-env": syntax.environment,
+        "--ps-hl-math": syntax.math,
+        "--ps-hl-comment": syntax.comment,
+        "--ps-hl-brace": syntax.brace,
+        "--ps-bg-figure": tint(syntax.bgFigure, 0.12),
+        "--ps-bg-math": tint(syntax.bgMath, 0.12),
+        "--ps-bg-table": tint(syntax.bgTable, 0.12),
+        "--ps-bg-theorem": tint(syntax.bgTheorem, 0.12),
+        "--ps-bg-code": tint(syntax.bgCode, 0.14),
+        "--ps-current-line": tint(syntax.currentLineColor, 0.85),
+      };
     }
 
     const UI_KEY = "dsh.paper-studio.ui";
@@ -531,86 +627,136 @@ body.ps-resizing *{cursor:inherit!important}
       return String(text).replace(/[&<>"]/gu, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[character]));
     }
 
+    /** Environment families that get their own background band. */
+    const ENV_CATEGORIES = new Map();
+    for (const [category, names] of Object.entries({
+      figure: ["figure", "figure*", "subfigure", "wrapfigure", "sidewaysfigure"],
+      math: ["equation", "equation*", "align", "align*", "alignat", "alignat*", "gather", "gather*", "multline", "multline*", "eqnarray", "eqnarray*", "displaymath", "math", "split", "cases"],
+      table: ["table", "table*", "tabular", "tabularx", "longtable", "supertabular"],
+      theorem: ["theorem", "lemma", "proof", "definition", "corollary", "proposition", "remark", "example"],
+      code: ["verbatim", "verbatim*", "lstlisting", "minted"],
+    })) {
+      for (const name of names) ENV_CATEGORIES.set(name, category);
+    }
+
+    function envCategory(name) {
+      return ENV_CATEGORIES.get(String(name || "").trim()) || null;
+    }
+
     /**
-     * LaTeX tokenizer for the highlight layer behind the textarea. It is a single
-     * pass over the text and deliberately forgiving: unterminated math or
-     * comments simply colour to the end of the buffer.
+     * Line-oriented LaTeX highlighter. Returns one entry per source line so the
+     * editor can paint a background band for the environment and a box around
+     * the cursor line; each entry carries ready HTML for the tokens.
      */
-    function highlightLatex(source) {
-      if (source.length > MAX_HIGHLIGHT_CHARS) return escapeHtml(source);
-      let html = "";
-      let index = 0;
-      const length = source.length;
-      const emit = (text, cls) => {
-        if (!text) return;
-        html += cls ? `<span class="${cls}">${escapeHtml(text)}</span>` : escapeHtml(text);
-      };
-      let pendingEnv = false;
-      while (index < length) {
-        const character = source[index];
-        if (character === "%") {
-          let stop = source.indexOf("\n", index);
-          if (stop === -1) stop = length;
-          emit(source.slice(index, stop), "ps-hl-comment");
-          index = stop;
-          continue;
-        }
-        if (character === "$") {
-          const double = source[index + 1] === "$";
-          const close = double ? "$$" : "$";
-          let stop = source.indexOf(close, index + close.length);
-          while (stop !== -1 && source[stop - 1] === "\\") stop = source.indexOf(close, stop + 1);
-          const trimmed = stop === -1 ? length : stop + close.length;
-          emit(source.slice(index, trimmed), "ps-hl-math");
-          index = trimmed;
-          continue;
-        }
-        if (character === "\\") {
-          const next = source[index + 1];
-          if (next === "[" || next === "(") {
-            const close = next === "[" ? "\\]" : "\\)";
-            const stop = source.indexOf(close, index + 2);
-            const trimmed = stop === -1 ? length : stop + close.length;
-            emit(source.slice(index, trimmed), "ps-hl-math");
-            index = trimmed;
+    function highlightLines(source) {
+      const text = String(source ?? "");
+      if (text.length > MAX_HIGHLIGHT_CHARS) {
+        // Very large files stay plain so typing never waits for the tokenizer.
+        return text.split("\n").map((line) => ({ html: escapeHtml(line), bg: null }));
+      }
+      const lines = text.split("\n");
+      const stack = [];
+      let mathBlock = false;
+      const result = [];
+      for (const line of lines) {
+        let html = "";
+        let index = 0;
+        let category = stack.length > 0 ? envCategory(stack[stack.length - 1]) : null;
+        if (!category && mathBlock) category = "math";
+        let popAtEnd = false;
+        const emit = (text, cls) => {
+          if (!text) return;
+          html += cls ? `<span class="${cls}">${escapeHtml(text)}</span>` : escapeHtml(text);
+        };
+        while (index < line.length) {
+          const character = line[index];
+          if (character === "%") {
+            emit(line.slice(index), "ps-hl-comment");
+            index = line.length;
             continue;
           }
-          const match = /^\\(?:[a-zA-Z@]+\*?|.)/u.exec(source.slice(index, index + 64));
-          const token = match ? match[0] : "\\";
-          emit(token, "ps-hl-cmd");
-          if (token === "\\begin" || token === "\\end") pendingEnv = true;
-          index += token.length;
-          continue;
-        }
-        if (character === "{") {
-          if (pendingEnv) {
-            const close = source.indexOf("}", index);
-            if (close !== -1) {
-              emit("{", "ps-hl-brace");
-              emit(source.slice(index + 1, close), "ps-hl-env");
-              emit("}", "ps-hl-brace");
-              index = close + 1;
-              pendingEnv = false;
+          if (character === "$") {
+            const double = line[index + 1] === "$";
+            const close = double ? "$$" : "$";
+            let stop = line.indexOf(close, index + close.length);
+            while (stop !== -1 && line[stop - 1] === "\\") stop = line.indexOf(close, stop + 1);
+            if (stop === -1) {
+              emit(line.slice(index), "ps-hl-math");
+              if (double) mathBlock = !mathBlock;
+              index = line.length;
               continue;
             }
+            emit(line.slice(index, stop + close.length), "ps-hl-math");
+            index = stop + close.length;
+            continue;
           }
-          pendingEnv = false;
-          emit(character, "ps-hl-brace");
-          index += 1;
-          continue;
+          if (character === "\\") {
+            const next = line[index + 1];
+            if (next === "[" || next === "(") {
+              const close = next === "[" ? "\\]" : "\\)";
+              const stop = line.indexOf(close, index + 2);
+              if (stop === -1) {
+                emit(line.slice(index), "ps-hl-math");
+                mathBlock = true;
+                index = line.length;
+                continue;
+              }
+              emit(line.slice(index, stop + close.length), "ps-hl-math");
+              index = stop + close.length;
+              continue;
+            }
+            if (mathBlock && (next === "]" || next === ")")) {
+              emit(line.slice(index, index + 2), "ps-hl-math");
+              mathBlock = false;
+              index += 2;
+              continue;
+            }
+            const match = /^\\(?:[a-zA-Z@]+\*?|.)/u.exec(line.slice(index));
+            const token = match ? match[0] : "\\";
+            emit(token, "ps-hl-cmd");
+            if (token === "\\begin" || token === "\\end") {
+              const rest = line.slice(index + token.length);
+              const envMatch = /^\s*(?:\[[^\]]*\]\s*)?\{([^{}]+)\}/u.exec(rest);
+              if (envMatch) {
+                const whole = envMatch[0];
+                const bracePos = whole.indexOf("{");
+                emit(whole.slice(0, bracePos), null);
+                emit("{", "ps-hl-brace");
+                emit(envMatch[1], "ps-hl-env");
+                emit("}", "ps-hl-brace");
+                index += token.length + whole.length;
+                if (token === "\\begin") {
+                  stack.push(envMatch[1]);
+                  if (!category) category = envCategory(envMatch[1]);
+                } else {
+                  popAtEnd = true;
+                }
+                continue;
+              }
+            }
+            index += token.length;
+            continue;
+          }
+          if (character === "{" || character === "}") {
+            emit(character, "ps-hl-brace");
+            index += 1;
+            continue;
+          }
+          let stop = index + 1;
+          while (stop < line.length && "\\$%{}".indexOf(line[stop]) === -1) stop += 1;
+          emit(line.slice(index, stop));
+          index = stop;
         }
-        if (character === "}" || character === "[" || character === "]") {
-          pendingEnv = false;
-          emit(character, "ps-hl-brace");
-          index += 1;
-          continue;
-        }
-        let stop = index + 1;
-        while (stop < length && "\\$%{}[]".indexOf(source[stop]) === -1) stop += 1;
-        emit(source.slice(index, stop));
-        index = stop;
+        if (mathBlock && !category) category = "math";
+        if (popAtEnd) stack.pop();
+        result.push({ html, bg: category });
       }
-      return html;
+      return result;
+    }
+
+    /** Flat HTML variant, kept for tests and simple rendering. */
+    function highlightLatex(source) {
+      return highlightLines(source).map((line) => line.html).join("\n");
     }
 
     const COMPLETION_COMMANDS = [
@@ -755,8 +901,9 @@ body.ps-resizing *{cursor:inherit!important}
       const {
         t, tabs, activePath, tab, cursor, compile, status, onSelectTab, onCloseTab,
         onEdit, editorRef, gutterInnerRef, onScroll, onCursor, onInsertText,
-        onReloadDisk, onKeepMine, symbols,
+        onReloadDisk, onKeepMine, symbols, syntax,
       } = props;
+      const theme = syntax || DEFAULT_SYNTAX;
       const wrapRef = useRef(null);
       const areaRef = useRef(null);
       const highlightRef = useRef(null);
@@ -767,7 +914,14 @@ body.ps-resizing *{cursor:inherit!important}
         for (let index = 0; index < lineCount; index += 1) list[index] = index + 1;
         return list;
       }, [lineCount]);
-      const highlighted = useMemo(() => (tab ? highlightLatex(tab.content) : ""), [tab ? tab.content : ""]);
+      const lines = useMemo(() => (tab ? highlightLines(tab.content) : []), [tab ? tab.content : ""]);
+      const currentLine = cursor && cursor.line ? cursor.line - 1 : -1;
+      const markup = useMemo(() => lines.map((line, index) => {
+        const background = theme.backgrounds && line.bg ? ` data-bg="${line.bg}"` : "";
+        const current = theme.currentLine && index === currentLine ? " current" : "";
+        return `<div class="ps-hl-line${current}"${background}>${line.html}</div>`;
+      }).join(""), [lines, currentLine, theme.backgrounds, theme.currentLine]);
+      const styleVars = useMemo(() => syntaxVariables(theme), [theme]);
 
       const closeCompletion = useCallback(() => setCompletion(null), []);
 
@@ -826,7 +980,7 @@ body.ps-resizing *{cursor:inherit!important}
         layer.scrollLeft = textarea.scrollLeft;
       }, [editorRef]);
 
-      useEffect(() => { syncHighlight(); }, [highlighted, activePath, syncHighlight]);
+      useEffect(() => { syncHighlight(); }, [markup, activePath, syncHighlight]);
 
       const handleScroll = useCallback((event) => {
         onScroll(event);
@@ -838,6 +992,7 @@ body.ps-resizing *{cursor:inherit!important}
         const value = event.target.value;
         const position = event.target.selectionStart;
         onEdit(tab.path, value);
+        onCursor({ currentTarget: event.target });
         requestAnimationFrame(() => openCompletion(undefined, value, position));
       }, [onEdit, openCompletion, tab]);
 
@@ -899,7 +1054,7 @@ body.ps-resizing *{cursor:inherit!important}
           h("span", { className: "ps-banner-text" }, `${t("conflictTitle")} — ${t("conflictBody")}`),
           h("button", { className: "ps-btn", type: "button", onClick: () => onReloadDisk(tab.path) }, t("reloadDisk")),
           h("button", { className: "ps-btn", type: "button", onClick: () => onKeepMine(tab.path) }, t("keepMine"))) : null) : null,
-        tab ? h("div", { className: "ps-code-wrap", ref: wrapRef },
+        tab ? h("div", { className: "ps-code-wrap", ref: wrapRef, style: styleVars },
           h("div", { className: "ps-gutter" },
             h("div", { className: "ps-gutter-inner", ref: gutterInnerRef },
               numbers.map((number) => h("div", { key: number }, number)))),
@@ -908,7 +1063,7 @@ body.ps-resizing *{cursor:inherit!important}
             className: "ps-highlight",
             ref: highlightRef,
             "aria-hidden": "true",
-            dangerouslySetInnerHTML: { __html: `${highlighted}\n` },
+            dangerouslySetInnerHTML: { __html: markup },
           }),
           h("textarea", {
             ref: editorRef,
@@ -1118,6 +1273,7 @@ body.ps-resizing *{cursor:inherit!important}
       const [elapsed, setElapsed] = useState(0);
       const [symbols, setSymbols] = useState({ labels: [], citations: [], files: [] });
       const [missing, setMissing] = useState(null);
+      const [syntax, setSyntax] = useState(() => readSyntax());
       const [status, setStatus] = useState({ kind: "idle" });
       const [dialog, setDialog] = useState(null);
       const [busy, setBusy] = useState(false);
@@ -1542,7 +1698,12 @@ body.ps-resizing *{cursor:inherit!important}
       // Escape closes the topmost dialog.
       useEffect(() => {
         if (!dialog) return undefined;
-        const onKeyDown = (event) => { if (event.key === "Escape") { setDialog(null); setDialogError(""); } };
+        const onKeyDown = (event) => {
+          if (event.key !== "Escape") return;
+          if (dialog.kind === "syntax" && dialog.original) setSyntax(dialog.original);
+          setDialog(null);
+          setDialogError("");
+        };
         window.addEventListener("keydown", onKeyDown, true);
         return () => window.removeEventListener("keydown", onKeyDown, true);
       }, [dialog]);
@@ -1608,6 +1769,32 @@ body.ps-resizing *{cursor:inherit!important}
           onCursor({ currentTarget: textarea });
         });
       }, [onCursor, onEdit]);
+
+      const locateFromPdf = useCallback(async (event, page) => {
+        const id = projectIdRef.current;
+        if (!id) return;
+        const image = event.currentTarget;
+        const rect = image.getBoundingClientRect();
+        if (!rect.width || !rect.height || !image.naturalWidth || !image.naturalHeight) return;
+        const px = ((event.clientX - rect.left) / rect.width) * image.naturalWidth;
+        const py = ((event.clientY - rect.top) / rect.height) * image.naturalHeight;
+        const dpi = Number(catalogRef.current && catalogRef.current.pageDpi) || 110;
+        const scale = 72 / dpi;
+        try {
+          const result = await request("pdf/locate", {
+            method: "POST",
+            body: { project: id, page, x: px * scale, y: py * scale, current: activeRef.current || undefined },
+          });
+          if (result && result.file) {
+            await openFile(result.file, result.line);
+            notify(`${result.file}:${result.line}`, result.method === "text" ? "" : "");
+          } else {
+            notify(t("locateFailed"), "err");
+          }
+        } catch (error) {
+          notify(error.message, "err");
+        }
+      }, [notify, openFile, t]);
 
       const reloadDisk = useCallback(async (path) => {
         const id = projectIdRef.current;
@@ -1883,6 +2070,67 @@ body.ps-resizing *{cursor:inherit!important}
             }, t("removeProject")),
           ];
           actions = footer(t("apply"));
+        } else if (dialog.kind === "syntax") {
+          title = t("highlightSettings");
+          const draft = dialog.draft || syntax;
+          const updateDraft = (patch) => {
+            const next = { ...dialog.draft, ...patch };
+            setDialog({ ...dialog, draft: next });
+            setSyntax(next);
+          };
+          const color = (label, key) => h("label", { className: "ps-color-row", key },
+            h("input", {
+              type: "color",
+              value: draft[key] || "#000000",
+              onChange: (event) => updateDraft({ [key]: event.target.value }),
+            }),
+            h("span", { className: "ps-color-label" }, label),
+            h("code", { className: "ps-color-value" }, String(draft[key] || "")));
+          const toggle = (label, key) => h("label", { className: "ps-check-row", key },
+            h("input", {
+              type: "checkbox",
+              checked: Boolean(draft[key]),
+              onChange: (event) => updateDraft({ [key]: event.target.checked }),
+            }),
+            h("span", null, label));
+          body = [
+            h("div", { className: "ps-color-group", key: "tokens" },
+              h("h3", null, t("syntaxColors")),
+              color(t("colorCommand"), "command"),
+              color(t("colorEnvironment"), "environment"),
+              color(t("colorMath"), "math"),
+              color(t("colorComment"), "comment"),
+              color(t("colorBrace"), "brace")),
+            h("div", { className: "ps-color-group", key: "backgrounds" },
+              h("h3", null, t("environmentShading")),
+              toggle(t("enableShading"), "backgrounds"),
+              color(t("colorFigure"), "bgFigure"),
+              color(t("colorMathEnv"), "bgMath"),
+              color(t("colorTable"), "bgTable"),
+              color(t("colorTheorem"), "bgTheorem"),
+              color(t("colorCode"), "bgCode")),
+            h("div", { className: "ps-color-group", key: "cursor" },
+              h("h3", null, t("cursorLine")),
+              toggle(t("enableCursorLine"), "currentLine"),
+              color(t("colorCursorLine"), "currentLineColor")),
+          ];
+          actions = h(React.Fragment, null,
+            h("button", {
+              className: "ps-btn", type: "button",
+              onClick: () => {
+                const next = { ...DEFAULT_SYNTAX };
+                setDialog({ ...dialog, draft: next });
+                setSyntax(next);
+              },
+            }, t("resetDefaults")),
+            h("button", {
+              className: "ps-btn", type: "button",
+              onClick: () => { setSyntax(dialog.original); setDialog(null); },
+            }, t("cancel")),
+            h("button", {
+              className: "ps-btn primary", type: "button",
+              onClick: () => { writeSyntax(syntax); setDialog(null); notify(t("saved")); },
+            }, t("save")));
         } else if (dialog.kind === "locate") {
           title = t("locateTitle");
           body = [pathField(t("path"), "path", { placeholder: "~/Documents/Papers/my-paper", hint: t("addFolderHint") })];
@@ -1904,7 +2152,13 @@ body.ps-resizing *{cursor:inherit!important}
           body = [h("p", { key: "p", className: "ps-hint" }, t("removeBody"))];
           actions = footer(t("removeProject"));
         }
-        return h(Modal, { title, onClose: () => setDialog(null) },
+        return h(Modal, {
+          title,
+          onClose: () => {
+            if (dialog.kind === "syntax" && dialog.original) setSyntax(dialog.original);
+            setDialog(null);
+          },
+        },
           body,
           dialogError ? h("span", { className: "ps-error" }, dialogError) : null,
           actions);
@@ -1992,6 +2246,10 @@ body.ps-resizing *{cursor:inherit!important}
             "aria-pressed": pdfOpen, onClick: () => setPdfOpen((value) => !value),
           }, h(Icon.pdf)),
           h("button", {
+            className: "ps-btn icon", type: "button", title: t("highlightSettings"), "aria-label": t("highlightSettings"),
+            onClick: () => openDialog("syntax", { draft: syntax, original: syntax }),
+          }, h(Icon.palette)),
+          h("button", {
             className: `ps-btn${dock === "terminal" ? " active" : ""}`, type: "button", title: `${t("terminal")} — ${t("terminalHint")}`,
             "aria-pressed": dock === "terminal",
             onClick: () => setDock((current) => (current === "terminal" ? null : "terminal")),
@@ -2066,6 +2324,7 @@ body.ps-resizing *{cursor:inherit!important}
             onReloadDisk: reloadDisk,
             onKeepMine: keepMine,
             symbols,
+            syntax,
           }),
 
           showPdf ? h("div", {
@@ -2088,6 +2347,8 @@ body.ps-resizing *{cursor:inherit!important}
                     alt: `page ${index + 1}`,
                     loading: index < 2 ? "eager" : "lazy",
                     draggable: false,
+                    title: t("pdfLocateHint"),
+                    onDoubleClick: (event) => { void locateFromPdf(event, index + 1); },
                   }))))
               : pdf.mode === "iframe"
                 ? h("iframe", { className: "ps-frame", src: pdfUrl(), title: t("pdf") })
@@ -2144,7 +2405,7 @@ body.ps-resizing *{cursor:inherit!important}
     return {
       inject: ["slots", "locale", "layout"],
       /** Pure helpers exercised by test/client.test.mjs (no browser needed). */
-      __internals: { Studio, EditorPane, Dock, FolderPicker, highlightLatex, completionContext, completionItems, escapeHtml },
+      __internals: { Studio, EditorPane, Dock, FolderPicker, highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables },
       apply(ctx) {
         ctx.effect(() => {
           const style = document.createElement("style");

@@ -70,6 +70,28 @@ test("a prose-only edit compiles in one pass and skips bibtex", async () => {
   }
 });
 
+test("PDF points map back to source lines through SyncTeX", async () => {
+  const hit = await __test.locateInPdf(project, { page: 1, x: 300, y: 300 });
+  assert.equal(hit.ok, true);
+  assert.match(hit.file, /\.tex$/u);
+  assert.ok(hit.line >= 1);
+  assert.equal(hit.method, "synctex");
+});
+
+test("a missing .synctex falls back to matching the nearest word", async () => {
+  const { rename } = await import("node:fs/promises");
+  const map = join(demo, ".paper-studio", "build", "main.synctex.gz");
+  await rename(map, `${map}.test-bak`);
+  try {
+    const hit = await __test.locateInPdf(project, { page: 1, x: 300, y: 300 });
+    assert.equal(hit.ok, true);
+    assert.equal(hit.method, "text");
+    assert.match(hit.file, /\.tex$/u);
+  } finally {
+    await rename(`${map}.test-bak`, map);
+  }
+});
+
 test("warning parser surfaces LaTeX warnings, boxes and bibtex warnings", () => {
   const log = [
     "LaTeX Warning: Citation `x' on page 1 undefined on input line 12.",
