@@ -8,7 +8,7 @@ window.__ModuleLoader__.load({
 
     const PANEL_ID = "paper-studio";
     /** Shown in Settings so the loaded client can be matched to the source file. */
-    const CLIENT_BUILD = "2026-11-05T08:45";
+    const CLIENT_BUILD = "2026-11-05T09:20";
     const NS = "paperStudio";
     const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
 
@@ -390,8 +390,8 @@ window.__ModuleLoader__.load({
 .ps-ctx-sep{height:1px;margin:4px 2px;background:var(--dsw-alias-border-l1)}
 .ps-key-row{display:flex;align-items:center;gap:9px;font-size:12px}
 .ps-key-row .ps-key-input{flex:1;min-width:0;font:11px/1.4 ${MONO};text-align:center}
-.ps-code::selection{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 42%,transparent);color:transparent}
-.ps-code::-moz-selection{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 42%,transparent);color:transparent}
+.ps-code::selection{background:color-mix(in srgb,#94a3b8 34%,transparent);color:transparent}
+.ps-code::-moz-selection{background:color-mix(in srgb,#94a3b8 34%,transparent);color:transparent}
 .ps-code-foot{flex:none;display:flex;align-items:center;gap:12px;height:26px;padding:0 10px;border-top:.5px solid var(--dsw-alias-border-l1);font-size:11px;color:var(--dsw-alias-label-secondary);white-space:nowrap;overflow:hidden}
 .ps-code-foot .ps-grow{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .ps-banner{flex:none;display:flex;align-items:center;gap:8px;padding:7px 10px;background:color-mix(in srgb,var(--dsw-alias-state-warn-primary) 13%,transparent);border-bottom:.5px solid var(--dsw-alias-border-l1);font-size:12px;color:var(--dsw-alias-label-primary)}
