@@ -8,7 +8,7 @@ window.__ModuleLoader__.load({
 
     const PANEL_ID = "paper-studio";
     /** Shown in Settings so the loaded client can be matched to the source file. */
-    const CLIENT_BUILD = "2026-11-05T07:40";
+    const CLIENT_BUILD = "2026-11-05T07:55";
     const NS = "paperStudio";
     const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
 
@@ -1717,6 +1717,7 @@ body.ps-resizing *{cursor:inherit!important}
         if (!textarea || !tab) return;
         const keysNow = theme.keys || DEFAULT_SYNTAX.keys;
         if (event.ctrlKey || event.metaKey) {
+          if (event.shiftKey && ["c", "x", "v"].includes(event.key.toLowerCase())) return;
           if (matchesBinding(event, keysNow.undo)) {
             event.preventDefault();
             if (onUndo) onUndo(tab.path);
@@ -2028,8 +2029,52 @@ body.ps-resizing *{cursor:inherit!important}
         requestAnimationFrame(() => openCompletion(undefined, value, position));
       }, [onEdit, openCompletion, tab]);
 
+      const handleClipboardShortcut = useCallback((event) => {
+        const mod = event.ctrlKey || event.metaKey;
+        const key = event.key;
+        // Terminal-style aliases (Linux/X11): Ctrl+Shift+C/X/V and the classic
+        // Insert/Delete combinations. Plain Ctrl+C/V/X stays native.
+        const copy = (mod && event.shiftKey && (key === "C" || key === "c")) || (mod && key === "Insert");
+        const cut = (mod && event.shiftKey && (key === "X" || key === "x")) || (event.shiftKey && key === "Delete");
+        const paste = (mod && event.shiftKey && (key === "V" || key === "v")) || (event.shiftKey && key === "Insert");
+        if (!copy && !cut && !paste) return false;
+        event.preventDefault();
+        const textarea = editorRef.current;
+        if (!textarea || !tab) return true;
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const text = textarea.value.slice(start, end);
+        if (copy) {
+          if (!text) return true;
+          void navigator.clipboard.writeText(text)
+            .then(() => { if (notify) notify(t("copied")); })
+            .catch(() => { if (notify) notify(t("clipboardDenied"), "err"); });
+          return true;
+        }
+        if (cut) {
+          if (!text) return true;
+          void navigator.clipboard.writeText(text)
+            .then(() => {
+              onEdit(tab.path, textarea.value.slice(0, start) + textarea.value.slice(end), start);
+              requestAnimationFrame(() => setCaret(start));
+            })
+            .catch(() => { if (notify) notify(t("clipboardDenied"), "err"); });
+          return true;
+        }
+        void navigator.clipboard.readText()
+          .then((clip) => {
+            if (!clip) return;
+            const next = textarea.value.slice(0, start) + clip + textarea.value.slice(end);
+            onEdit(tab.path, next, start + clip.length);
+            requestAnimationFrame(() => setCaret(start + clip.length));
+          })
+          .catch(() => { if (notify) notify(t("clipboardDenied"), "err"); });
+        return true;
+      }, [notify, onEdit, setCaret, t, tab]);
+
       const handleKeyDown = useCallback((event) => {
         if (event.defaultPrevented) return;
+        if (handleClipboardShortcut(event)) return;
         if (theme.vim) {
           if (exLine !== null) {
             handleExKey(event);
@@ -2111,7 +2156,7 @@ body.ps-resizing *{cursor:inherit!important}
           onInsertText("  ");
         }
         if (event.key === "Escape") setCompletion(null);
-      }, [acceptCompletion, completion, exLine, handleExKey, handleVimKey, keys, onInsertText, onRedo, onSave, onUndo, openCompletion, tab, theme.vim, vimMode, wrapSelection]);
+      }, [acceptCompletion, completion, exLine, handleClipboardShortcut, handleExKey, handleVimKey, keys, onInsertText, onRedo, onSave, onUndo, openCompletion, tab, theme.vim, vimMode, wrapSelection]);
 
       const copySelection = useCallback(async () => {
         const textarea = editorRef.current;
