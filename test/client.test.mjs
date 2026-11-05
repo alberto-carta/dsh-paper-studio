@@ -26,7 +26,7 @@ const plugin = definition.factory((id) => {
   if (id === "react") return React;
   throw new Error(`unexpected require: ${id}`);
 });
-const { highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet } = plugin.__internals;
+const { highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject } = plugin.__internals;
 
 test("highlighter marks commands, braces and comments and escapes HTML", () => {
   const html = highlightLatex("\\section{Intro} % note <b>\nText $x^2$ here");
@@ -85,6 +85,21 @@ test("two-column pages read the left column before the right", () => {
     { text: "C", xMin: 50, xMax: 550, yMin: 120, yMax: 132 },
   ];
   assert.deepEqual(orderPageWords(single, 600, 300).map((word) => word.text), ["B", "A", "C"]);
+});
+
+test("a wide figure* band keeps the columns on either side in order", () => {
+  const column = (prefix, xMin, xMax, startY, count) => Array.from({ length: count }, (unused, index) => ({
+    text: `${prefix}${index + 1}`, xMin, xMax, yMin: startY + index * 20, yMax: startY + 12 + index * 20,
+  }));
+  const above = [...column("L", 50, 250, 100, 3), ...column("R", 330, 550, 100, 3)];
+  const below = [...column("M", 50, 250, 260, 2), ...column("N", 330, 550, 260, 2)];
+  const figure = [
+    { text: "F1", xMin: 50, xMax: 292, yMin: 200, yMax: 212 },
+    { text: "F2", xMin: 297, xMax: 550, yMin: 200, yMax: 212 },
+  ];
+  const title = { text: "Title", xMin: 150, xMax: 450, yMin: 20, yMax: 35 };
+  const ordered = orderPageWords([...below, ...figure, ...above, title], 600, 300).map((word) => word.text);
+  assert.deepEqual(ordered, ["Title", "L1", "L2", "L3", "R1", "R2", "R3", "F1", "F2", "M1", "M2", "N1", "N2"]);
 });
 
 test("project macros complete with their argument shape", () => {
@@ -148,4 +163,25 @@ test("completion ranking prefers prefixes and filters by type", () => {
 
   // Images are completed only inside \includegraphics{…}.
   assert.deepEqual(completionItems("image", "plo", symbols).map((item) => item.insert), ["figures/plot.png"]);
+});
+
+test("bracket matching pairs braces, brackets and parentheses at the caret", () => {
+  const text = "\\section{a {b} c}";
+  assert.deepEqual(bracketMatch(text, 9), { open: 8, close: 16 });
+  assert.deepEqual(bracketMatch(text, 11), { open: 11, close: 13 });
+  assert.deepEqual(bracketMatch(text, 12), { open: 11, close: 13 });
+  assert.deepEqual(bracketMatch("(a [b] c)", 4), { open: 3, close: 5 });
+  assert.deepEqual(bracketMatch("a {b", 3), { open: 2, close: -1 });
+  assert.equal(bracketMatch("a \\{ b", 4), null, "escaped braces are ignored");
+  assert.equal(bracketMatch("plain text", 3), null);
+});
+
+test("vim text objects cover words, brackets and quotes", () => {
+  assert.deepEqual(vimTextObject("hello world", 2, false, "w"), { start: 0, end: 5 });
+  assert.deepEqual(vimTextObject("hello world", 2, true, "w"), { start: 0, end: 6 });
+  assert.deepEqual(vimTextObject("a {b c} d", 3, false, "{"), { start: 3, end: 6 });
+  assert.deepEqual(vimTextObject("a {b c} d", 3, true, "{"), { start: 2, end: 7 });
+  assert.deepEqual(vimTextObject('say "hi" now', 6, false, '"'), { start: 5, end: 7 });
+  assert.deepEqual(vimTextObject("\\cite{key}", 6, false, "w"), { start: 6, end: 9 });
+  assert.equal(vimTextObject("plain", 2, false, "("), null);
 });

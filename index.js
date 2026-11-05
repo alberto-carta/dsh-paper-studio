@@ -552,7 +552,8 @@ async function renderPage(pdfPath, buildDir, page, tooling) {
   return pageJobs.get(key);
 }
 
-async function compileProject(project, emit) {
+async function compileProject(project, emit, options = {}) {
+  const force = Boolean(options.force);
   const started = Date.now();
   const signal = typeof emit === "function" ? emit : () => {};
   const tooling = await detectTooling();
@@ -572,7 +573,7 @@ async function compileProject(project, emit) {
   // spending three pdflatex passes on an identical document.
   const fingerprint = await projectFingerprint(project);
   const previous = compiled.get(project.id);
-  if (previous?.ok && previous.fingerprint === fingerprint.hash && previous.pdfPath) {
+  if (!force && previous?.ok && previous.fingerprint === fingerprint.hash && previous.pdfPath) {
     const pdfInfo = await stat(previous.pdfPath).catch(() => null);
     if (pdfInfo?.isFile()) {
       signal({ type: "stage", label: "up to date", detail: "sources unchanged since the last build" });
@@ -630,7 +631,7 @@ async function compileProject(project, emit) {
   if (tooling.bibtex && /\\bibdata\{/u.test(auxText)) {
     const bblBefore = await hashFile(bblPath);
     // Rerun bibtex only when the citations or the .bib changed, or no .bbl exists.
-    const needsBibtex = !previous?.ok || previous.bibHash !== fingerprint.bibHash || previous.auxHash !== auxHash || bblBefore === "";
+    const needsBibtex = force || !previous?.ok || previous.bibHash !== fingerprint.bibHash || previous.auxHash !== auxHash || bblBefore === "";
     if (needsBibtex) {
       const argv = ["bibtex", base];
       signal({ type: "command", argv, stage: "bibtex" });
@@ -655,7 +656,7 @@ async function compileProject(project, emit) {
   }
   // A second pdflatex pass is only needed when the bibliography actually changed,
   // the first pass failed, or LaTeX asked for a rerun (labels/citations moved).
-  if (bibtexChanged || first.code !== 0 || rerunHint(first)) {
+  if (force || bibtexChanged || first.code !== 0 || rerunHint(first)) {
     await latexPass(bibtexRan ? "pdflatex · pass 2" : "pdflatex · retry");
   }
   let lastLatex = lastOfLatex();
@@ -1569,9 +1570,9 @@ const ops = {
     return locateInPdf(project, { page, x, y, current });
   },
 
-  async compile({ project: reference }) {
+  async compile({ project: reference, force }) {
     const project = projectRef(reference);
-    const { tooling: _tooling, ...result } = await serializeCompile(project.id, () => compileProject(project));
+    const { tooling: _tooling, ...result } = await serializeCompile(project.id, () => compileProject(project, undefined, { force: Boolean(force) }));
     return { project: publicProject(project), ...result };
   },
 
@@ -1734,7 +1735,7 @@ function createJob(project) {
 }
 
 /** Start a compile for a project and return immediately; progress arrives over SSE. */
-function startCompileJob(project) {
+function startCompileJob(project, options = {}) {
   const job = createJob(project);
   job.emit({ type: "start", project: { id: project.id, name: project.name, path: project.path } });
   let buffer = "";
@@ -1769,7 +1770,7 @@ function startCompileJob(project) {
       flushTimer = null;
     }
   };
-  void serializeCompile(project.id, () => compileProject(project, emit))
+  void serializeCompile(project.id, () => compileProject(project, emit, options))
     .then((result) => {
       stopStreaming();
       job.result = result;
@@ -2150,7 +2151,7 @@ function createHandler(token) {
         case "spell": return sendJson(response, 200, await ops.spell(body));
         case "compile/start": {
           const project = projectRef(body.project);
-          const job = startCompileJob(project);
+          const job = startCompileJob(project, { force: Boolean(body.force) });
           return sendJson(response, 200, { jobId: job.id, projectId: project.id, startedAt: job.startedAt });
         }
         case "git": return sendJson(response, 200, await ops.git(body));
@@ -2178,6 +2179,7 @@ function registerTool(ctx, tools) {
       properties: {
         action: { type: "string", enum: ["list", "create", "add", "compile"], description: "Operation to perform." },
         project: { type: "string", description: "Project id, exact name, or absolute path. Defaults to the last opened project." },
+        force: { type: "boolean", description: "For `compile`: ignore the build cache and run every pdflatex/bibtex pass." },
         name: { type: "string", description: "Title for `create`, or a display name for `add`." },
         path: { type: "string", description: "Target folder for `create`, or the existing folder for `add`. Defaults to ~/Documents/Papers/<slug>." },
         template: { type: "string", enum: ["article", "none"], description: "`article` writes the starter paper; `none` registers an empty folder." },
@@ -2214,7 +2216,7 @@ function registerTool(ctx, tools) {
         return { ok: true, ...result };
       }
       if (action === "compile") {
-        return await ops.compile({ project: args?.project });
+        return await ops.compile({ project: args?.project, force: Boolean(args?.force) });
       }
       throw new Error(`Unknown action: ${String(action)}`);
     },

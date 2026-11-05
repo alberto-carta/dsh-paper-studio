@@ -6,11 +6,18 @@ A persistent Overleaf-style LaTeX workspace for the DeepSeek Harness Web GUI.
   editor, and the compiled PDF on the right.
 - **Project registry** in `~/.dsh/paper-studio/projects.json` (mode 600), so
   projects survive sessions, restarts, and profile upgrades.
+- **Manual save** next to the compile button (disabled when everything is saved),
+  an **autosave** toggle and delay in Settings (default 1 s), and a split compile
+  button: click the centre for an incremental build, or the caret → **Full
+  recompile** to ignore the cache.
 - **Compile** with `pdflatex` + `bibtex`, streamed live to a **terminal** that
   shows each command and its output while it runs.
 - **Problems list** with one click from the header: errors and warnings
   (LaTeX/package warnings, over/underfull boxes, bibtex warnings), each row
   jumping to its source line.
+- **Bracket matching**: put the caret on `{`, `[` or `(` (or just after it) and
+  the pair is boxed, including nested pairs; escaped `\{` is ignored and an
+  unmatched bracket is marked in red.
 - **LaTeX syntax highlighting** with per-token colours (purple commands,
   environment names, math, comments, braces), **translucent background bands**
   for figure / equation / table / theorem / code blocks, and a **box around the

@@ -41,6 +41,10 @@ page actually loaded.
   reference in the host-side scroll handler (which threw and aborted the sync)
   was removed.
 - **Soft wrap:** toggle in Settings → Editor → Editing and in the editor footer;
+- **Bracket matching:** the pair around the caret is measured with the same mirror
+  as the caret and drawn in a layer that scrolls with the text; escaped braces
+  are skipped and unmatched brackets are red.
+
   line numbers are rendered inside the text layer so they stay aligned with
   wrapped logical lines.
 - **Vim mode** (Settings → Editor → Shortcuts): normal/insert/visual, motions
@@ -69,6 +73,11 @@ page actually loaded.
   button and a missing-PDF state.
 - **Header:** Terminal and Problems merged into one Output button; auto-compile
   moved to Settings (off by default).
+- **Saving/compiling:** manual Save button beside the status (disabled when clean);
+  autosave on by default with a 0.5–10 s delay selectable in Settings → Editor →
+  Editing; the compile button is split — centre click is the incremental build,
+  the caret opens **Full recompile**, which bypasses the fingerprint cache and
+  forces the bibtex/rerun passes (`force: true` on `compile` and `compile/start`).
 
 Verification: 27 offline tests plus the headless render smoke; scroll/wrap
 alignment confirmed against the diagnostics readout (`cw` == `pw`).

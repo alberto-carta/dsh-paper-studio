@@ -49,6 +49,15 @@ test("recompiling unchanged sources is served from the incremental cache", async
   assert.equal(second.pages, 1);
 });
 
+test("force ignores the cache and runs the full pass sequence", async () => {
+  const events = [];
+  const forced = await __test.compileProject(project, (event) => events.push(event), { force: true });
+  assert.equal(forced.ok, true, `forced compile failed:\n${forced.log.slice(-2000)}`);
+  assert.equal(forced.cached, false);
+  assert.ok(forced.passes >= 2, `expected a full sequence, got ${forced.passes} passes`);
+  assert.ok(events.some((event) => event.type === "command" && event.argv[0] === "pdflatex"));
+});
+
 test("a prose-only edit compiles in one pass and skips bibtex", async () => {
   const { readFile, writeFile } = await import("node:fs/promises");
   const touched = join(demo, "sections", "methods.tex");

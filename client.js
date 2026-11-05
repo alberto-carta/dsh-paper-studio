@@ -8,7 +8,7 @@ window.__ModuleLoader__.load({
 
     const PANEL_ID = "paper-studio";
     /** Shown in Settings so the loaded client can be matched to the source file. */
-    const CLIENT_BUILD = "2026-11-05T05:24";
+    const CLIENT_BUILD = "2026-11-05T07:40";
     const NS = "paperStudio";
     const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
 
@@ -103,6 +103,13 @@ window.__ModuleLoader__.load({
         lineCol: "Ln {line}, Col {col}",
         lines: "{count} lines",
         autoCompile: "Auto-compile on save",
+        autosave: "Autosave",
+        autosaveDelay: "Save changes after",
+        save: "Save",
+        saveHint: "Save all modified files",
+        compileOptions: "Compile options",
+        fullRecompile: "Full recompile",
+        fullRecompileHint: "Ignore the cache and run every pdflatex/bibtex pass",
         warningCount: "{count} warning(s)",
         deleteTitle: "Delete this file?",
         deleteBody: "This deletes the file from disk and cannot be undone.",
@@ -178,6 +185,7 @@ window.__ModuleLoader__.load({
         resetDefaults: "Reset",
         pdfLocateHint: "Drag to select text, then Go to editor (double-click selects a word)",
         goToEditor: "Go to editor",
+        goToEditorHint: "Jump to the source at the selection's first word (SyncTeX), then match the selected text nearby; a plain text search is only the fallback.",
         copyText: "Copy",
         cut: "Cut",
         paste: "Paste",
@@ -217,6 +225,19 @@ window.__ModuleLoader__.load({
         nukeCancel: "No, stay on local changes",
         nukeHint: "Discard every local change and reset to origin",
         branchTitle: "Create a branch",
+        branch: "Branch",
+        upstream: "Upstream",
+        lastCommit: "Last commit",
+        details: "Details",
+        changes: "Changes",
+        changed: "changed",
+        inSync: "in sync",
+        toPush: "to push",
+        toPull: "to pull",
+        switchBranch: "Switch branch",
+        fetchVsPull: "Fetch only downloads new commits. Pull downloads and merges them.",
+        lastGitOutput: "Last git output",
+        filesChanged: "files",
         branchName: "Branch name",
         pdfReload: "Reload the PDF from disk",
         pdfReloaded: "PDF reloaded",
@@ -242,10 +263,19 @@ window.__ModuleLoader__.load({
 .ps-btn.icon{width:28px;padding:0}
 .ps-btn.active{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary)}
 .ps-btn.primary{background:var(--dsw-alias-brand-primary);color:var(--dsw-alias-label-onbrand,#fff);padding:0 12px;font-weight:500}
-.ps-btn.primary:hover:not(:disabled){filter:brightness(1.07);background:var(--dsw-alias-brand-primary)}
+.ps-btn.primary:hover:not(:disabled){filter:brightness(1.07);background:var(--dsw-alias-brand-primary);color:var(--dsw-alias-label-onbrand,#fff)}
 .ps-btn.danger{color:var(--dsw-alias-state-error-primary)}
 .ps-btn.danger:hover:not(:disabled){background:color-mix(in srgb,var(--dsw-alias-state-error-primary) 12%,transparent);color:var(--dsw-alias-state-error-primary)}
 .ps-btn svg{width:14px;height:14px;flex:none}
+.ps-compile-group{display:inline-flex;position:relative;align-items:center}
+.ps-compile-caret{padding:0 4px;min-width:20px;margin-left:1px;border-left:.5px solid color-mix(in srgb,var(--dsw-alias-label-onbrand,#fff) 35%,transparent);border-radius:0 7px 7px 0}
+.ps-compile-group .ps-btn.primary:first-child{border-radius:7px 0 0 7px}
+.ps-compile-menu{position:absolute;top:calc(100% + 5px);right:0;z-index:60;min-width:250px;background:var(--dsw-alias-bg-layer-2);border:.5px solid var(--dsw-alias-border-l1);border-radius:9px;box-shadow:0 12px 32px rgba(0,0,0,.32);padding:5px}
+.ps-compile-menu .ps-btn{width:100%;height:auto;min-height:30px;padding:6px 8px;justify-content:flex-start;color:var(--dsw-alias-label-primary);background:transparent}
+.ps-compile-menu .ps-btn:hover:not(:disabled){background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary)}
+.ps-compile-menu-text{display:flex;flex-direction:column;align-items:flex-start;gap:1px;text-align:left}
+.ps-compile-menu-title{font-size:12px;font-weight:500}
+.ps-compile-menu-hint{font-size:10.5px;color:var(--dsw-alias-label-secondary);font-weight:400}
 .ps-spacer{flex:1;min-width:4px}
 .ps-status{display:inline-flex;align-items:center;gap:5px;color:var(--dsw-alias-label-secondary);font-size:12px;white-space:nowrap;padding:0 4px;max-width:250px;overflow:hidden;text-overflow:ellipsis}
 .ps-status.ok{color:var(--dsw-alias-state-success-primary)}
@@ -303,6 +333,9 @@ window.__ModuleLoader__.load({
 .ps-root textarea.ps-code{color:transparent!important;-webkit-text-fill-color:transparent!important;caret-color:var(--dsw-alias-label-primary)!important;background:transparent!important}
 .ps-highlight{position:absolute;inset:0;z-index:0;margin:0;padding:8px 18px 8px 48px;font:13px/20px ${MONO};tab-size:2;white-space:pre;overflow:hidden;pointer-events:none;color:var(--dsw-alias-label-primary);background:transparent}
 .ps-hl-inner{position:relative;min-height:100%}
+.ps-match-layer{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+.ps-match-box{position:absolute;box-sizing:border-box;border-radius:2px;border:.5px solid var(--dsw-alias-brand-primary);background:color-mix(in srgb,var(--dsw-alias-brand-primary) 22%,transparent);box-shadow:0 0 0 .5px color-mix(in srgb,var(--dsw-alias-brand-primary) 45%,transparent)}
+.ps-match-box.unmatched{border-color:var(--dsw-alias-state-error-primary);background:color-mix(in srgb,var(--dsw-alias-state-error-primary) 20%,transparent)}
 .ps-root pre.ps-highlight{color:var(--dsw-alias-label-primary)!important;background:transparent!important}
 .ps-code::-webkit-scrollbar,.ps-pdf-scroll::-webkit-scrollbar,.ps-tree::-webkit-scrollbar,.ps-git::-webkit-scrollbar{width:11px;height:11px}
 .ps-code::-webkit-scrollbar-thumb,.ps-pdf-scroll::-webkit-scrollbar-thumb,.ps-tree::-webkit-scrollbar-thumb,.ps-git::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--dsw-alias-label-secondary) 42%,transparent);border-radius:6px;border:2px solid transparent;background-clip:content-box}
@@ -322,7 +355,7 @@ window.__ModuleLoader__.load({
 .ps-hl-line[data-bg="code"]{background:var(--ps-bg-code)}
 .ps-hl-line.current{outline:1px solid var(--ps-current-line);outline-offset:-1px}
 .ps-hl-misspell{text-decoration:underline wavy #e5484d;text-decoration-skip-ink:none}
-.ps-block-caret{position:absolute;z-index:2;pointer-events:none;box-sizing:border-box;border-radius:2px;border:1px solid var(--ps-hl-command,#8b5cf6);background:color-mix(in srgb,var(--ps-hl-command,#8b5cf6) 30%,transparent)}
+.ps-block-caret{position:absolute;z-index:2;pointer-events:none;box-sizing:border-box;border-radius:2px;border:1px solid color-mix(in srgb,var(--ps-hl-command,#8b5cf6) 75%,transparent);background:color-mix(in srgb,var(--ps-hl-command,#8b5cf6) 16%,transparent)}
 .ps-root textarea.ps-code.vim-normal{caret-color:transparent!important}
 .ps-nuke-warn{display:flex;flex-direction:column;gap:9px;padding:4px 0 2px}
 .ps-nuke-title{margin:0;font-size:19px;font-weight:700;line-height:1.3;color:var(--dsw-alias-state-error-primary)}
@@ -330,7 +363,7 @@ window.__ModuleLoader__.load({
 .ps-nuke-body{margin:0;font-size:12.5px;line-height:1.6;color:var(--dsw-alias-label-primary)}
 .ps-btn.danger-solid{background:var(--dsw-alias-state-error-primary);color:#fff;font-weight:600;padding:0 12px}
 .ps-nuke-confirm{white-space:normal;height:auto;min-height:30px;max-width:330px;padding:6px 10px;line-height:1.25;text-align:center}
-.ps-btn.danger-solid:hover:not(:disabled){background:var(--dsw-alias-state-error-primary);filter:brightness(1.08)}
+.ps-btn.danger-solid:hover:not(:disabled){background:var(--dsw-alias-state-error-primary);filter:brightness(1.08);color:#fff}
 .ps-boom{position:absolute;inset:0;z-index:80;pointer-events:none;overflow:hidden}
 .ps-boom-flash{position:absolute;inset:0;background:radial-gradient(circle at 50% 45%,rgb(251 146 60 / 35%),transparent 55%);animation:ps-boom-flash 560ms ease-out forwards}
 .ps-boom-ring{position:absolute;left:50%;top:45%;width:70px;height:70px;margin:-35px 0 0 -35px;border-radius:50%;border:3px solid rgb(251 146 60 / 90%);animation:ps-boom-ring 760ms ease-out forwards}
@@ -356,7 +389,8 @@ window.__ModuleLoader__.load({
 .ps-ctx-sep{height:1px;margin:4px 2px;background:var(--dsw-alias-border-l1)}
 .ps-key-row{display:flex;align-items:center;gap:9px;font-size:12px}
 .ps-key-row .ps-key-input{flex:1;min-width:0;font:11px/1.4 ${MONO};text-align:center}
-.ps-code::selection{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 30%,transparent)}
+.ps-code::selection{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 42%,transparent);color:transparent}
+.ps-code::-moz-selection{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 42%,transparent);color:transparent}
 .ps-code-foot{flex:none;display:flex;align-items:center;gap:12px;height:26px;padding:0 10px;border-top:.5px solid var(--dsw-alias-border-l1);font-size:11px;color:var(--dsw-alias-label-secondary);white-space:nowrap;overflow:hidden}
 .ps-code-foot .ps-grow{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .ps-banner{flex:none;display:flex;align-items:center;gap:8px;padding:7px 10px;background:color-mix(in srgb,var(--dsw-alias-state-warn-primary) 13%,transparent);border-bottom:.5px solid var(--dsw-alias-border-l1);font-size:12px;color:var(--dsw-alias-label-primary)}
@@ -416,6 +450,36 @@ window.__ModuleLoader__.load({
 .ps-error{font-size:11.5px;color:var(--dsw-alias-state-error-primary);white-space:pre-wrap}
 .ps-output{margin:0;max-height:180px;overflow:auto;padding:8px 10px;border:.5px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-base);font:11px/16px ${MONO};white-space:pre-wrap;overflow-wrap:anywhere;color:var(--dsw-alias-label-secondary)}
 .ps-git{flex:1;min-height:0;overflow:auto;padding:6px 8px 18px;display:flex;flex-direction:column;gap:7px}
+.ps-git-card{background:var(--dsw-alias-bg-layer-1);border:.5px solid var(--dsw-alias-border-l1);border-radius:8px;padding:8px;display:flex;flex-direction:column;gap:6px}
+.ps-git-branchline{display:flex;align-items:center;gap:6px;font-size:12px}
+.ps-git-upstream{margin-left:auto;font:10.5px/1.2 ${MONO};color:var(--dsw-alias-label-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:55%}
+.ps-git-pills{display:flex;flex-wrap:wrap;gap:4px}
+.ps-pill{display:inline-flex;align-items:center;gap:3px;padding:1px 6px;border-radius:9px;font-size:10px;line-height:1.5;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);white-space:nowrap}
+.ps-pill.ok{color:var(--dsw-alias-state-success-primary);background:color-mix(in srgb,var(--dsw-alias-state-success-primary) 12%,transparent)}
+.ps-pill.warn{color:var(--dsw-alias-state-warn-primary);background:color-mix(in srgb,var(--dsw-alias-state-warn-primary) 14%,transparent)}
+.ps-pill.push{color:var(--dsw-alias-brand-primary);background:color-mix(in srgb,var(--dsw-alias-brand-primary) 12%,transparent)}
+.ps-git-actions{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.ps-git-actions .ps-btn{height:27px;font-size:11.5px;justify-content:center;padding:0 6px}
+.ps-git-actions .ps-btn.wide{grid-column:1 / -1}
+.ps-git-hint{font-size:10.5px;line-height:1.45;color:var(--dsw-alias-label-secondary)}
+.ps-git-section-head{display:flex;align-items:center;justify-content:space-between;font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--dsw-alias-label-secondary)}
+.ps-git-count{font:600 10px/1 ${MONO};padding:1px 5px;border-radius:8px;background:var(--dsw-alias-bg-layer-2)}
+.ps-git-empty{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--dsw-alias-label-secondary);padding:2px 0}
+.ps-git-empty svg{width:13px;height:13px;color:var(--dsw-alias-state-success-primary)}
+.ps-git-details{border:.5px solid var(--dsw-alias-border-l1);border-radius:8px;padding:6px 8px;background:var(--dsw-alias-bg-layer-1)}
+.ps-git-details summary{cursor:pointer;font-size:11px;color:var(--dsw-alias-label-secondary);list-style:none}
+.ps-git-details summary::-webkit-details-marker{display:none}
+.ps-git-details summary::before{content:"▸ ";color:var(--dsw-alias-label-secondary)}
+.ps-git-details[open] summary::before{content:"▾ "}
+.ps-git-detail{display:flex;gap:8px;align-items:baseline;font-size:10.5px;margin-top:5px;min-width:0}
+.ps-git-detail span{flex:none;color:var(--dsw-alias-label-secondary)}
+.ps-git-detail code{font:10.5px/1.4 ${MONO};overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ps-git-branchselect{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:10.5px;color:var(--dsw-alias-label-secondary)}
+.ps-git-branchselect .ps-select{flex:1;min-width:0;font-size:11px}
+.ps-git-diff-head{display:flex;align-items:center;gap:6px;justify-content:space-between}
+.ps-git-stats{font-size:10.5px;color:var(--dsw-alias-label-secondary);white-space:nowrap}
+.ps-git-stats .plus{color:var(--dsw-alias-state-success-primary)}
+.ps-git-stats .minus{color:var(--dsw-alias-state-error-primary)}
 .ps-git-head{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px}
 .ps-git-branch{font:600 11.5px/1 ${MONO};padding:2px 6px;border-radius:4px;background:var(--dsw-alias-bg-layer-2)}
 .ps-git-muted{color:var(--dsw-alias-label-secondary);font-size:11px}
@@ -427,6 +491,10 @@ window.__ModuleLoader__.load({
 .ps-git-file{display:flex;align-items:center;gap:7px;width:100%;padding:2px 4px;border:0;border-radius:4px;background:transparent;color:var(--dsw-alias-label-primary);font:inherit;font-size:11.5px;text-align:left;cursor:pointer}
 .ps-git-file:hover{background:var(--dsw-alias-bg-layer-2)}
 .ps-git-status{font:600 9px/1 ${MONO};width:16px;text-align:center;color:var(--dsw-alias-state-warn-primary)}
+.ps-git-status.new{color:var(--dsw-alias-state-success-primary)}
+.ps-git-status.del{color:var(--dsw-alias-state-error-primary)}
+.ps-git-status.untracked{color:var(--dsw-alias-label-secondary)}
+.ps-git-status.ren{color:var(--dsw-alias-brand-primary)}
 .ps-git-path{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl}
 .ps-git-diff{max-height:340px;overflow:auto;margin:4px 0 0;padding:6px 8px;border:.5px solid var(--dsw-alias-border-l1);border-radius:6px;background:var(--dsw-alias-bg-base);font:10.5px/15px ${MONO};white-space:pre}
 .ps-git-diff .add{color:var(--dsw-alias-state-success-primary)}
@@ -482,6 +550,8 @@ body.ps-resizing *{cursor:inherit!important}
 .ps-color-label{flex:1;min-width:0}
 .ps-color-value{font:11px/1 ${MONO};color:var(--dsw-alias-label-secondary)}
 .ps-check-row{display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer}
+.ps-field-row{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;padding:3px 0}
+.ps-field-row .ps-select{min-width:84px}
 .ps-git-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .ps-badge{display:inline-flex;align-items:center;gap:4px;padding:1px 6px;border-radius:9px;border:.5px solid var(--dsw-alias-border-l2);font-size:10.5px;color:var(--dsw-alias-label-secondary)}
 @media (max-width: 1080px){.ps-hide-narrow{display:none}}
@@ -579,7 +649,7 @@ body.ps-resizing *{cursor:inherit!important}
         h("path", { key: 1, d: "M12 9.4L6.4 3.2h11.2z", fill: "currentColor", stroke: "none" }),
         h("path", { key: 2, d: "M12 9.4L6.4 3.2h11.2z", fill: "currentColor", stroke: "none", transform: "rotate(120 12 12)" }),
         h("path", { key: 3, d: "M12 9.4L6.4 3.2h11.2z", fill: "currentColor", stroke: "none", transform: "rotate(240 12 12)" }),
-        h("circle", { key: 4, cx: 12, cy: 12, r: 1.35, fill: "currentColor", stroke: "none" }),
+        h("circle", { key: 4, cx: 12, cy: 12, r: 2.6, fill: "currentColor", stroke: "none" }),
       ], extra),
       save: (extra) => svg([
         h("path", { key: 1, d: "M5 4.5h11l3 3v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-14a1 1 0 0 1 1-1z" }),
@@ -660,6 +730,8 @@ body.ps-resizing *{cursor:inherit!important}
       spellLang: "en_US",
       wrap: false,
       autoCompile: false,
+      autosave: true,
+      autosaveDelay: 850,
       diagnostics: false,
       vim: false,
       keys: {
@@ -1039,6 +1111,130 @@ body.ps-resizing *{cursor:inherit!important}
     const CITE_COMMANDS = /^(?:cite|citep|citet|citealp|citeauthor|citeyear|parencite|textcite|autocite|footcite|nocite)\*?$/u;
     const REF_COMMANDS = /^(?:ref|eqref|autoref|cref|Cref|pageref|nameref|labelcref|vref)$/u;
 
+    const BRACKET_PAIRS = { "{": "}", "[": "]", "(": ")" };
+    const BRACKET_OPEN = new Set(Object.keys(BRACKET_PAIRS));
+    const BRACKET_CLOSE = new Set(Object.values(BRACKET_PAIRS));
+
+    function bracketEscaped(text, index) {
+      let count = 0;
+      for (let cursor = index - 1; cursor >= 0 && text[cursor] === "\\"; cursor -= 1) count += 1;
+      return count % 2 === 1;
+    }
+
+    /** Bracket pair around the caret, preferring the character just before it. */
+    function bracketMatch(text, position) {
+      if (typeof text !== "string" || text.length === 0) return null;
+      const at = Math.max(0, Math.min(text.length, Number(position) || 0));
+      const isBracket = (index) => index >= 0 && index < text.length
+        && (BRACKET_OPEN.has(text[index]) || BRACKET_CLOSE.has(text[index]))
+        && !bracketEscaped(text, index);
+      let index = -1;
+      if (at > 0 && isBracket(at - 1)) index = at - 1;
+      else if (isBracket(at)) index = at;
+      if (index < 0) return null;
+      const char = text[index];
+      const open = BRACKET_OPEN.has(char);
+      const target = open ? BRACKET_PAIRS[char] : Object.keys(BRACKET_PAIRS).find((key) => BRACKET_PAIRS[key] === char);
+      const step = open ? 1 : -1;
+      let depth = 0;
+      for (let cursor = index; cursor >= 0 && cursor < text.length; cursor += step) {
+        if (bracketEscaped(text, cursor)) continue;
+        if (text[cursor] === char) depth += 1;
+        else if (text[cursor] === target) {
+          depth -= 1;
+          if (depth === 0) return open ? { open: index, close: cursor } : { open: cursor, close: index };
+        }
+      }
+      return { open: open ? index : -1, close: open ? -1 : index };
+    }
+
+    const VIM_WORD = /[\p{L}\p{N}_]/u;
+
+    function vimCharClass(character) {
+      if (character === "\n" || /\s/u.test(character)) return "space";
+      return VIM_WORD.test(character) ? "word" : "punct";
+    }
+
+    function vimWordRange(text, position) {
+      if (text.length === 0) return null;
+      let index = Math.min(Math.max(0, position), text.length - 1);
+      if (/\s/u.test(text[index]) && index > 0 && !/\s/u.test(text[index - 1])) index -= 1;
+      if (text[index] === "\n") {
+        if (index > 0 && text[index - 1] !== "\n") index -= 1;
+        else if (index + 1 < text.length && text[index + 1] !== "\n") index += 1;
+        else return null;
+      }
+      const kind = vimCharClass(text[index]);
+      let start = index;
+      let end = index;
+      if (kind === "space") {
+        while (start > 0 && text[start - 1] !== "\n" && /\s/u.test(text[start - 1])) start -= 1;
+        while (end + 1 < text.length && /\s/u.test(text[end + 1])) end += 1;
+        return { start, end: end + 1 };
+      }
+      while (start > 0 && text[start - 1] !== "\n" && vimCharClass(text[start - 1]) === kind) start -= 1;
+      while (end + 1 < text.length && text[end + 1] !== "\n" && vimCharClass(text[end + 1]) === kind) end += 1;
+      return { start, end: end + 1 };
+    }
+
+    function vimEnclosing(text, position, open, close) {
+      const limit = Math.min(Math.max(0, position), text.length - 1);
+      let depth = 0;
+      for (let index = limit; index >= 0; index -= 1) {
+        if (bracketEscaped(text, index)) continue;
+        if (text[index] === close) depth += 1;
+        else if (text[index] === open) {
+          if (depth === 0) {
+            const pair = bracketMatch(text, index);
+            return pair && pair.close >= 0 ? { start: index, end: pair.close + 1 } : null;
+          }
+          depth -= 1;
+        }
+      }
+      return null;
+    }
+
+    function vimQuotes(text, position, quote) {
+      const limit = Math.min(Math.max(0, position), text.length - 1);
+      let start = -1;
+      for (let index = limit; index >= 0 && text[index] !== "\n"; index -= 1) {
+        if (text[index] === quote && !bracketEscaped(text, index)) { start = index; break; }
+      }
+      if (start < 0) return null;
+      for (let index = start + 1; index < text.length && text[index] !== "\n"; index += 1) {
+        if (text[index] === quote && !bracketEscaped(text, index)) return { start, end: index + 1 };
+      }
+      return null;
+    }
+
+    /** Vim text object: `iw`, `aw`, `i(`, `a{`, `i"`, … */
+    function vimTextObject(text, position, around, object) {
+      let range = null;
+      if (object === "w" || object === "W") {
+        range = vimWordRange(text, position);
+        if (!range) return null;
+        if (!around) return range;
+        let start = range.start;
+        let end = range.end;
+        while (end < text.length && /[ \t]/u.test(text[end])) end += 1;
+        if (end === range.end) {
+          while (start > 0 && /[ \t]/u.test(text[start - 1])) start -= 1;
+        }
+        return { start, end };
+      }
+      const closers = { "(": ")", ")": ")", b: ")", "[": "]", "]": "]", "{": "}", "}": "}", B: "}" };
+      if (closers[object]) {
+        const close = closers[object];
+        const open = close === ")" ? "(" : close === "]" ? "[" : "{";
+        range = vimEnclosing(text, position, open, close);
+      } else if (object === '"' || object === "'" || object === "`") {
+        range = vimQuotes(text, position, object);
+      }
+      if (!range) return null;
+      if (around) return range;
+      return { start: range.start + 1, end: Math.max(range.start + 1, range.end - 1) };
+    }
+
     let monoMetric = null;
     function measureMono(font) {
       if (monoMetric && monoMetric.font === font) return monoMetric.width;
@@ -1219,7 +1415,7 @@ body.ps-resizing *{cursor:inherit!important}
     function EditorPane(props) {
       const {
         t, tabs, activePath, tab, cursor, compile, status, onSelectTab, onCloseTab,
-        onEdit, editorRef, gutterInnerRef, onScroll, onCursor, onInsertText,
+        onEdit, editorRef, gutterInnerRef, editorApiRef, onScroll, onCursor, onInsertText,
         onReloadDisk, onKeepMine, symbols, syntax, misspelled, onSave, onUndo, onRedo, notify, onToggleWrap,
       } = props;
       const theme = syntax || DEFAULT_SYNTAX;
@@ -1228,6 +1424,7 @@ body.ps-resizing *{cursor:inherit!important}
       const areaRef = useRef(null);
       const highlightRef = useRef(null);
       const highlightInnerRef = useRef(null);
+      const matchLayerRef = useRef(null);
       const caretMemory = useRef(0);
       const [completion, setCompletion] = useState(null);
       const lineCount = useMemo(() => (tab ? tab.content.split("\n").length : 0), [tab ? tab.content : ""]);
@@ -1345,8 +1542,10 @@ body.ps-resizing *{cursor:inherit!important}
       const [exLine, setExLine] = useState(null);
       const [caretBox, setCaretBox] = useState(null);
       const [diagnostics, setDiagnostics] = useState("");
+      const [matches, setMatches] = useState([]);
       const blockRef = useRef(null);
       const vimAnchor = useRef(0);
+      const vimCursor = useRef(0);
       const vimRegister = useRef("");
       const vimPending = useRef("");
 
@@ -1392,6 +1591,7 @@ body.ps-resizing *{cursor:inherit!important}
         if (!textarea) return;
         const target = Math.max(0, Math.min(textarea.value.length, position));
         if (vimMode === "visual") {
+          vimCursor.current = target;
           textarea.focus();
           textarea.setSelectionRange(Math.min(vimAnchor.current, target), Math.max(vimAnchor.current, target));
           onCursor({ currentTarget: textarea });
@@ -1405,6 +1605,18 @@ body.ps-resizing *{cursor:inherit!important}
         onEdit(tab.path, next, caret);
         requestAnimationFrame(() => setCaret(caret));
       }, [onEdit, setCaret, tab]);
+
+      const applyVimOperator = useCallback((operator, from, to) => {
+        const textarea = editorRef.current;
+        if (!textarea) return;
+        const value = textarea.value;
+        const start = Math.max(0, Math.min(from, to));
+        const end = Math.min(value.length, Math.max(from, to));
+        vimRegister.current = value.slice(start, end);
+        if (operator === "y") { setCaret(start); return; }
+        applyVim(value.slice(0, start) + value.slice(end), start);
+        if (operator === "c") setVimMode("insert");
+      }, [applyVim, setCaret]);
 
       const deleteRange = useCallback((from, to) => {
         const value = textValue();
@@ -1521,7 +1733,7 @@ body.ps-resizing *{cursor:inherit!important}
         event.preventDefault();
         const key = event.key;
         const value = textarea.value;
-        const position = textarea.selectionStart;
+        const position = vimMode === "visual" ? vimCursor.current : textarea.selectionStart;
         const { line, col } = lineColOf(position);
 
         if (vimMode === "visual") {
@@ -1546,23 +1758,50 @@ body.ps-resizing *{cursor:inherit!important}
           if (key === "g") moveTo(0);
           return;
         }
-        if (vimPending.current === "d") {
-          vimPending.current = "";
-          if (key === "d") {
-            const { start, end } = lineBounds(position);
-            const removeEnd = end < value.length ? end + 1 : end;
-            const next = value.slice(0, start) + value.slice(removeEnd);
-            vimRegister.current = value.slice(start, end);
-            applyVim(next, Math.min(start, next.length));
+        const pending = vimPending.current;
+        vimPending.current = "";
+        if (pending === "d" || pending === "y" || pending === "c") {
+          if (key === "i" || key === "a") {
+            vimPending.current = pending + key;
+            return;
           }
+          if (key === pending) {
+            const { start, end } = lineBounds(position);
+            if (pending === "c") {
+              vimRegister.current = value.slice(start, end);
+              applyVim(value.slice(0, start) + value.slice(end), start);
+              setVimMode("insert");
+            } else if (pending === "d") {
+              const removeEnd = end < value.length ? end + 1 : end;
+              vimRegister.current = value.slice(start, end);
+              const next = value.slice(0, start) + value.slice(removeEnd);
+              applyVim(next, Math.min(start, next.length));
+            } else {
+              vimRegister.current = value.slice(start, end);
+            }
+            return;
+          }
+          let from = position;
+          let to = position;
+          if (key === "w") to = pending === "c" ? Math.min(value.length, wordEnd(position) + 1) : nextWordStart(position);
+          else if (key === "e") to = Math.min(value.length, wordEnd(position) + 1);
+          else if (key === "b") from = prevWordStart(position);
+          else if (key === "$") to = lineBounds(position).end;
+          else if (key === "0") from = lineBounds(position).start;
+          else if (key === "h") from = Math.max(0, position - 1);
+          else if (key === "l") to = Math.min(value.length, position + 1);
+          else if (key === "j") to = positionAt(line + 1, col);
+          else if (key === "k") to = positionAt(Math.max(0, line - 1), col);
+          else if (key === "G") to = value.length;
+          else return;
+          applyVimOperator(pending, from, to);
           return;
         }
-        if (vimPending.current === "y") {
-          vimPending.current = "";
-          if (key === "y") {
-            const { start, end } = lineBounds(position);
-            vimRegister.current = value.slice(start, end);
-          }
+        if (pending === "di" || pending === "da" || pending === "yi" || pending === "ya" || pending === "ci" || pending === "ca") {
+          const around = pending[1] === "a";
+          const operator = pending[0];
+          const range = vimTextObject(value, position, around, key);
+          if (range) applyVimOperator(operator, range.start, range.end);
           return;
         }
 
@@ -1587,10 +1826,11 @@ body.ps-resizing *{cursor:inherit!important}
           case "x": deleteRange(position, Math.min(value.length, position + 1)); return;
           case "d": vimPending.current = "d"; return;
           case "y": vimPending.current = "y"; return;
+          case "c": vimPending.current = "c"; return;
           case "p": insertAt(Math.min(value.length, position + 1), vimRegister.current); return;
           case "P": insertAt(position, vimRegister.current); return;
           case "u": if (onUndo) onUndo(tab.path); return;
-          case "v": vimAnchor.current = position; setVimMode("visual"); return;
+          case "v": vimAnchor.current = position; vimCursor.current = position; setVimMode("visual"); return;
           case ":": setExLine(""); return;
           case "Escape": setVimMode("normal"); return;
           default: return;
@@ -1649,6 +1889,7 @@ body.ps-resizing *{cursor:inherit!important}
           event.preventDefault();
           onScroll({ currentTarget: textarea });
           if (highlightInnerRef.current) highlightInnerRef.current.style.top = `${-textarea.scrollTop}px`;
+          if (matchLayerRef.current) matchLayerRef.current.style.top = `${-textarea.scrollTop}px`;
           if (blockRef.current) blockRef.current.style.transform = `translate(0, ${-textarea.scrollTop}px)`;
         };
         wrap.addEventListener("wheel", onWheel, { passive: false });
@@ -1663,6 +1904,11 @@ body.ps-resizing *{cursor:inherit!important}
         // repainting in practice, while top/left force a reflow and a repaint.
         inner.style.top = `${-textarea.scrollTop}px`;
         inner.style.left = `${-textarea.scrollLeft}px`;
+        const layer = matchLayerRef.current;
+        if (layer) {
+          layer.style.top = `${-textarea.scrollTop}px`;
+          layer.style.left = `${-textarea.scrollLeft}px`;
+        }
       }, [editorRef]);
 
       useEffect(() => {
@@ -1674,6 +1920,23 @@ body.ps-resizing *{cursor:inherit!important}
       }, [syncHighlight, theme.wrap, tab ? tab.path : ""]);
 
       useLayoutEffectSafe(() => { syncHighlight(); }, [markup, activePath, syncHighlight]);
+
+      useLayoutEffectSafe(() => {
+        const textarea = editorRef.current;
+        if (!textarea || !tab) { setMatches([]); return; }
+        const pair = bracketMatch(tab.content, textarea.selectionStart);
+        if (!pair) { setMatches([]); return; }
+        const boxes = [];
+        for (const index of [pair.open, pair.close]) {
+          if (index < 0) continue;
+          const point = caretCoordinates(textarea, index, theme.wrap);
+          boxes.push({
+            left: point.left, top: point.top, width: Math.max(5, point.width), height: point.height,
+            unmatched: pair.open < 0 || pair.close < 0,
+          });
+        }
+        setMatches(boxes);
+      }, [cursor.line, cursor.col, tab ? tab.content : "", theme.wrap, markup]);
 
       useLayoutEffectSafe(() => {
         if (!theme.diagnostics) return;
@@ -1724,6 +1987,31 @@ body.ps-resizing *{cursor:inherit!important}
         observer.observe(textarea);
         return () => observer.disconnect();
       }, [theme.wrap, syncHighlight, onCursor, applyWrapWidth, activePath, tab ? tab.path : ""]);
+
+      const revealLine = useCallback((lineNumber) => {
+        const textarea = editorRef.current;
+        if (!textarea) return false;
+        const lines = String(textarea.value).split("\n");
+        const index = Math.max(0, Math.min(lines.length - 1, (Number(lineNumber) || 1) - 1));
+        let offset = 0;
+        for (let position = 0; position < index; position += 1) offset += lines[position].length + 1;
+        const point = caretCoordinates(textarea, offset, theme.wrap);
+        const viewHeight = textarea.clientHeight;
+        textarea.scrollTop = Math.max(0, point.top - Math.max(24, (viewHeight - point.height) / 2));
+        if (!theme.wrap) {
+          textarea.scrollLeft = Math.max(0, point.left - Math.max(24, textarea.clientWidth / 3));
+        }
+        syncHighlight();
+        return true;
+      }, [editorRef, syncHighlight, theme.wrap]);
+
+      useEffect(() => {
+        if (!editorApiRef) return undefined;
+        editorApiRef.current = { revealLine };
+        return () => {
+          if (editorApiRef.current && editorApiRef.current.revealLine === revealLine) editorApiRef.current = null;
+        };
+      }, [editorApiRef, revealLine, tab ? tab.path : ""]);
 
       const handleScroll = useCallback((event) => {
         onScroll(event);
@@ -1918,7 +2206,13 @@ body.ps-resizing *{cursor:inherit!important}
             className: `ps-highlight${theme.wrap ? " wrap" : ""}`,
             ref: highlightRef,
             "aria-hidden": "true",
-          }, h("div", {
+          }, h("div", { className: "ps-match-layer", ref: matchLayerRef, "aria-hidden": "true" },
+            matches.map((box, index) => h("span", {
+              key: index,
+              className: `ps-match-box${box.unmatched ? " unmatched" : ""}`,
+              style: { left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px` },
+            }))),
+          h("div", {
             className: "ps-hl-inner",
             ref: highlightInnerRef,
             dangerouslySetInnerHTML: { __html: markup },
@@ -2186,58 +2480,117 @@ body.ps-resizing *{cursor:inherit!important}
         h("div", { className: "ps-boom-text", key: "text" }, "\u{1F4A5}"));
     }
 
+    const gitStatusClass = (status) => {
+      if (status.includes("?")) return "untracked";
+      if (status.includes("D")) return "del";
+      if (status.includes("A")) return "new";
+      if (status.includes("R")) return "ren";
+      return "mod";
+    };
+
     function GitView(props) {
       const { t, info, diff, diffOpen, busy, onAction, onNewBranch, onNuke, onSwitch, onRefresh, onOpenFile, onToggleDiff } = props;
       const data = info.data;
-      if (info.error) return h("div", { className: "ps-git" }, h("div", { className: "ps-hint" }, info.error));
-      if (!data) return h("div", { className: "ps-git" }, h("div", { className: "ps-hint" }, t("loading")));
+      const stats = useMemo(() => {
+        let add = 0;
+        let del = 0;
+        let files = 0;
+        for (const line of String(diff || "").split("\n")) {
+          if (line.startsWith("diff --git")) files += 1;
+          else if (line.startsWith("+") && !line.startsWith("+++")) add += 1;
+          else if (line.startsWith("-") && !line.startsWith("---")) del += 1;
+        }
+        return { add, del, files };
+      }, [diff]);
+
+      if (info.error) {
+        return h("div", { className: "ps-git" },
+          h("div", { className: "ps-git-card" }, h("div", { className: "ps-git-hint" }, info.error)));
+      }
+      if (!data) {
+        return h("div", { className: "ps-git" },
+          h("div", { className: "ps-git-card" }, h("div", { className: "ps-git-hint" }, t("loading"))));
+      }
       if (!data.repo) {
         return h("div", { className: "ps-git" },
-          h("div", { className: "ps-hint" }, t("notGitRepo")),
-          h("button", { className: "ps-btn", type: "button", onClick: () => onAction("init") }, t("initializeGit")),
+          h("div", { className: "ps-git-card" },
+            h("div", { className: "ps-git-hint" }, t("notGitRepo")),
+            h("button", { className: "ps-btn primary", type: "button", onClick: () => onAction("init") }, t("initializeGit"))),
           h("button", { className: "ps-btn icon", type: "button", title: t("refresh"), onClick: onRefresh }, h(Icon.refresh)));
       }
-      const lines = (diff || "").split("\n");
+
+      const files = data.files || [];
+      const branches = data.branches || [];
+      const ahead = data.ahead || 0;
+      const behind = data.behind || 0;
+      const lines = String(diff || "").split("\n");
       const capped = lines.slice(0, 2500);
+      const disabled = Boolean(busy);
+
       return h("div", { className: "ps-git" },
-        h("div", { className: "ps-git-head" },
-          h("code", { className: "ps-git-branch" }, data.branch || "?"),
-          data.upstream ? h("span", { className: "ps-git-muted" }, `\u2192 ${data.upstream}`) : null,
-          data.ahead || data.behind ? h("span", { className: "ps-git-muted" }, `\u2191${data.ahead} \u2193${data.behind}`) : null,
-          h("button", { className: "ps-btn icon", type: "button", title: t("refresh"), onClick: onRefresh }, h(Icon.refresh))),
+        h("div", { className: "ps-git-card" },
+          h("div", { className: "ps-git-branchline" },
+            h("code", { className: "ps-git-branch" }, data.branch || "?"),
+            data.upstream ? h("span", { className: "ps-git-upstream", title: data.upstream }, data.upstream) : null,
+            h("button", { className: "ps-btn icon", type: "button", title: t("refresh"), onClick: onRefresh }, h(Icon.refresh))),
+          h("div", { className: "ps-git-pills" },
+            ahead > 0 ? h("span", { className: "ps-pill push" }, `\u2191 ${ahead} ${t("toPush")}`) : null,
+            behind > 0 ? h("span", { className: "ps-pill pull" }, `\u2193 ${behind} ${t("toPull")}`) : null,
+            ahead === 0 && behind === 0 ? h("span", { className: "ps-pill ok" }, t("inSync")) : null,
+            files.length > 0
+              ? h("span", { className: "ps-pill warn" }, `${files.length} ${t("changed")}`)
+              : h("span", { className: "ps-pill ok" }, t("cleanTree")))),
+
         h("div", { className: "ps-git-actions" },
-          h("button", { className: "ps-btn", type: "button", disabled: Boolean(busy), title: t("fetchHint"), onClick: () => onAction("fetch") }, h(Icon.fetch), t("fetch")),
-          h("button", { className: "ps-btn", type: "button", disabled: Boolean(busy), title: t("pullHint"), onClick: () => onAction("pull") }, h(Icon.pull), t("pull")),
-          h("button", { className: "ps-btn", type: "button", disabled: Boolean(busy), title: t("pushHint"), onClick: () => onAction("push") }, h(Icon.push), t("push")),
-          h("button", { className: "ps-btn", type: "button", disabled: Boolean(busy), onClick: onNewBranch }, h(Icon.plus), t("newBranch")),
-          h("button", { className: "ps-btn danger", type: "button", disabled: Boolean(busy), title: t("nukeHint"), onClick: onNuke }, h(Icon.bomb), t("nuke"))),
-        h("select", {
-          className: "ps-select",
-          value: data.branch || "",
-          onChange: (event) => onSwitch(event.target.value),
-        }, data.branches.map((branch) => h("option", { key: branch, value: branch }, branch))),
-        data.sshKey ? h("div", { className: "ps-git-meta" }, h("span", null, t("sshKey")), h("code", { title: data.sshKey }, data.sshKey)) : null,
-        data.lastCommit ? h("div", { className: "ps-git-meta" }, h("code", { title: data.lastCommit }, data.lastCommit)) : null,
-        h("div", { className: "ps-git-files" },
-          data.files.length === 0
-            ? h("div", { className: "ps-hint" }, t("cleanTree"))
-            : data.files.map((file) => h("button", {
+          h("button", { className: "ps-btn primary", type: "button", disabled, title: t("pullHint"), onClick: () => onAction("pull") }, h(Icon.pull), busy === "pull" ? "\u2026" : t("pull")),
+          h("button", { className: "ps-btn", type: "button", disabled, title: t("pushHint"), onClick: () => onAction("push") }, h(Icon.push), busy === "push" ? "\u2026" : t("push")),
+          h("button", { className: "ps-btn", type: "button", disabled, title: t("fetchHint"), onClick: () => onAction("fetch") }, h(Icon.fetch), busy === "fetch" ? "\u2026" : t("fetch")),
+          h("button", { className: "ps-btn", type: "button", disabled, onClick: onNewBranch }, h(Icon.plus), t("newBranch")),
+          h("button", { className: "ps-btn danger wide", type: "button", disabled, title: t("nukeHint"), onClick: onNuke }, h(Icon.bomb), t("nuke"))),
+        h("div", { className: "ps-git-hint" }, t("fetchVsPull")),
+
+        h("div", { className: "ps-git-card" },
+          h("div", { className: "ps-git-section-head" },
+            h("span", null, t("changes")),
+            h("span", { className: "ps-git-count" }, String(files.length))),
+          files.length === 0
+            ? h("div", { className: "ps-git-empty" }, h(Icon.check), t("cleanTree"))
+            : h("div", { className: "ps-git-files" }, files.map((file) => h("button", {
               key: file.path,
               className: "ps-git-file",
               type: "button",
               title: file.path,
               onClick: () => onOpenFile(file.path),
             },
-            h("span", { className: "ps-git-status" }, file.status || "?"),
-            h("span", { className: "ps-git-path" }, file.path)))),
-        h("button", { className: "ps-btn", type: "button", onClick: onToggleDiff }, diffOpen ? t("hideDiff") : t("showDiff")),
+            h("span", { className: `ps-git-status ${gitStatusClass(file.status || "")}` }, (file.status || "?").slice(0, 2)),
+            h("span", { className: "ps-git-path" }, file.path))))),
+
+        h("details", { className: "ps-git-details" },
+          h("summary", null, t("details")),
+          h("div", { className: "ps-git-detail" }, h("span", null, t("sshKey")), h("code", { title: data.sshKey || "" }, data.sshKey || "\u2014")),
+          h("div", { className: "ps-git-detail" }, h("span", null, t("upstream")), h("code", { title: data.upstream || "" }, data.upstream || "\u2014")),
+          h("div", { className: "ps-git-detail" }, h("span", null, t("lastCommit")), h("code", { title: data.lastCommit || "" }, data.lastCommit || "\u2014")),
+          h("label", { className: "ps-git-branchselect" }, t("switchBranch"),
+            h("select", { className: "ps-select", value: data.branch || "", onChange: (event) => onSwitch(event.target.value) },
+              branches.map((branch) => h("option", { key: branch, value: branch }, branch))))),
+
+        h("div", { className: "ps-git-diff-head" },
+          h("button", { className: "ps-btn", type: "button", onClick: onToggleDiff }, diffOpen ? t("hideDiff") : t("showDiff")),
+          stats.files > 0
+            ? h("span", { className: "ps-git-stats" },
+              `${stats.files} ${t("filesChanged")} \u00b7 `,
+              h("span", { className: "plus" }, `+${stats.add}`), " ",
+              h("span", { className: "minus" }, `\u2212${stats.del}`))
+            : null),
         diffOpen
           ? h("pre", { className: "ps-git-diff" },
             capped.map((line, index) => h("div", {
               key: index,
-              className: line.startsWith("+") ? "add" : line.startsWith("-") ? "del" : line.startsWith("@@") ? "hunk" : "",
+              className: line.startsWith("+++") || line.startsWith("---")
+                ? ""
+                : line.startsWith("+") ? "add" : line.startsWith("-") ? "del" : line.startsWith("@@") ? "hunk" : "",
             }, line.length > 0 ? line : " ")),
-            lines.length > capped.length ? h("div", null, `… ${lines.length - capped.length} more lines`) : null)
+            lines.length > capped.length ? h("div", null, `\u2026 ${lines.length - capped.length} more lines`) : null)
           : null);
     }
 
@@ -2255,27 +2608,55 @@ body.ps-resizing *{cursor:inherit!important}
     function orderPageWords(list, width, height) {
       if (!list || list.length === 0 || !width) return list || [];
       const mid = width / 2;
-      const body = height ? list.filter((word) => word.yMin > height * 0.25) : list;
-      let crossing = 0;
-      for (const word of body) if (word.xMin < mid && word.xMax > mid) crossing += 1;
-      const hasLeft = body.some((word) => word.xMax <= mid);
-      const hasRight = body.some((word) => word.xMin >= mid);
-      const twoColumn = body.length > 8 && crossing / body.length < 0.15 && hasLeft && hasRight;
-      if (!twoColumn) {
-        return [...list].sort((left, right) => (Math.abs(left.yMin - right.yMin) > 2 ? left.yMin - right.yMin : left.xMin - right.xMin));
+      const gapLimit = Math.max(10, width * 0.02);
+      const tolerance = 3;
+      const sorted = [...list].sort((left, right) => (left.yMin - right.yMin) || (left.xMin - right.xMin));
+      const lines = [];
+      for (const word of sorted) {
+        const line = lines[lines.length - 1];
+        if (line && Math.abs(word.yMin - line.yMin) <= tolerance) {
+          line.words.push(word);
+          line.yMin = Math.min(line.yMin, word.yMin);
+        } else {
+          lines.push({ yMin: word.yMin, words: [word] });
+        }
       }
-      const columnOf = (word) => {
-        if (word.xMax <= mid) return 0;
-        if (word.xMin >= mid) return 1;
-        return -1;
+      const output = [];
+      let pending = [];
+      const flush = () => {
+        if (pending.length === 0) return;
+        const byY = (left, right) => (left.yMin - right.yMin) || (left.xMin - right.xMin);
+        const leftWords = pending.filter((entry) => entry.side === "left").flatMap((entry) => entry.words);
+        const rightWords = pending.filter((entry) => entry.side === "right").flatMap((entry) => entry.words);
+        leftWords.sort(byY);
+        rightWords.sort(byY);
+        output.push(...leftWords, ...rightWords);
+        pending = [];
       };
-      return [...list].sort((left, right) => {
-        const leftColumn = columnOf(left);
-        const rightColumn = columnOf(right);
-        if (leftColumn !== rightColumn) return leftColumn - rightColumn;
-        if (Math.abs(left.yMin - right.yMin) > 2) return left.yMin - right.yMin;
-        return left.xMin - right.xMin;
-      });
+      for (const line of lines) {
+        const words = line.words.sort((left, right) => left.xMin - right.xMin);
+        // A genuine column gutter is a large gap that straddles the middle.
+        let split = -1;
+        for (let index = 0; index < words.length - 1; index += 1) {
+          const gap = words[index + 1].xMin - words[index].xMax;
+          const straddles = words[index].xMax <= mid + 1 && words[index + 1].xMin >= mid - 1;
+          if (straddles && gap > gapLimit) { split = index; break; }
+        }
+        if (split >= 0) {
+          pending.push({ side: "left", words: words.slice(0, split + 1) });
+          pending.push({ side: "right", words: words.slice(split + 1) });
+        } else if (words[0].xMin < mid - 1 && words[words.length - 1].xMax > mid + 1) {
+          // One continuous run across the middle: a full-width band (figure*,
+          // table*, title), which must not be split into columns.
+          flush();
+          output.push(...words);
+        } else {
+          const center = (words[0].xMin + words[words.length - 1].xMax) / 2;
+          pending.push({ side: center < mid ? "left" : "right", words });
+        }
+      }
+      flush();
+      return output;
     }
 
     const PageTextLayer = React.memo(function PageTextLayer({ words, layerRef }) {
@@ -2459,7 +2840,7 @@ body.ps-resizing *{cursor:inherit!important}
               event.stopPropagation();
             },
           },
-          h("button", { className: "ps-btn primary", type: "button", disabled: busy, onClick: goToEditor }, busy ? "…" : t("goToEditor")),
+          h("button", { className: "ps-btn primary", type: "button", disabled: busy, title: t("goToEditorHint"), onClick: goToEditor }, busy ? "…" : t("goToEditor")),
           h("button", { className: "ps-btn", type: "button", onClick: copyText }, t("copyText")))
           : null);
     }
@@ -2496,6 +2877,7 @@ body.ps-resizing *{cursor:inherit!important}
         return value === "terminal" || value === "problems" ? value : null;
       });
       const [dockHeight, setDockHeight] = useState(() => Number(readUi().dockHeight) || 196);
+      const [compileMenu, setCompileMenu] = useState(false);
       const [explorerWidth, setExplorerWidth] = useState(() => Number(readUi().explorerWidth) || 238);
       const [pdfPct, setPdfPct] = useState(() => Number(readUi().pdfPct) || 44);
       const [terminal, setTerminal] = useState([]);
@@ -2524,12 +2906,14 @@ body.ps-resizing *{cursor:inherit!important}
       const activeRef = useRef(null);
       const editorRef = useRef(null);
       const gutterInnerRef = useRef(null);
+      const editorApiRef = useRef(null);
       const saveTimers = useRef(new Map());
       const saveChains = useRef(new Map());
       const mtimeByPath = useRef({});
       const scrollByPath = useRef({});
       const pendingLine = useRef(null);
       const autoCompileRef = useRef(Boolean(syntax.autoCompile));
+      const autosaveRef = useRef({ enabled: syntax.autosave !== false, delay: Math.max(200, Number(syntax.autosaveDelay) || 850) });
       const compileTimer = useRef(null);
       const toastTimer = useRef(null);
       const compilingRef = useRef(false);
@@ -2544,6 +2928,14 @@ body.ps-resizing *{cursor:inherit!important}
       useEffect(() => { projectIdRef.current = project ? project.id : null; projectRef.current = project; }, [project]);
       useEffect(() => { activeRef.current = active; }, [active]);
       useEffect(() => { autoCompileRef.current = Boolean(syntax.autoCompile); }, [syntax.autoCompile]);
+      useEffect(() => {
+        autosaveRef.current = { enabled: syntax.autosave !== false, delay: Math.max(200, Number(syntax.autosaveDelay) || 850) };
+      }, [syntax.autosave, syntax.autosaveDelay]);
+      useEffect(() => {
+        if (syntax.autosave !== false) return;
+        for (const timer of saveTimers.current.values()) clearTimeout(timer);
+        saveTimers.current.clear();
+      }, [syntax.autosave]);
       useEffect(() => { catalogRef.current = catalog; }, [catalog]);
 
       useEffect(() => {
@@ -2596,17 +2988,26 @@ body.ps-resizing *{cursor:inherit!important}
       }, []);
 
       const jumpToLine = useCallback((path, line) => {
-        const textarea = editorRef.current;
         const tab = tabsRef.current.find((item) => item.path === path);
-        if (!textarea || !tab || !line) return;
+        if (!tab || !line) return;
         const lines = tab.content.split("\n");
         const index = Math.max(0, Math.min(lines.length - 1, line - 1));
         const offset = lines.slice(0, index).reduce((sum, text) => sum + text.length + 1, 0);
-        textarea.focus();
-        textarea.setSelectionRange(offset, offset + lines[index].length);
-        textarea.scrollTop = Math.max(0, index * 20 - 60);
-        if (gutterInnerRef.current) gutterInnerRef.current.style.transform = `translateY(${-textarea.scrollTop}px)`;
         setCursor({ line: index + 1, col: 1 });
+        // Let React commit the tab, then override the browser's own
+        // "reveal the selection" scroll with a centered position.
+        requestAnimationFrame(() => {
+          const textarea = editorRef.current;
+          if (!textarea) return;
+          textarea.focus();
+          textarea.setSelectionRange(offset, offset + lines[index].length);
+          if (editorApiRef.current) editorApiRef.current.revealLine(index + 1);
+          // The browser may scroll to reveal the new selection on the next
+          // frame; re-apply the centered position once more.
+          requestAnimationFrame(() => {
+            if (editorApiRef.current) editorApiRef.current.revealLine(index + 1);
+          });
+        });
       }, []);
 
       const openFile = useCallback(async (path, line) => {
@@ -2857,6 +3258,22 @@ body.ps-resizing *{cursor:inherit!important}
         return next;
       }, [doSave]);
 
+      const saveAll = useCallback(async () => {
+        const dirty = tabsRef.current.filter((item) => item.dirty && !item.conflict);
+        await Promise.all(dirty.map((item) => saveTab(item.path)));
+      }, [saveTab]);
+
+      const scheduleAutosave = useCallback((path) => {
+        clearTimeout(saveTimers.current.get(path));
+        saveTimers.current.delete(path);
+        const autosave = autosaveRef.current;
+        if (!autosave.enabled) return;
+        saveTimers.current.set(path, setTimeout(() => {
+          saveTimers.current.delete(path);
+          void saveTab(path);
+        }, autosave.delay));
+      }, [saveTab]);
+
       const refreshSymbols = useCallback(async () => {
         const id = projectIdRef.current;
         if (!id) return;
@@ -2895,9 +3312,10 @@ body.ps-resizing *{cursor:inherit!important}
         void refreshSymbols();
       }, [notify, refreshSymbols, refreshTree, t]);
 
-      const runCompile = useCallback(async () => {
+      const runCompile = useCallback(async (options) => {
         const id = projectIdRef.current;
         if (!id || compilingRef.current) return;
+        const force = Boolean(options && options.force);
         compilingRef.current = true;
         setCompiling(true);
         setStatus({ kind: "compiling" });
@@ -2906,9 +3324,8 @@ body.ps-resizing *{cursor:inherit!important}
         setElapsed(0);
         compileStartedRef.current = Date.now();
         try {
-          const dirty = tabsRef.current.filter((item) => item.dirty && !item.conflict);
-          await Promise.all(dirty.map((item) => saveTab(item.path)));
-          const started = await request("compile/start", { method: "POST", body: { project: id } });
+          await saveAll();
+          const started = await request("compile/start", { method: "POST", body: { project: id, force } });
           if (jobSourceRef.current) jobSourceRef.current.close();
           const source = new EventSource(apiUrl("compile/events", { job: started.jobId }));
           jobSourceRef.current = source;
@@ -2957,7 +3374,7 @@ body.ps-resizing *{cursor:inherit!important}
             finished = true;
             source.close();
             jobSourceRef.current = null;
-            request("compile", { method: "POST", body: { project: id } })
+            request("compile", { method: "POST", body: { project: id, force } })
               .then(applyCompileResult)
               .catch((error) => fail(error.message));
           };
@@ -2966,7 +3383,7 @@ body.ps-resizing *{cursor:inherit!important}
           // streaming route; fall back to the synchronous compile instead of failing.
           if (error && (error.status === 404 || error.status === 405)) {
             try {
-              const result = await request("compile", { method: "POST", body: { project: id } });
+              const result = await request("compile", { method: "POST", body: { project: id, force } });
               appendTerminal({ kind: "stage", text: "host does not stream compiles; used the synchronous route" });
               applyCompileResult(result);
               return;
@@ -2981,7 +3398,7 @@ body.ps-resizing *{cursor:inherit!important}
           setDock("problems");
           notify(error.message, "err");
         }
-      }, [appendTerminal, applyCompileResult, notify, saveTab, t]);
+      }, [appendTerminal, applyCompileResult, notify, saveAll, t]);
 
       const runCompileRef = useRef(runCompile);
       useEffect(() => { runCompileRef.current = runCompile; }, [runCompile]);
@@ -3013,6 +3430,18 @@ body.ps-resizing *{cursor:inherit!important}
       }, [dialog, panelActive, saveTab, syntax.keys]);
 
       // Escape closes the topmost dialog.
+      useEffect(() => {
+        if (!compileMenu) return undefined;
+        const close = () => setCompileMenu(false);
+        const onKey = (event) => { if (event.key === "Escape") setCompileMenu(false); };
+        window.addEventListener("mousedown", close);
+        window.addEventListener("keydown", onKey, true);
+        return () => {
+          window.removeEventListener("mousedown", close);
+          window.removeEventListener("keydown", onKey, true);
+        };
+      }, [compileMenu]);
+
       useEffect(() => {
         if (!dialog) return undefined;
         const onKeyDown = (event) => {
@@ -3056,12 +3485,8 @@ body.ps-resizing *{cursor:inherit!important}
           history.word = Boolean(wordChar);
         }
         setTabs((list) => list.map((item) => (item.path === path ? { ...item, content, dirty: content !== item.saved } : item)));
-        clearTimeout(saveTimers.current.get(path));
-        saveTimers.current.set(path, setTimeout(() => {
-          saveTimers.current.delete(path);
-          void saveTab(path);
-        }, 850));
-      }, [saveTab]);
+        scheduleAutosave(path);
+      }, [saveTab, scheduleAutosave]);
 
       const restoreCaret = useCallback((path, caret) => {
         requestAnimationFrame(() => {
@@ -3087,13 +3512,9 @@ body.ps-resizing *{cursor:inherit!important}
         history.at = 0;
         history.word = false;
         setTabs((list) => list.map((item) => (item.path === path ? { ...item, content: snapshot.content, dirty: snapshot.content !== item.saved } : item)));
-        clearTimeout(saveTimers.current.get(path));
-        saveTimers.current.set(path, setTimeout(() => {
-          saveTimers.current.delete(path);
-          void saveTab(path);
-        }, 850));
+        scheduleAutosave(path);
         restoreCaret(path, snapshot.caret);
-      }, [restoreCaret, saveTab]);
+      }, [restoreCaret, saveTab, scheduleAutosave]);
 
       const redo = useCallback((path) => {
         const history = historyRef.current.get(path);
@@ -3104,13 +3525,9 @@ body.ps-resizing *{cursor:inherit!important}
         history.at = 0;
         history.word = false;
         setTabs((list) => list.map((item) => (item.path === path ? { ...item, content: snapshot.content, dirty: snapshot.content !== item.saved } : item)));
-        clearTimeout(saveTimers.current.get(path));
-        saveTimers.current.set(path, setTimeout(() => {
-          saveTimers.current.delete(path);
-          void saveTab(path);
-        }, 850));
+        scheduleAutosave(path);
         restoreCaret(path, snapshot.caret);
-      }, [restoreCaret, saveTab]);
+      }, [restoreCaret, saveTab, scheduleAutosave]);
 
       const closeTab = useCallback((path) => {
         const tab = tabsRef.current.find((item) => item.path === path);
@@ -3338,6 +3755,7 @@ body.ps-resizing *{cursor:inherit!important}
 
       const currentTab = active ? tabs.find((item) => item.path === active) ?? null : null;
       const activeTabDirty = tabs.some((item) => item.dirty);
+      const hasDirty = tabs.some((item) => item.dirty && !item.saving);
       const statusView = (() => {
         if (compiling) return { kind: "", text: t("compiling"), spin: true };
         if (status.kind === "error") return { kind: "err", text: status.message || t("error") };
@@ -3482,6 +3900,15 @@ body.ps-resizing *{cursor:inherit!important}
             h("div", { className: "ps-color-group", key: "layout" },
               h("h3", null, t("editing")),
               toggle(t("wrapLines"), "wrap"),
+              toggle(t("autosave"), "autosave"),
+              h("label", { className: "ps-field-row", key: "autosaveDelay" },
+                h("span", null, t("autosaveDelay")),
+                h("select", {
+                  className: "ps-select", value: String(draft.autosaveDelay ?? 850), disabled: draft.autosave === false,
+                  onChange: (event) => updateDraft({ autosaveDelay: Number(event.target.value) }),
+                }, [
+                  [500, "0.5 s"], [1000, "1 s"], [2000, "2 s"], [5000, "5 s"], [10000, "10 s"],
+                ].map(([value, label]) => h("option", { key: value, value: String(value) }, label)))),
               toggle(t("autoCompile"), "autoCompile"),
               toggle(t("diagnostics"), "diagnostics")),
           ];
@@ -3560,7 +3987,9 @@ body.ps-resizing *{cursor:inherit!important}
               h("button", { className: "ps-btn", type: "button", onClick: () => runGit("pull") }, h(Icon.pull), t("pull")),
               h("button", { className: "ps-btn", type: "button", onClick: () => runGit("push") }, h(Icon.push), t("push")),
               h("button", { className: "ps-btn", type: "button", onClick: () => runGit("init") }, t("initializeGit"))),
-            gitState.output ? h("pre", { className: "ps-output", key: "output" }, gitState.output) : null,
+            gitState.output ? h("details", { className: "ps-git-details", key: "output" },
+              h("summary", null, t("lastGitOutput")),
+              h("pre", { className: "ps-output", style: { maxHeight: 140, overflow: "auto" } }, gitState.output)) : null,
             h("button", {
               className: "ps-btn danger", key: "remove", type: "button",
               onClick: () => openDialog("removeProject", { projectId: dialog.projectId }),
@@ -3730,6 +4159,11 @@ body.ps-resizing *{cursor:inherit!important}
             }),
           }, h(Icon.gear)) : null,
           h("div", { className: "ps-spacer" }),
+          h("button", {
+            className: "ps-btn", type: "button", disabled: !hasDirty,
+            title: `${t("save")} — ${t("saveHint")}`,
+            onClick: () => { void saveAll(); },
+          }, h(Icon.save), h("span", { className: "ps-hide-narrow" }, t("save"))),
           h("span", { className: `ps-status ${statusView.kind}` },
             statusView.spin ? h(Icon.refresh, { className: "ps-spin" }) : h("span", { className: "ps-dot" }),
             statusView.text),
@@ -3748,10 +4182,25 @@ body.ps-resizing *{cursor:inherit!important}
             onClick: () => setDock((current) => (current ? null : (problemCount > 0 ? "problems" : "terminal"))),
           }, h(Icon.terminal), h("span", { className: "ps-hide-narrow" }, t("output")),
             problemCount > 0 ? h("span", { className: "ps-badge", style: { padding: "0 5px", fontSize: 10 } }, problemCount) : null),
-          h("button", {
-            className: "ps-btn primary", type: "button", onClick: () => { void runCompile(); },
-            disabled: compiling || !project, title: `${t("compile")} (${t("compileHint")})`,
-          }, compiling ? h(Icon.refresh, { className: "ps-spin" }) : h(Icon.play), compiling ? t("compiling") : t("compile"))),
+          h("div", { className: "ps-compile-group", onMouseDown: (event) => event.stopPropagation() },
+            h("button", {
+              className: "ps-btn primary", type: "button", onClick: () => { void runCompile(); },
+              disabled: compiling || !project, title: `${t("compile")} (${t("compileHint")})`,
+            }, compiling ? h(Icon.refresh, { className: "ps-spin" }) : h(Icon.play), compiling ? t("compiling") : t("compile")),
+            h("button", {
+              className: "ps-btn primary ps-compile-caret", type: "button",
+              disabled: compiling || !project, title: t("compileOptions"), "aria-label": t("compileOptions"),
+              "aria-expanded": compileMenu,
+              onClick: () => setCompileMenu((value) => !value),
+            }, h(Icon.chevron)),
+            compileMenu ? h("div", { className: "ps-compile-menu" },
+              h("button", {
+                className: "ps-btn", type: "button", disabled: compiling || !project,
+                onClick: () => { setCompileMenu(false); void runCompile({ force: true }); },
+              }, h(Icon.refresh),
+              h("span", { className: "ps-compile-menu-text" },
+                h("span", { className: "ps-compile-menu-title" }, t("fullRecompile")),
+                h("span", { className: "ps-compile-menu-hint" }, t("fullRecompileHint"))))) : null)),
 
         h("div", { className: "ps-main" },
           h("div", { className: "ps-body", ref: bodyRef, style: { gridTemplateColumns: columns.join(" ") } },
@@ -3844,7 +4293,7 @@ body.ps-resizing *{cursor:inherit!important}
             onCloseTab: closeTab,
             onEdit,
             onCompile: runCompile,
-            editorRef, gutterInnerRef,
+            editorRef, gutterInnerRef, editorApiRef,
             onScroll, onCursor,
             onInsertText: insertText,
             onReloadDisk: reloadDisk,
@@ -3952,7 +4401,7 @@ body.ps-resizing *{cursor:inherit!important}
     return {
       inject: ["slots", "locale", "layout"],
       /** Pure helpers exercised by test/client.test.mjs (no browser needed). */
-      __internals: { Studio, EditorPane, Dock, FolderPicker, PdfPage, GitView, Explosion, highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet },
+      __internals: { Studio, EditorPane, Dock, FolderPicker, PdfPage, GitView, Explosion, highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject },
       apply(ctx) {
         ctx.effect(() => {
           const style = document.createElement("style");
