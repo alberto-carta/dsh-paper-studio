@@ -5,6 +5,9 @@
 import assert from "node:assert/strict";
 import http from "node:http";
 import { after, test } from "node:test";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { __test } from "../index.js";
 
@@ -94,11 +97,19 @@ test("compile streams commands, output and a finish event", async () => {
 });
 
 test("fs/list browses directories for the folder picker", async () => {
-  const { status, body } = await json(api("fs/list", { path: "/home/acarta/Documents/Papers" }));
-  assert.equal(status, 200);
-  assert.ok(body.entries.some((entry) => entry.name === "paper-studio-demo"));
-  assert.ok(body.entries.every((entry) => typeof entry.path === "string" && entry.path.startsWith("/")));
-  assert.equal(body.entries.some((entry) => entry.name === "node_modules"), false);
+  const root = await mkdtemp(join(tmpdir(), "paper-studio-fs-"));
+  try {
+    await mkdir(join(root, "paper-one"));
+    await mkdir(join(root, "paper-two"));
+    await mkdir(join(root, "node_modules"));
+    const { status, body } = await json(api("fs/list", { path: root }));
+    assert.equal(status, 200);
+    assert.deepEqual(body.entries.map((entry) => entry.name), ["paper-one", "paper-two"]);
+    assert.equal(body.path, root);
+    assert.ok(body.entries.every((entry) => entry.path.startsWith(root)));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("project/update can re-point a project at an existing folder", async () => {

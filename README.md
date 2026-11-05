@@ -71,7 +71,7 @@ appears in every session regardless of the workspace:
 
 ```sh
 # from this directory
-dsh plugin install /home/acarta/Documents/Papers/paper-studio   # or Plugins page → Add
+dsh plugin install ~/Documents/Papers/paper-studio   # or Plugins page → Add
 ```
 
 The profile registers `@local/paper-studio` in
