@@ -158,7 +158,7 @@ scrolling, and light/dark contrast. Report anything off.
 ## Moving it to another session or machine
 
 ```sh
-git clone <remote> ~/somewhere/paper-studio
+git clone git@github.com:alberto-carta/dsh-paper-studio.git ~/somewhere/dsh-paper-studio
 # then, in that Harness:
 #   Plugins page → Add → /home/<user>/somewhere/paper-studio
 #   or plugin_manager install_bundle with that absolute path

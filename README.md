@@ -66,6 +66,9 @@ written to `build/pages/` on demand and belong to exactly one PDF revision.
 
 ## Install and move
 
+Repository: `git@github.com:alberto-carta/dsh-paper-studio.git`
+(https://github.com/alberto-carta/dsh-paper-studio).
+
 The plugin is installed in the **web profile** as a `link:` dependency, so it
 appears in every session regardless of the workspace:
 
