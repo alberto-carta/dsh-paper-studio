@@ -70,6 +70,58 @@ test("a prose-only edit compiles in one pass and skips bibtex", async () => {
   }
 });
 
+test("a non-zero bibtex run does not fail a build that produced a PDF", async () => {
+  const { mkdtemp, rm, writeFile } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const root = await mkdtemp(join(tmpdir(), "paper-studio-bibfail-"));
+  try {
+    await writeFile(join(root, "main.tex"), [
+      "\\documentclass{article}",
+      "\\begin{document}",
+      "Text with a citation~\\cite{a}.",
+      "\\bibliographystyle{this-style-does-not-exist}",
+      "\\bibliography{references}",
+      "\\end{document}",
+    ].join("\n"), "utf8");
+    await writeFile(join(root, "references.bib"), "@article{a, title={A}, year={2020}, author={A, B}}\n", "utf8");
+    const result = await __test.compileProject({ id: "bibtex-failure", path: root, mainFile: "main.tex" }, () => {});
+    assert.equal(result.ok, true, "the PDF exists, so the build succeeded");
+    assert.equal(result.pages, 1);
+    assert.equal(result.exitCode, 0, "exit code comes from pdflatex, not bibtex");
+    assert.equal(result.bibtexExitCode, 2, "bibtex did fail and is reported separately");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("spellcheck returns misspellings for the chosen dictionary", async () => {
+  const us = await __test.spellCheck("This is a tset of speling.", "en_US");
+  assert.equal(us.ok, true);
+  assert.ok(us.words.includes("tset"));
+  assert.ok(us.words.includes("speling"));
+  const gb = await __test.spellCheck("The colur of the centre.", "en_GB");
+  assert.ok(gb.words.includes("colur"));
+});
+
+test("page word boxes support selection and phrase lookup", async () => {
+  const pdf = join(demo, ".paper-studio", "build", "main.pdf");
+  const page = await __test.pageWords(pdf, 1);
+  assert.ok(page.words.length > 10);
+  assert.ok(page.width > 500 && page.height > 700);
+  const found = await __test.findTextInSources(project, "Scientific writing benefits", "sections/introduction.tex");
+  assert.equal(found.file, "sections/introduction.tex");
+  assert.ok(found.line >= 1);
+  assert.equal(await __test.findTextInSources(project, "Totally absent phrase here", null), null);
+});
+
+test("refinement prefers the line containing the selected text", async () => {
+  const line = await __test.refineTextLine(project, "sections/introduction.tex", 4, "Scientific writing benefits");
+  assert.equal(line, 4);
+  const fallback = await __test.refineTextLine(project, "sections/introduction.tex", 900, "Scientific writing");
+  assert.equal(fallback, 4, "a far-away match still wins over an out-of-range sync line");
+  assert.equal(await __test.refineTextLine(project, "sections/introduction.tex", 4, "zzzz absent"), null);
+});
+
 test("PDF points map back to source lines through SyncTeX", async () => {
   const hit = await __test.locateInPdf(project, { page: 1, x: 300, y: 300 });
   assert.equal(hit.ok, true);

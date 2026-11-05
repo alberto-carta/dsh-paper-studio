@@ -22,6 +22,21 @@ A persistent Overleaf-style LaTeX workspace for the DeepSeek Harness Web GUI.
 - **PDF → source jump**: double-click a word in the rendered page and the editor
   opens the matching file/line via SyncTeX, falling back to nearest-word text
   matching when SyncTeX has no position (or no `.synctex` exists).
+- **Git panel** in the explorer: branch and upstream, ahead/behind, changed files,
+  diff against the upstream, fetch/pull/push, branch switch/create, the SSH key in
+  use, and a guarded *Reset to origin* (fetch → reset --hard → clean, keeping
+  `.paper-studio`).
+- **Editor**: soft-wrap toggle (line numbers stay aligned), Vim mode
+  (normal/insert/visual, motions, operators and `:w`/`:%s///g`/`:<n>`), aspell
+  spellcheck (US/UK) with wavy underlines, Cut/Copy/Paste + Bold/Italic/Underline
+  context menu, configurable shortcuts, word-level undo, and a save button.
+- **Completion** now indexes project macros (`\newcommand`, `\def`, …) and custom
+  environments, inserts required argument braces, and expands whole blocks for
+  figure/table/itemize/equation/align/theorem/…
+- **PDF text layer**: drag to select text like a real PDF, double-click a word,
+  then *Go to editor*; two-column pages are read column by column.
+- **Settings**: one gear dialog with Editor (Appearance / Editing / Spelling /
+  Shortcuts) and Project tabs, plus an optional diagnostics readout.
 - **Resizable panes**: drag the dividers between explorer, editor, PDF and the
   bottom dock; widths and heights persist.
 - **Folder picker**: Add folder, New paper, Clone and Locate offer an inline

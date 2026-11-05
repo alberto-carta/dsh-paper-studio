@@ -125,6 +125,20 @@ test("project/update can re-point a project at an existing folder", async () => 
   assert.equal(body.project.mainFile, "main.tex");
 });
 
+test("pdf/locate maps a page point back to a source line", async () => {
+  const info = await json(api("info"));
+  const project = info.body.projects.find((entry) => entry.name === "Paper Studio Demo");
+  const { status, body } = await json(api("pdf/locate"), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ project: project.id, page: 1, x: 300, y: 300 }),
+  });
+  assert.equal(status, 200);
+  assert.equal(body.ok, true);
+  assert.match(body.file, /\.tex$/u);
+  assert.ok(body.line >= 1);
+});
+
 test("page 1 is served and unknown pages are refused", async () => {
   const info = await json(api("info"));
   const project = info.body.projects.find((entry) => entry.name === "Paper Studio Demo");

@@ -4,8 +4,11 @@ window.__ModuleLoader__.load({
     const React = require("react");
     const h = React.createElement;
     const { useCallback, useEffect, useMemo, useRef, useState } = React;
+    const useLayoutEffectSafe = React.useLayoutEffect || useEffect;
 
     const PANEL_ID = "paper-studio";
+    /** Shown in Settings so the loaded client can be matched to the source file. */
+    const CLIENT_BUILD = "2026-11-05T05:24";
     const NS = "paperStudio";
     const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
 
@@ -49,7 +52,18 @@ window.__ModuleLoader__.load({
         log: "Log",
         noProblems: "No problems reported.",
         chooseProject: "Choose a project",
-        settings: "Project settings",
+        settings: "Settings",
+        settingsTitle: "Settings",
+        editorSettings: "Editor",
+        appearance: "Appearance",
+        editing: "Editing",
+        wrapLines: "Soft-wrap long lines",
+        wrapShort: "Wrap",
+        diagnostics: "Show diagnostics",
+        output: "Output",
+        vim: "Vim",
+        vimBindings: "Vim key bindings (normal/insert, :commands)",
+        projectSettings: "Project",
         removeProject: "Remove from Paper Studio",
         removeTitle: "Remove this project?",
         removeBody: "The folder and its files stay on disk. Only the Paper Studio registration is removed.",
@@ -162,7 +176,53 @@ window.__ModuleLoader__.load({
         enableCursorLine: "Box the cursor line",
         colorCursorLine: "Cursor line color",
         resetDefaults: "Reset",
-        pdfLocateHint: "Double-click a word to jump to its source",
+        pdfLocateHint: "Drag to select text, then Go to editor (double-click selects a word)",
+        goToEditor: "Go to editor",
+        copyText: "Copy",
+        cut: "Cut",
+        paste: "Paste",
+        clipboardDenied: "Clipboard access was denied — use the keyboard shortcut instead.",
+        copied: "Copied selection",
+        copyFailed: "Could not copy the selection",
+        bold: "Bold",
+        italic: "Italic",
+        underline: "Underline",
+        spelling: "Spelling",
+        spellcheck: "Check spelling",
+        spellLanguage: "Dictionary",
+        shortcuts: "Shortcuts",
+        shortcutSave: "Save",
+        shortcutBold: "Bold",
+        shortcutItalic: "Italic",
+        shortcutUnderline: "Underline",
+        shortcutUndo: "Undo",
+        shortcutRedo: "Redo",
+        keysHint: "Click a field, then press the key combination.",
+        gitTab: "Git",
+        fetch: "Fetch",
+        fetchHint: "Fetch — download new commits from the remote without touching your files",
+        pullHint: "Pull — fetch, then merge or rebase the remote branch into yours",
+        pushHint: "Push — upload your commits to the remote",
+        newBranch: "New branch",
+        nuke: "Reset to origin",
+        sshKey: "SSH key",
+        cleanTree: "Working tree clean",
+        showDiff: "Show diff",
+        hideDiff: "Hide diff",
+        noChanges: "No changes",
+        nukeHeading: "Reset to origin",
+        nukeTitle: "Are you sure to clear and re-pull from SOURCE?",
+        nukeBody: "Every local change — tracked and untracked (except .paper-studio) — will be discarded, and the branch will be reset to its upstream. This cannot be undone.",
+        nukeConfirm: "Yes, scratch all local changes and re-pull",
+        nukeCancel: "No, stay on local changes",
+        nukeHint: "Discard every local change and reset to origin",
+        branchTitle: "Create a branch",
+        branchName: "Branch name",
+        pdfReload: "Reload the PDF from disk",
+        pdfReloaded: "PDF reloaded",
+        pdfMissing: "The compiled PDF is gone; compile again.",
+        pdfMissingTitle: "PDF not found",
+        pdfMissingBody: "The compiled PDF was deleted or has not been built yet. Compile to recreate it.",
         locateFailed: "No matching source found at that point.",
       },
     };
@@ -237,22 +297,65 @@ window.__ModuleLoader__.load({
 .ps-code-area{flex:1;min-width:0;position:relative;display:flex;overflow:hidden}
 .ps-gutter{flex:none;min-width:44px;overflow:hidden;padding:8px 6px 8px 10px;text-align:right;font:13px/20px ${MONO};color:var(--dsw-alias-label-secondary);user-select:none;border-right:.5px solid var(--dsw-alias-border-l1);opacity:.75}
 .ps-gutter-inner{will-change:transform}
-.ps-code{flex:1;min-width:0;border:0;outline:0;resize:none;background:transparent;font:13px/20px ${MONO};padding:8px 18px 8px 10px;tab-size:2;white-space:pre;overflow:auto;position:relative;z-index:1}
+.ps-code{flex:1;min-width:0;border:0;outline:0;resize:none;background:transparent;font:13px/20px ${MONO};padding:8px 18px 8px 48px;tab-size:2;white-space:pre;overflow:auto;position:relative;z-index:1;overscroll-behavior:contain;overflow-anchor:none}
+.ps-root textarea.ps-code.wrap{white-space:pre-wrap!important;overflow-wrap:anywhere!important;word-break:break-word!important;overflow-x:hidden!important;overflow-y:scroll}
+.ps-highlight.wrap{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;width:var(--ps-pre-width,100%);box-sizing:border-box}
 .ps-root textarea.ps-code{color:transparent!important;-webkit-text-fill-color:transparent!important;caret-color:var(--dsw-alias-label-primary)!important;background:transparent!important}
-.ps-highlight{position:absolute;inset:0;z-index:0;margin:0;padding:8px 18px 8px 10px;font:13px/20px ${MONO};tab-size:2;white-space:pre;overflow:hidden;pointer-events:none;color:var(--dsw-alias-label-primary);background:transparent}
+.ps-highlight{position:absolute;inset:0;z-index:0;margin:0;padding:8px 18px 8px 48px;font:13px/20px ${MONO};tab-size:2;white-space:pre;overflow:hidden;pointer-events:none;color:var(--dsw-alias-label-primary);background:transparent}
+.ps-hl-inner{position:relative;min-height:100%}
 .ps-root pre.ps-highlight{color:var(--dsw-alias-label-primary)!important;background:transparent!important}
+.ps-code::-webkit-scrollbar,.ps-pdf-scroll::-webkit-scrollbar,.ps-tree::-webkit-scrollbar,.ps-git::-webkit-scrollbar{width:11px;height:11px}
+.ps-code::-webkit-scrollbar-thumb,.ps-pdf-scroll::-webkit-scrollbar-thumb,.ps-tree::-webkit-scrollbar-thumb,.ps-git::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--dsw-alias-label-secondary) 42%,transparent);border-radius:6px;border:2px solid transparent;background-clip:content-box}
+.ps-code::-webkit-scrollbar-thumb:hover,.ps-pdf-scroll::-webkit-scrollbar-thumb:hover,.ps-tree::-webkit-scrollbar-thumb:hover,.ps-git::-webkit-scrollbar-thumb:hover{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 65%,transparent);background-clip:content-box;border-width:1px}
+.ps-code::-webkit-scrollbar-track,.ps-pdf-scroll::-webkit-scrollbar-track,.ps-tree::-webkit-scrollbar-track,.ps-git::-webkit-scrollbar-track{background:transparent}
 .ps-hl-cmd{color:var(--ps-hl-command,#8b5cf6)}
 .ps-hl-env{color:var(--ps-hl-env,#d97706)}
 .ps-hl-math{color:var(--ps-hl-math,#059669)}
 .ps-hl-comment{color:var(--ps-hl-comment,#94a3b8);font-style:italic}
 .ps-hl-brace{color:var(--ps-hl-brace,#94a3b8)}
-.ps-hl-line{min-height:20px;line-height:20px;margin:0 -18px 0 -10px;padding:0 18px 0 10px;border-radius:3px}
+.ps-hl-line{position:relative;min-height:20px;line-height:20px;margin:0 -18px 0 -48px;padding:0 18px 0 48px;border-radius:3px}
+.ps-hl-line::before{content:attr(data-line);position:absolute;left:8px;top:0;width:32px;text-align:right;font:13px/20px ${MONO};color:var(--dsw-alias-label-secondary);opacity:.7;pointer-events:none}
 .ps-hl-line[data-bg="figure"]{background:var(--ps-bg-figure)}
 .ps-hl-line[data-bg="math"]{background:var(--ps-bg-math)}
 .ps-hl-line[data-bg="table"]{background:var(--ps-bg-table)}
 .ps-hl-line[data-bg="theorem"]{background:var(--ps-bg-theorem)}
 .ps-hl-line[data-bg="code"]{background:var(--ps-bg-code)}
 .ps-hl-line.current{outline:1px solid var(--ps-current-line);outline-offset:-1px}
+.ps-hl-misspell{text-decoration:underline wavy #e5484d;text-decoration-skip-ink:none}
+.ps-block-caret{position:absolute;z-index:2;pointer-events:none;box-sizing:border-box;border-radius:2px;border:1px solid var(--ps-hl-command,#8b5cf6);background:color-mix(in srgb,var(--ps-hl-command,#8b5cf6) 30%,transparent)}
+.ps-root textarea.ps-code.vim-normal{caret-color:transparent!important}
+.ps-nuke-warn{display:flex;flex-direction:column;gap:9px;padding:4px 0 2px}
+.ps-nuke-title{margin:0;font-size:19px;font-weight:700;line-height:1.3;color:var(--dsw-alias-state-error-primary)}
+.ps-nuke-target{font:11.5px/1.5 ${MONO};color:var(--dsw-alias-label-secondary)}
+.ps-nuke-body{margin:0;font-size:12.5px;line-height:1.6;color:var(--dsw-alias-label-primary)}
+.ps-btn.danger-solid{background:var(--dsw-alias-state-error-primary);color:#fff;font-weight:600;padding:0 12px}
+.ps-nuke-confirm{white-space:normal;height:auto;min-height:30px;max-width:330px;padding:6px 10px;line-height:1.25;text-align:center}
+.ps-btn.danger-solid:hover:not(:disabled){background:var(--dsw-alias-state-error-primary);filter:brightness(1.08)}
+.ps-boom{position:absolute;inset:0;z-index:80;pointer-events:none;overflow:hidden}
+.ps-boom-flash{position:absolute;inset:0;background:radial-gradient(circle at 50% 45%,rgb(251 146 60 / 35%),transparent 55%);animation:ps-boom-flash 560ms ease-out forwards}
+.ps-boom-ring{position:absolute;left:50%;top:45%;width:70px;height:70px;margin:-35px 0 0 -35px;border-radius:50%;border:3px solid rgb(251 146 60 / 90%);animation:ps-boom-ring 760ms ease-out forwards}
+.ps-boom-particle{position:absolute;left:50%;top:45%;border-radius:50%;opacity:0;animation:ps-boom-fly 900ms cubic-bezier(.2,.6,.3,1) forwards}
+.ps-boom-text{position:absolute;left:50%;top:45%;transform:translate(-50%,-50%);font-size:58px;line-height:1;filter:drop-shadow(0 0 18px rgb(251 146 60 / 85%));animation:ps-boom-text 1.5s cubic-bezier(.3,.7,.4,1) forwards}
+@keyframes ps-boom-flash{0%{opacity:0}16%{opacity:1}100%{opacity:0}}
+@keyframes ps-boom-ring{0%{transform:scale(.2);opacity:1}100%{transform:scale(7);opacity:0}}
+@keyframes ps-boom-fly{0%{transform:translate(0,0) scale(.4);opacity:1}75%{opacity:1}100%{transform:translate(var(--dx),var(--dy)) scale(.95);opacity:0}}
+@keyframes ps-boom-text{
+0%{transform:translate(-50%,-50%) scale(.15) rotate(-160deg);opacity:0}
+18%{transform:translate(-50%,-50%) scale(1.5) rotate(14deg);opacity:1}
+38%{transform:translate(-50%,-50%) scale(.92) rotate(-9deg)}
+58%{transform:translate(-50%,-50%) scale(1.24) rotate(7deg)}
+78%{transform:translate(-50%,-50%) scale(1) rotate(-3deg);opacity:1}
+100%{transform:translate(-50%,-50%) scale(1.65) rotate(16deg);opacity:0}
+}
+.ps-ctx{position:fixed;z-index:60;min-width:190px;padding:4px;border-radius:8px;background:var(--dsw-alias-bg-overlay);border:.5px solid var(--dsw-alias-border-l2);box-shadow:0 10px 26px rgba(0,0,0,.28)}
+.ps-ctx-item{display:flex;align-items:center;gap:8px;width:100%;padding:5px 8px;border:0;border-radius:5px;background:transparent;color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;text-align:left;cursor:pointer}
+.ps-ctx-item:hover{background:var(--dsw-alias-bg-layer-2)}
+.ps-ctx-item kbd{margin-left:auto;font:10px/1 ${MONO};color:var(--dsw-alias-label-secondary)}
+.ps-ctx-item:disabled{opacity:.45;cursor:default}
+.ps-ctx-item:disabled:hover{background:transparent}
+.ps-ctx-sep{height:1px;margin:4px 2px;background:var(--dsw-alias-border-l1)}
+.ps-key-row{display:flex;align-items:center;gap:9px;font-size:12px}
+.ps-key-row .ps-key-input{flex:1;min-width:0;font:11px/1.4 ${MONO};text-align:center}
 .ps-code::selection{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 30%,transparent)}
 .ps-code-foot{flex:none;display:flex;align-items:center;gap:12px;height:26px;padding:0 10px;border-top:.5px solid var(--dsw-alias-border-l1);font-size:11px;color:var(--dsw-alias-label-secondary);white-space:nowrap;overflow:hidden}
 .ps-code-foot .ps-grow{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
@@ -265,9 +368,16 @@ window.__ModuleLoader__.load({
 .ps-empty h2{margin:0;font-size:14px;font-weight:600;color:var(--dsw-alias-label-primary)}
 .ps-empty p{margin:0;max-width:360px;font-size:12.5px;line-height:1.6}
 .ps-empty .ps-empty-actions{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:4px}
-.ps-pdf-scroll{flex:1;min-height:0;overflow:auto;background:var(--dsw-alias-bg-layer-1);padding:12px}
+.ps-pdf-scroll{flex:1;min-height:0;overflow:auto;background:var(--dsw-alias-bg-layer-1);padding:12px;overscroll-behavior:contain}
 .ps-pages{width:var(--ps-zoom,100%);min-width:280px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.ps-page-box{position:relative;width:100%;line-height:0}
 .ps-page{width:100%;display:block;background:#fff;border-radius:2px;box-shadow:0 1px 5px rgba(0,0,0,.2)}
+.ps-text-layer{position:absolute;inset:0;overflow:visible;z-index:1;line-height:0;cursor:text;user-select:text;-webkit-user-select:text}
+.ps-text-layer span{position:absolute;color:transparent;background:transparent;white-space:pre;overflow:hidden;line-height:1;cursor:text}
+.ps-text-layer span::selection{background:rgba(96,165,250,.38);color:transparent}
+.ps-text-layer span::-moz-selection{background:rgba(96,165,250,.38);color:transparent}
+.ps-page-bar{position:absolute;z-index:6;display:flex;gap:4px;padding:3px;border-radius:8px;background:var(--dsw-alias-bg-overlay);border:.5px solid var(--dsw-alias-border-l2);box-shadow:0 6px 18px rgba(0,0,0,.25);transform:translate(-50%,8px)}
+.ps-page-bar .ps-btn{height:24px;font-size:11.5px;padding:0 8px}
 .ps-frame{flex:1;width:100%;border:0;background:#fff;min-height:0}
 .ps-pdf-foot{flex:none;display:flex;align-items:center;gap:8px;height:26px;padding:0 10px;border-top:.5px solid var(--dsw-alias-border-l1);font-size:11px;color:var(--dsw-alias-label-secondary);white-space:nowrap}
 .ps-zoom{display:inline-flex;align-items:center;gap:3px}
@@ -276,6 +386,13 @@ window.__ModuleLoader__.load({
 .ps-drawer-head{flex:none;display:flex;align-items:center;gap:2px;height:30px;padding:0 6px 0 6px;border-bottom:.5px solid var(--dsw-alias-border-l1)}
 .ps-drawer-tab{height:23px;padding:0 9px;border:0;border-radius:5px;background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:11.5px;cursor:pointer}
 .ps-drawer-tab.active{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary)}
+.ps-prefs-tabs{display:flex;gap:2px;padding-bottom:6px;margin-bottom:2px;border-bottom:.5px solid var(--dsw-alias-border-l1)}
+.ps-prefs-subtabs{display:flex;gap:2px;padding:2px 0 4px}
+.ps-diag{font:9.5px/1.3 ${MONO};color:var(--dsw-alias-label-secondary);opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:52%}
+.ps-build-tag{font:9.5px/1 ${MONO};color:var(--dsw-alias-label-secondary);opacity:.55;padding-left:4px}
+.ps-build{margin-top:8px;padding-top:6px;border-top:.5px solid var(--dsw-alias-border-l1);font:10px/1.4 ${MONO};color:var(--dsw-alias-label-secondary);opacity:.7;text-align:right}
+.ps-exline{flex:none;display:flex;align-items:center;height:24px;padding:0 10px;border-top:.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);font:12px/1 ${MONO};color:var(--dsw-alias-label-primary);white-space:pre}
+.ps-vim{font:600 9.5px/1 ${MONO};letter-spacing:.06em;padding:2px 4px;border-radius:3px;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary)}
 .ps-drawer-tab .ps-count{display:inline-block;margin-left:5px;padding:1px 5px;border-radius:8px;background:color-mix(in srgb,var(--dsw-alias-state-error-primary) 16%,transparent);color:var(--dsw-alias-state-error-primary);font-size:10px}
 .ps-problems{flex:1;min-height:0;overflow:auto;padding:4px 8px 12px}
 .ps-problem{display:flex;gap:8px;align-items:flex-start;width:100%;padding:5px 6px;border:0;border-radius:5px;background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:11.5px;text-align:left;cursor:pointer}
@@ -289,7 +406,7 @@ window.__ModuleLoader__.load({
 .ps-modal-head{flex:none;display:flex;align-items:center;gap:8px;padding:14px 14px 8px 18px}
 .ps-modal-title{flex:1;margin:0;font-size:15px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ps-modal-body{display:flex;flex-direction:column;gap:12px;padding:6px 18px 12px;overflow:auto}
-.ps-modal-foot{flex:none;display:flex;justify-content:flex-end;gap:8px;padding:10px 18px 16px}
+.ps-modal-foot{flex:none;display:flex;justify-content:flex-end;gap:8px;padding:10px 18px 16px;flex-wrap:wrap}
 .ps-modal-foot .ps-btn{height:30px}
 .ps-field{display:flex;flex-direction:column;gap:5px;min-width:0}
 .ps-label{font-size:11.5px;color:var(--dsw-alias-label-secondary)}
@@ -298,6 +415,23 @@ window.__ModuleLoader__.load({
 .ps-hint{font-size:11px;line-height:1.5;color:var(--dsw-alias-label-secondary);opacity:.9}
 .ps-error{font-size:11.5px;color:var(--dsw-alias-state-error-primary);white-space:pre-wrap}
 .ps-output{margin:0;max-height:180px;overflow:auto;padding:8px 10px;border:.5px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-base);font:11px/16px ${MONO};white-space:pre-wrap;overflow-wrap:anywhere;color:var(--dsw-alias-label-secondary)}
+.ps-git{flex:1;min-height:0;overflow:auto;padding:6px 8px 18px;display:flex;flex-direction:column;gap:7px}
+.ps-git-head{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px}
+.ps-git-branch{font:600 11.5px/1 ${MONO};padding:2px 6px;border-radius:4px;background:var(--dsw-alias-bg-layer-2)}
+.ps-git-muted{color:var(--dsw-alias-label-secondary);font-size:11px}
+.ps-git-actions{display:flex;flex-wrap:wrap;gap:4px}
+.ps-git-actions .ps-btn{height:24px;font-size:11.5px;padding:0 7px}
+.ps-git-meta{display:flex;gap:6px;align-items:center;font-size:10.5px;color:var(--dsw-alias-label-secondary);overflow:hidden}
+.ps-git-meta code{font:10.5px/1.4 ${MONO};overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ps-git-files{display:flex;flex-direction:column;gap:1px;border-top:.5px solid var(--dsw-alias-border-l1);padding-top:5px}
+.ps-git-file{display:flex;align-items:center;gap:7px;width:100%;padding:2px 4px;border:0;border-radius:4px;background:transparent;color:var(--dsw-alias-label-primary);font:inherit;font-size:11.5px;text-align:left;cursor:pointer}
+.ps-git-file:hover{background:var(--dsw-alias-bg-layer-2)}
+.ps-git-status{font:600 9px/1 ${MONO};width:16px;text-align:center;color:var(--dsw-alias-state-warn-primary)}
+.ps-git-path{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl}
+.ps-git-diff{max-height:340px;overflow:auto;margin:4px 0 0;padding:6px 8px;border:.5px solid var(--dsw-alias-border-l1);border-radius:6px;background:var(--dsw-alias-bg-base);font:10.5px/15px ${MONO};white-space:pre}
+.ps-git-diff .add{color:var(--dsw-alias-state-success-primary)}
+.ps-git-diff .del{color:var(--dsw-alias-state-error-primary)}
+.ps-git-diff .hunk{color:var(--dsw-alias-brand-primary)}
 .ps-toast{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);z-index:50;display:flex;align-items:center;gap:8px;max-width:min(520px,80%);padding:8px 12px;border-radius:9px;background:var(--dsw-alias-bg-overlay);border:.5px solid var(--dsw-alias-border-l2);box-shadow:0 8px 24px rgba(0,0,0,.22);font-size:12px;color:var(--dsw-alias-label-primary)}
 .ps-toast.err{color:var(--dsw-alias-state-error-primary)}
 .ps-spin{animation:ps-spin .9s linear infinite;transform-origin:50% 50%}
@@ -306,11 +440,11 @@ window.__ModuleLoader__.load({
 .ps-dock-head{flex:none;display:flex;align-items:center;gap:2px;height:30px;padding:0 6px;border-bottom:.5px solid var(--dsw-alias-border-l1)}
 .ps-dock-head .ps-stage{font-size:11px;color:var(--dsw-alias-label-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:44%}
 .ps-split{position:relative;cursor:col-resize;background:transparent;z-index:5;touch-action:none}
-.ps-split::after{content:"";position:absolute;inset:0 2px;background:transparent;transition:background .12s ease}
-.ps-split:hover::after,.ps-split.dragging::after{background:var(--dsw-alias-brand-primary)}
-.ps-split-h{flex:none;height:5px;cursor:row-resize;position:relative;z-index:6;touch-action:none}
-.ps-split-h::after{content:"";position:absolute;inset:1px 0;background:transparent;transition:background .12s ease}
-.ps-split-h:hover::after{background:var(--dsw-alias-brand-primary)}
+.ps-split::after{content:"";position:absolute;inset:0 2px;border-radius:2px;background:transparent;transition:background .12s ease,inset .12s ease}
+.ps-split:hover::after,.ps-split.dragging::after{inset:0 3px;background:var(--dsw-alias-brand-primary)}
+.ps-split-h{flex:none;height:9px;cursor:row-resize;position:relative;z-index:6;touch-action:none}
+.ps-split-h::after{content:"";position:absolute;inset:3px 0;border-radius:2px;background:transparent;transition:background .12s ease,inset .12s ease}
+.ps-split-h:hover::after{inset:2px 0;background:var(--dsw-alias-brand-primary)}
 body.ps-resizing{cursor:col-resize;user-select:none}
 body.ps-resizing *{cursor:inherit!important}
 .ps-term{flex:1;min-height:0;overflow:auto;margin:0;padding:6px 10px 14px;font:11.5px/16.5px ${MONO};color:var(--dsw-alias-label-secondary);white-space:pre-wrap;overflow-wrap:anywhere}
@@ -323,7 +457,7 @@ body.ps-resizing *{cursor:inherit!important}
 .ps-problem.warn{color:var(--dsw-alias-state-warn-primary)}
 .ps-problem.badbox{color:var(--dsw-alias-label-secondary)}
 .ps-drawer-tab .ps-count.warn{background:color-mix(in srgb,var(--dsw-alias-state-warn-primary) 16%,transparent);color:var(--dsw-alias-state-warn-primary)}
-.ps-ac{position:absolute;z-index:30;min-width:240px;max-width:min(440px,86%);max-height:212px;overflow:auto;background:var(--dsw-alias-bg-overlay);border:.5px solid var(--dsw-alias-border-l2);border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,.26);padding:4px}
+.ps-ac{position:fixed;z-index:30;min-width:240px;max-width:min(440px,86%);max-height:212px;overflow:auto;background:var(--dsw-alias-bg-overlay);border:.5px solid var(--dsw-alias-border-l2);border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,.26);padding:4px}
 .ps-ac-item{display:flex;align-items:center;gap:8px;width:100%;padding:4px 7px;border:0;border-radius:5px;background:transparent;color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;text-align:left;cursor:pointer;white-space:nowrap}
 .ps-ac-item.active{background:var(--dsw-alias-bg-layer-2)}
 .ps-ac-item .ps-ac-label{font-family:${MONO};font-size:12px;overflow:hidden;text-overflow:ellipsis}
@@ -426,6 +560,32 @@ body.ps-resizing *{cursor:inherit!important}
         h("circle", { key: 3, cx: 12, cy: 7.6, r: 1.1 }),
         h("circle", { key: 4, cx: 15.8, cy: 10.2, r: 1.1 }),
       ], extra),
+      fetch: (extra) => svg([
+        h("path", { key: 1, d: "M7 18a4 4 0 0 1-.6-7.95A5.5 5.5 0 0 1 17.2 9.6 3.7 3.7 0 0 1 17 18h-1" }),
+        h("path", { key: 2, d: "M12 11.5v7" }),
+        h("path", { key: 3, d: "M9.2 15.5L12 18.3l2.8-2.8" }),
+      ], extra),
+      pull: (extra) => svg([
+        h("path", { key: 1, d: "M12 4v10" }),
+        h("path", { key: 2, d: "M8.2 10.2L12 14l3.8-3.8" }),
+        h("path", { key: 3, d: "M4.5 19.5h15" }),
+      ], extra),
+      push: (extra) => svg([
+        h("path", { key: 1, d: "M12 19.5V9" }),
+        h("path", { key: 2, d: "M8.2 12.8L12 9l3.8 3.8" }),
+        h("path", { key: 3, d: "M4.5 4.5h15" }),
+      ], extra),
+      bomb: (extra) => svg([
+        h("path", { key: 1, d: "M12 9.4L6.4 3.2h11.2z", fill: "currentColor", stroke: "none" }),
+        h("path", { key: 2, d: "M12 9.4L6.4 3.2h11.2z", fill: "currentColor", stroke: "none", transform: "rotate(120 12 12)" }),
+        h("path", { key: 3, d: "M12 9.4L6.4 3.2h11.2z", fill: "currentColor", stroke: "none", transform: "rotate(240 12 12)" }),
+        h("circle", { key: 4, cx: 12, cy: 12, r: 1.35, fill: "currentColor", stroke: "none" }),
+      ], extra),
+      save: (extra) => svg([
+        h("path", { key: 1, d: "M5 4.5h11l3 3v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-14a1 1 0 0 1 1-1z" }),
+        h("path", { key: 2, d: "M8 4.5v5h7v-5" }),
+        h("path", { key: 3, d: "M8 14.5h8v6H8z" }),
+      ], extra),
       terminal: (extra) => svg([
         h("rect", { key: 1, x: 3.5, y: 4.5, width: 17, height: 15, rx: 2 }),
         h("path", { key: 2, d: "M7.5 9.5l2.5 2.5-2.5 2.5" }),
@@ -496,12 +656,28 @@ body.ps-resizing *{cursor:inherit!important}
       backgrounds: true,
       currentLine: true,
       currentLineColor: "#8b5cf6",
+      spellcheck: false,
+      spellLang: "en_US",
+      wrap: false,
+      autoCompile: false,
+      diagnostics: false,
+      vim: false,
+      keys: {
+        save: "mod+s",
+        bold: "mod+b",
+        italic: "mod+i",
+        underline: "mod+u",
+        undo: "mod+z",
+        redo: "mod+shift+z",
+      },
     };
 
     function readSyntax() {
       try {
         const raw = window.localStorage.getItem(SYNTAX_KEY);
-        return raw ? { ...DEFAULT_SYNTAX, ...JSON.parse(raw) } : { ...DEFAULT_SYNTAX };
+        if (!raw) return { ...DEFAULT_SYNTAX };
+        const stored = JSON.parse(raw);
+        return { ...DEFAULT_SYNTAX, ...stored, keys: { ...DEFAULT_SYNTAX.keys, ...(stored.keys || {}) } };
       } catch {
         return { ...DEFAULT_SYNTAX };
       }
@@ -536,6 +712,31 @@ body.ps-resizing *{cursor:inherit!important}
         "--ps-bg-code": tint(syntax.bgCode, 0.14),
         "--ps-current-line": tint(syntax.currentLineColor, 0.85),
       };
+    }
+
+    /** "mod+shift+z" from a keyboard event, or null for a bare modifier press. */
+    function bindingFromEvent(event) {
+      const key = String(event.key || "").toLowerCase();
+      if (["control", "meta", "shift", "alt"].includes(key)) return null;
+      const parts = [];
+      if (event.ctrlKey || event.metaKey) parts.push("mod");
+      if (event.altKey) parts.push("alt");
+      if (event.shiftKey) parts.push("shift");
+      parts.push(key === " " ? "space" : key);
+      return parts.join("+");
+    }
+
+    function matchesBinding(event, binding) {
+      if (!binding) return false;
+      const parts = String(binding).toLowerCase().split("+");
+      const key = parts[parts.length - 1];
+      const wantsMod = parts.includes("mod");
+      const wantsShift = parts.includes("shift");
+      const wantsAlt = parts.includes("alt");
+      if (Boolean(event.ctrlKey || event.metaKey) !== wantsMod) return false;
+      if (Boolean(event.altKey) !== wantsAlt) return false;
+      if (Boolean(event.shiftKey) !== wantsShift) return false;
+      return String(event.key || "").toLowerCase() === key;
     }
 
     const UI_KEY = "dsh.paper-studio.ui";
@@ -648,7 +849,7 @@ body.ps-resizing *{cursor:inherit!important}
      * editor can paint a background band for the environment and a box around
      * the cursor line; each entry carries ready HTML for the tokens.
      */
-    function highlightLines(source) {
+    function highlightLines(source, misspelled) {
       const text = String(source ?? "");
       if (text.length > MAX_HIGHLIGHT_CHARS) {
         // Very large files stay plain so typing never waits for the tokenizer.
@@ -667,6 +868,19 @@ body.ps-resizing *{cursor:inherit!important}
         const emit = (text, cls) => {
           if (!text) return;
           html += cls ? `<span class="${cls}">${escapeHtml(text)}</span>` : escapeHtml(text);
+        };
+        const emitPlain = (text) => {
+          if (!text) return;
+          if (!misspelled || misspelled.size === 0) {
+            emit(text);
+            return;
+          }
+          // Only plain prose is spell-checked; commands, math and comments are not.
+          for (const part of text.split(/([\p{L}][\p{L}'\u2019-]*)/gu)) {
+            if (part.length === 0) continue;
+            if (/^\p{L}/u.test(part) && misspelled.has(part.toLowerCase())) emit(part, "ps-hl-misspell");
+            else emit(part);
+          }
         };
         while (index < line.length) {
           const character = line[index];
@@ -744,7 +958,7 @@ body.ps-resizing *{cursor:inherit!important}
           }
           let stop = index + 1;
           while (stop < line.length && "\\$%{}".indexOf(line[stop]) === -1) stop += 1;
-          emit(line.slice(index, stop));
+          emitPlain(line.slice(index, stop));
           index = stop;
         }
         if (mathBlock && !category) category = "math";
@@ -755,8 +969,8 @@ body.ps-resizing *{cursor:inherit!important}
     }
 
     /** Flat HTML variant, kept for tests and simple rendering. */
-    function highlightLatex(source) {
-      return highlightLines(source).map((line) => line.html).join("\n");
+    function highlightLatex(source, misspelled) {
+      return highlightLines(source, misspelled).map((line) => line.html).join("\n");
     }
 
     const COMPLETION_COMMANDS = [
@@ -790,6 +1004,38 @@ body.ps-resizing *{cursor:inherit!important}
       "parskip", "tocloft", "titlesec", "fancyhdr", "xspace", "lmodern", "textcomp", "array", "tabularx",
     ];
 
+    /** Argument shapes for common commands: `{}` required, `[]{}` optional + required. */
+    const COMMAND_ARGUMENTS = {
+      section: "{}", subsection: "{}", subsubsection: "{}", paragraph: "{}", chapter: "{}", part: "{}",
+      label: "{}", ref: "{}", eqref: "{}", autoref: "{}", cref: "{}", pageref: "{}", nameref: "{}",
+      cite: "{}", citep: "{}", citet: "{}", parencite: "{}", textcite: "{}", autocite: "{}",
+      usepackage: "{}", documentclass: "{}", input: "{}", include: "{}", bibliography: "{}",
+      footnote: "{}", emph: "{}", textbf: "{}", textit: "{}", texttt: "{}", textsc: "{}", url: "{}", href: "{}",
+      caption: "{}", title: "{}", author: "{}", date: "{}", begin: "{}", end: "{}",
+      includegraphics: "[]{}",
+    };
+
+    /** Whole-block snippets; `<>` marks where the caret lands. */
+    const ENV_SNIPPETS = {
+      figure: "\\begin{figure}\n  \\centering\n  \\includegraphics[width=0.5\\linewidth]{<>}\n  \\caption{Caption}\n  \\label{fig:placeholder}\n\\end{figure}",
+      table: "\\begin{table}\n  \\centering\n  \\begin{tabular}{cc}\n    <> & \\\\\n  \\end{tabular}\n  \\caption{Caption}\n  \\label{tab:placeholder}\n\\end{table}",
+      itemize: "\\begin{itemize}\n  \\item <>\n\\end{itemize}",
+      enumerate: "\\begin{enumerate}\n  \\item <>\n\\end{enumerate}",
+      equation: "\\begin{equation}\n  <>\n  \\label{eq:placeholder}\n\\end{equation}",
+      align: "\\begin{align}\n  <> &= \n\\end{align}",
+      theorem: "\\begin{theorem}\n  <>\n\\end{theorem}",
+      proof: "\\begin{proof}\n  <>\n\\end{proof}",
+      abstract: "\\begin{abstract}\n  <>\n\\end{abstract}",
+      tikzpicture: "\\begin{tikzpicture}\n  <>\n\\end{tikzpicture}",
+    };
+
+    function environmentSnippet(name) {
+      const raw = ENV_SNIPPETS[name];
+      if (!raw) return null;
+      const caret = raw.indexOf("<>");
+      return { text: raw.replace("<>", ""), caret: caret >= 0 ? caret : 0 };
+    }
+
     const CITE_COMMANDS = /^(?:cite|citep|citet|citealp|citeauthor|citeyear|parencite|textcite|autocite|footcite|nocite)\*?$/u;
     const REF_COMMANDS = /^(?:ref|eqref|autoref|cref|Cref|pageref|nameref|labelcref|vref)$/u;
 
@@ -807,6 +1053,46 @@ body.ps-resizing *{cursor:inherit!important}
       }
       monoMetric = { font, width };
       return width;
+    }
+
+    /**
+     * Content-relative caret geometry, measured with a hidden mirror so wrapped
+     * lines and tabs are exact. Returned coordinates exclude scroll offsets.
+     */
+    function caretCoordinates(textarea, position, wrap) {
+      if (!textarea || !textarea.isConnected) return { left: 0, top: 0, width: 8, height: 20 };
+      const style = window.getComputedStyle(textarea);
+      const mirror = document.createElement("div");
+      for (const property of [
+        "fontFamily", "fontSize", "fontWeight", "fontStyle", "letterSpacing", "lineHeight",
+        "textTransform", "textIndent", "paddingTop", "paddingRight", "paddingBottom", "paddingLeft",
+        "borderTopWidth", "borderRightWidth", "borderBottomWidth", "borderLeftWidth",
+      ]) {
+        mirror.style[property] = style[property];
+      }
+      mirror.style.position = "fixed";
+      mirror.style.visibility = "hidden";
+      mirror.style.top = "0";
+      mirror.style.left = "-10000px";
+      mirror.style.boxSizing = "border-box";
+      mirror.style.width = `${textarea.clientWidth}px`;
+      mirror.style.whiteSpace = wrap ? "pre-wrap" : "pre";
+      mirror.style.overflowWrap = wrap ? "anywhere" : "normal";
+      mirror.style.tabSize = "2";
+      mirror.style.pointerEvents = "none";
+      mirror.textContent = textarea.value.slice(0, Math.max(0, Math.min(position, textarea.value.length)));
+      const marker = document.createElement("span");
+      marker.textContent = "\u200b";
+      mirror.appendChild(marker);
+      // Appending to <body> keeps the mirror out of the editor's scroll box, so
+      // measuring cannot trigger scroll anchoring or layout shifts.
+      document.body.appendChild(mirror);
+      const left = marker.offsetLeft;
+      const top = marker.offsetTop;
+      mirror.remove();
+      const height = Number.parseFloat(style.lineHeight) || 20;
+      const width = measureMono(style.font || `${style.fontSize} ${style.fontFamily}`);
+      return { left, top, width, height };
     }
 
     /** Popup anchor in the code wrapper's coordinates, from the caret's line/column. */
@@ -844,10 +1130,8 @@ body.ps-resizing *{cursor:inherit!important}
       }
       const command = /\\([a-zA-Z@]*)$/u.exec(before);
       if (command) return { kind: "command", query: command[1], start: position - command[1].length, end: position };
-      // A bare path or filename (e.g. typing `figures/plot` inside a figure):
-      // matches are filtered against the project's files, so prose rarely pops.
-      const word = /([A-Za-z0-9_./-]+)$/u.exec(before);
-      if (word && word[1].length >= 2) return { kind: "anyfile", query: word[1], start: position - word[1].length, end: position };
+      // Files are offered only inside \includegraphics{…} (image), \input{…},
+      // \bibliography{…} or an \end/\begin environment name — never in prose.
       return null;
     }
 
@@ -869,31 +1153,66 @@ body.ps-resizing *{cursor:inherit!important}
           ? { label: entry, insert: entry, detail: detailOf ? detailOf(entry) : "" }
           : { label: entry.key, insert: entry.key, detail: detailOf ? detailOf(entry) : "" }));
       if (kind === "command") {
-        return pack(COMPLETION_COMMANDS, () => "command").map((item) => ({ ...item, label: `\\${item.label}` }));
+        const seen = new Set();
+        const merged = [];
+        for (const name of COMPLETION_COMMANDS) {
+          if (seen.has(name)) continue;
+          seen.add(name);
+          merged.push({ name, arity: 0, builtin: true });
+        }
+        for (const entry of (symbols.commands || [])) {
+          if (seen.has(entry.name)) continue;
+          seen.add(entry.name);
+          merged.push({ name: entry.name, arity: entry.arity || 0, builtin: false, file: entry.file });
+        }
+        return merged
+          .map((entry) => ({ entry, rank: rank(entry.name) }))
+          .filter((item) => item.rank >= 0)
+          .sort((left, right) => left.rank - right.rank || left.entry.name.localeCompare(right.entry.name))
+          .slice(0, 60)
+          .map(({ entry }) => {
+            const signature = COMMAND_ARGUMENTS[entry.name] ?? (entry.arity > 0 ? "{}".repeat(entry.arity) : "");
+            const inside = signature.startsWith("[") ? signature.indexOf("{") + 1 : 1;
+            return {
+              label: `\\${entry.name}`,
+              insert: entry.name,
+              suffix: signature,
+              caret: signature ? entry.name.length + inside : entry.name.length,
+              detail: entry.builtin ? "command" : `\\${entry.name} · ${entry.file}`,
+            };
+          });
       }
-      if (kind === "environment") return pack(COMPLETION_ENVIRONMENTS, () => "environment");
+      if (kind === "environment") {
+        const seen = new Set();
+        const merged = [];
+        for (const name of COMPLETION_ENVIRONMENTS) {
+          if (seen.has(name)) continue;
+          seen.add(name);
+          merged.push({ name, builtin: true });
+        }
+        for (const entry of (symbols.environments || [])) {
+          if (seen.has(entry.name)) continue;
+          seen.add(entry.name);
+          merged.push({ name: entry.name, builtin: false, file: entry.file });
+        }
+        return merged
+          .map((entry) => ({ entry, rank: rank(entry.name) }))
+          .filter((item) => item.rank >= 0)
+          .sort((left, right) => left.rank - right.rank || left.entry.name.localeCompare(right.entry.name))
+          .slice(0, 60)
+          .map(({ entry }) => ({
+            label: entry.name,
+            insert: entry.name,
+            template: environmentSnippet(entry.name),
+            detail: entry.builtin ? "environment" : `\\${entry.name} · ${entry.file}`,
+          }));
+      }
       if (kind === "package") return pack(COMPLETION_PACKAGES, () => "package");
       if (kind === "label") return pack(symbols.labels || [], (entry) => `${entry.file}${entry.line ? `:${entry.line}` : ""}`);
       if (kind === "citation") return pack(symbols.citations || [], (entry) => [entry.year, entry.title].filter(Boolean).join(" · ").slice(0, 70));
       if (kind === "image") return pack((symbols.files || []).filter((file) => /\.(?:png|jpe?g|pdf|eps|svg)$/iu.test(file)), () => "image");
       if (kind === "bibfile") return pack((symbols.files || []).filter((file) => /\.bib$/iu.test(file)), () => "bib");
       if (kind === "file") return pack((symbols.files || []).filter((file) => /\.tex$/iu.test(file)), () => "tex");
-      if (kind === "anyfile") {
-        const files = symbols.files || [];
-        const matches = files.filter((file) => {
-          const base = file.split("/").pop() || file;
-          if (needle.includes("/")) return file.toLowerCase().includes(needle);
-          return base.toLowerCase().startsWith(needle);
-        });
-        return matches
-          .sort((left, right) => left.length - right.length || left.localeCompare(right))
-          .slice(0, 60)
-          .map((file) => ({
-            label: file,
-            insert: file,
-            detail: /\.(?:png|jpe?g|pdf|eps|svg)$/iu.test(file) ? "image" : /\.bib$/iu.test(file) ? "bib" : "tex",
-          }));
-      }
       return [];
     }
 
@@ -901,25 +1220,26 @@ body.ps-resizing *{cursor:inherit!important}
       const {
         t, tabs, activePath, tab, cursor, compile, status, onSelectTab, onCloseTab,
         onEdit, editorRef, gutterInnerRef, onScroll, onCursor, onInsertText,
-        onReloadDisk, onKeepMine, symbols, syntax,
+        onReloadDisk, onKeepMine, symbols, syntax, misspelled, onSave, onUndo, onRedo, notify, onToggleWrap,
       } = props;
       const theme = syntax || DEFAULT_SYNTAX;
+      const keys = theme.keys || DEFAULT_SYNTAX.keys;
       const wrapRef = useRef(null);
       const areaRef = useRef(null);
       const highlightRef = useRef(null);
+      const highlightInnerRef = useRef(null);
+      const caretMemory = useRef(0);
       const [completion, setCompletion] = useState(null);
       const lineCount = useMemo(() => (tab ? tab.content.split("\n").length : 0), [tab ? tab.content : ""]);
-      const numbers = useMemo(() => {
-        const list = new Array(lineCount);
-        for (let index = 0; index < lineCount; index += 1) list[index] = index + 1;
-        return list;
-      }, [lineCount]);
-      const lines = useMemo(() => (tab ? highlightLines(tab.content) : []), [tab ? tab.content : ""]);
+      const lines = useMemo(
+        () => (tab ? highlightLines(tab.content, misspelled) : []),
+        [tab ? tab.content : "", misspelled],
+      );
       const currentLine = cursor && cursor.line ? cursor.line - 1 : -1;
       const markup = useMemo(() => lines.map((line, index) => {
         const background = theme.backgrounds && line.bg ? ` data-bg="${line.bg}"` : "";
         const current = theme.currentLine && index === currentLine ? " current" : "";
-        return `<div class="ps-hl-line${current}"${background}>${line.html}</div>`;
+        return `<div class="ps-hl-line${current}"${background} data-line="${index + 1}">${line.html}</div>`;
       }).join(""), [lines, currentLine, theme.backgrounds, theme.currentLine]);
       const styleVars = useMemo(() => syntaxVariables(theme), [theme]);
 
@@ -944,27 +1264,54 @@ body.ps-resizing *{cursor:inherit!important}
           setCompletion(null);
           return;
         }
-        const point = caretPoint(textarea, context.start);
-        const area = areaRef.current;
-        const width = area ? area.clientWidth : 600;
-        const height = area ? area.clientHeight : 400;
-        const popupWidth = 280;
-        const left = Math.max(4, Math.min(point.x, width - popupWidth - 8));
-        const estimated = Math.min(212, 14 + items.length * 26);
-        const top = point.y + estimated + 8 > height ? Math.max(4, point.y - estimated - 4) : point.y + 18;
-        setCompletion({ context, items, index: 0, left, top });
+        const rect = textarea.getBoundingClientRect();
+        let left;
+        let top;
+        if (theme.wrap) {
+          const point = caretCoordinates(textarea, context.start, true);
+          left = rect.left + point.left - textarea.scrollLeft;
+          top = rect.top + point.top - textarea.scrollTop + point.height + 4;
+        } else {
+          const point = caretPoint(textarea, context.start);
+          left = rect.left + point.x;
+          top = rect.top + point.y + 4;
+        }
+        left = Math.max(8, Math.min(left, window.innerWidth - 300));
+        const maxHeight = Math.max(90, Math.min(220, window.innerHeight - top - 12));
+        setCompletion({ context, items, index: 0, left, top, maxHeight });
       }, [editorRef, symbols]);
 
       const acceptCompletion = useCallback((item) => {
         const textarea = editorRef.current;
         if (!textarea || !completion || !tab) return;
         const { context } = completion;
-        const needsBrace = ["citation", "label", "environment", "package", "image", "file", "bibfile"].includes(context.kind);
-        const insert = `${item.insert}${needsBrace && textarea.value[context.end] !== "}" ? "}" : ""}`;
-        const next = textarea.value.slice(0, context.start) + insert + textarea.value.slice(context.end);
-        onEdit(tab.path, next);
+        const value = textarea.value;
+        let next;
+        let caret;
+
+        if (context.kind === "environment" && item.template) {
+          // Replace the whole `\begin{fig` token with the snippet.
+          const before = value.slice(0, context.start);
+          const start = Math.max(before.lastIndexOf("\\begin{"), before.lastIndexOf("\\end{"));
+          const from = start >= 0 ? start : context.start;
+          let to = context.end;
+          if (value[to] === "}") to += 1;
+          next = value.slice(0, from) + item.template.text + value.slice(to);
+          caret = from + item.template.caret;
+        } else if (context.kind === "command") {
+          const hasBrace = value[context.end] === "{";
+          const suffix = hasBrace ? "" : (item.suffix || "");
+          const insert = item.insert + suffix;
+          next = value.slice(0, context.start) + insert + value.slice(context.end);
+          caret = context.start + (hasBrace ? item.insert.length : (item.caret ?? insert.length));
+        } else {
+          const needsBrace = ["citation", "label", "package", "image", "file", "bibfile"].includes(context.kind);
+          const insert = `${item.insert}${needsBrace && value[context.end] !== "}" ? "}" : ""}`;
+          next = value.slice(0, context.start) + insert + value.slice(context.end);
+          caret = context.start + insert.length;
+        }
+        onEdit(tab.path, next, caret);
         setCompletion(null);
-        const caret = context.start + insert.length;
         requestAnimationFrame(() => {
           textarea.focus();
           textarea.setSelectionRange(caret, caret);
@@ -972,15 +1319,411 @@ body.ps-resizing *{cursor:inherit!important}
         });
       }, [completion, editorRef, onCursor, onEdit, tab]);
 
-      const syncHighlight = useCallback(() => {
+      const wrapSelection = useCallback((before, after) => {
         const textarea = editorRef.current;
-        const layer = highlightRef.current;
-        if (!textarea || !layer) return;
-        layer.scrollTop = textarea.scrollTop;
-        layer.scrollLeft = textarea.scrollLeft;
+        if (!textarea || !tab) return;
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const value = textarea.value;
+        const selected = value.slice(start, end);
+        const wrapped = value.slice(Math.max(0, start - before.length), start) === before
+          && value.slice(end, end + after.length) === after;
+        const next = wrapped
+          ? value.slice(0, start - before.length) + selected + value.slice(end + after.length)
+          : value.slice(0, start) + before + selected + after + value.slice(end);
+        const caretStart = wrapped ? start - before.length : start + before.length;
+        const caretEnd = wrapped ? end - before.length : end + before.length;
+        onEdit(tab.path, next, caretEnd);
+        requestAnimationFrame(() => {
+          textarea.focus();
+          textarea.setSelectionRange(caretStart, caretEnd);
+          onCursor({ currentTarget: textarea });
+        });
+      }, [editorRef, onCursor, onEdit, tab]);
+
+      const [vimMode, setVimMode] = useState(theme.vim ? "normal" : "insert");
+      const [exLine, setExLine] = useState(null);
+      const [caretBox, setCaretBox] = useState(null);
+      const [diagnostics, setDiagnostics] = useState("");
+      const blockRef = useRef(null);
+      const vimAnchor = useRef(0);
+      const vimRegister = useRef("");
+      const vimPending = useRef("");
+
+      useEffect(() => {
+        setVimMode(theme.vim ? "normal" : "insert");
+        setExLine(null);
+      }, [theme.vim]);
+
+      const textValue = useCallback(() => (editorRef.current ? editorRef.current.value : ""), [editorRef]);
+
+      const setCaret = useCallback((position) => {
+        const textarea = editorRef.current;
+        if (!textarea) return;
+        const target = Math.max(0, Math.min(textarea.value.length, position));
+        caretMemory.current = target;
+        textarea.focus();
+        textarea.setSelectionRange(target, target);
+        onCursor({ currentTarget: textarea });
+      }, [editorRef, onCursor]);
+
+      const lineBounds = useCallback((position) => {
+        const value = textValue();
+        const start = value.lastIndexOf("\n", Math.max(0, position - 1)) + 1;
+        const end = value.indexOf("\n", position);
+        return { start, end: end === -1 ? value.length : end };
+      }, [textValue]);
+
+      const lineColOf = useCallback((position) => {
+        const before = textValue().slice(0, position);
+        return { line: before.split("\n").length - 1, col: position - before.lastIndexOf("\n") - 1 };
+      }, [textValue]);
+
+      const positionAt = useCallback((line, col) => {
+        const lines = textValue().split("\n");
+        let position = 0;
+        for (let index = 0; index < line && index < lines.length; index += 1) position += lines[index].length + 1;
+        const target = lines[line] ?? "";
+        return position + Math.min(Math.max(0, col), target.length);
+      }, [textValue]);
+
+      const moveTo = useCallback((position) => {
+        const textarea = editorRef.current;
+        if (!textarea) return;
+        const target = Math.max(0, Math.min(textarea.value.length, position));
+        if (vimMode === "visual") {
+          textarea.focus();
+          textarea.setSelectionRange(Math.min(vimAnchor.current, target), Math.max(vimAnchor.current, target));
+          onCursor({ currentTarget: textarea });
+          return;
+        }
+        setCaret(target);
+      }, [onCursor, setCaret, vimMode]);
+
+      const applyVim = useCallback((next, caret) => {
+        if (!tab) return;
+        onEdit(tab.path, next, caret);
+        requestAnimationFrame(() => setCaret(caret));
+      }, [onEdit, setCaret, tab]);
+
+      const deleteRange = useCallback((from, to) => {
+        const value = textValue();
+        const start = Math.max(0, Math.min(from, to));
+        const end = Math.min(value.length, Math.max(from, to));
+        if (end <= start) return;
+        applyVim(value.slice(0, start) + value.slice(end), start);
+      }, [applyVim, textValue]);
+
+      const insertAt = useCallback((position, text) => {
+        const value = textValue();
+        const target = Math.max(0, Math.min(value.length, position));
+        applyVim(value.slice(0, target) + text + value.slice(target), target + text.length);
+      }, [applyVim, textValue]);
+
+      const nextWordStart = useCallback((position) => {
+        const value = textValue();
+        let index = position;
+        while (index < value.length && !/\s/u.test(value[index])) index += 1;
+        while (index < value.length && /\s/u.test(value[index])) index += 1;
+        return index;
+      }, [textValue]);
+
+      const prevWordStart = useCallback((position) => {
+        const value = textValue();
+        let index = Math.max(0, position - 1);
+        while (index > 0 && /\s/u.test(value[index])) index -= 1;
+        while (index > 0 && !/\s/u.test(value[index - 1])) index -= 1;
+        return index;
+      }, [textValue]);
+
+      const wordEnd = useCallback((position) => {
+        const value = textValue();
+        if (value.length === 0) return 0;
+        let index = Math.min(value.length - 1, position + 1);
+        while (index < value.length - 1 && /\s/u.test(value[index])) index += 1;
+        while (index < value.length - 1 && !/\s/u.test(value[index + 1])) index += 1;
+        return index;
+      }, [textValue]);
+
+      const executeEx = useCallback((line) => {
+        const command = line.trim();
+        const textarea = editorRef.current;
+        if (!textarea || !tab || command.length === 0) return;
+        const value = textValue();
+        const position = textarea.selectionStart;
+        if (command === "w" || command === "wq") {
+          if (onSave) onSave(tab.path);
+          return;
+        }
+        if (command === "q") return;
+        if (/^\d+$/u.test(command)) {
+          setCaret(positionAt(Number(command) - 1, 0));
+          return;
+        }
+        const substitution = /^(%?)s\/(.+?)\/(.*?)\/([a-z]*)$/u.exec(command);
+        if (!substitution) {
+          if (notify) notify(`Unknown command: ${command}`, "err");
+          return;
+        }
+        const [, scope, pattern, replacement, flags] = substitution;
+        try {
+          const regex = new RegExp(pattern, flags.includes("i") ? "gi" : "g");
+          if (scope === "%") {
+            applyVim(value.replace(regex, replacement), position);
+          } else {
+            const { start, end } = lineBounds(position);
+            const nextLine = value.slice(start, end).replace(regex, replacement);
+            applyVim(value.slice(0, start) + nextLine + value.slice(end), start);
+          }
+        } catch (error) {
+          if (notify) notify(error.message, "err");
+        }
+      }, [applyVim, lineBounds, notify, onSave, positionAt, setCaret, tab, textValue]);
+
+      const handleExKey = useCallback((event) => {
+        event.preventDefault();
+        if (event.key === "Enter") {
+          const line = exLine || "";
+          setExLine(null);
+          executeEx(line);
+          return;
+        }
+        if (event.key === "Escape") {
+          setExLine(null);
+          setVimMode("normal");
+          return;
+        }
+        if (event.key === "Backspace") {
+          setExLine((current) => (current || "").slice(0, -1));
+          return;
+        }
+        if (event.key.length === 1) setExLine((current) => (current || "") + event.key);
+      }, [exLine, executeEx]);
+
+      const handleVimKey = useCallback((event) => {
+        const textarea = editorRef.current;
+        if (!textarea || !tab) return;
+        const keysNow = theme.keys || DEFAULT_SYNTAX.keys;
+        if (event.ctrlKey || event.metaKey) {
+          if (matchesBinding(event, keysNow.undo)) {
+            event.preventDefault();
+            if (onUndo) onUndo(tab.path);
+            return;
+          }
+          if (matchesBinding(event, keysNow.redo) || matchesBinding(event, "mod+y")) {
+            event.preventDefault();
+            if (onRedo) onRedo(tab.path);
+          }
+          return;
+        }
+        const navigation = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End", "PageUp", "PageDown"];
+        if (navigation.includes(event.key)) return;
+        event.preventDefault();
+        const key = event.key;
+        const value = textarea.value;
+        const position = textarea.selectionStart;
+        const { line, col } = lineColOf(position);
+
+        if (vimMode === "visual") {
+          if (key === "d" || key === "x") {
+            deleteRange(Math.min(vimAnchor.current, position), Math.max(vimAnchor.current, position));
+            setVimMode("normal");
+            return;
+          }
+          if (key === "y") {
+            vimRegister.current = value.slice(Math.min(vimAnchor.current, position), Math.max(vimAnchor.current, position));
+            setVimMode("normal");
+            return;
+          }
+          if (key === "Escape") {
+            setVimMode("normal");
+            return;
+          }
+        }
+
+        if (vimPending.current === "g") {
+          vimPending.current = "";
+          if (key === "g") moveTo(0);
+          return;
+        }
+        if (vimPending.current === "d") {
+          vimPending.current = "";
+          if (key === "d") {
+            const { start, end } = lineBounds(position);
+            const removeEnd = end < value.length ? end + 1 : end;
+            const next = value.slice(0, start) + value.slice(removeEnd);
+            vimRegister.current = value.slice(start, end);
+            applyVim(next, Math.min(start, next.length));
+          }
+          return;
+        }
+        if (vimPending.current === "y") {
+          vimPending.current = "";
+          if (key === "y") {
+            const { start, end } = lineBounds(position);
+            vimRegister.current = value.slice(start, end);
+          }
+          return;
+        }
+
+        switch (key) {
+          case "h": moveTo(Math.max(0, position - 1)); return;
+          case "l": moveTo(Math.min(value.length, position + 1)); return;
+          case "j": moveTo(positionAt(line + 1, col)); return;
+          case "k": moveTo(positionAt(Math.max(0, line - 1), col)); return;
+          case "w": moveTo(nextWordStart(position)); return;
+          case "b": moveTo(prevWordStart(position)); return;
+          case "e": moveTo(wordEnd(position)); return;
+          case "0": moveTo(lineBounds(position).start); return;
+          case "$": moveTo(lineBounds(position).end); return;
+          case "g": vimPending.current = "g"; return;
+          case "G": moveTo(positionAt(value.split("\n").length - 1, 0)); return;
+          case "i": setVimMode("insert"); return;
+          case "a": moveTo(Math.min(value.length, position + 1)); setVimMode("insert"); return;
+          case "A": moveTo(lineBounds(position).end); setVimMode("insert"); return;
+          case "I": moveTo(lineBounds(position).start); setVimMode("insert"); return;
+          case "o": insertAt(lineBounds(position).end, "\n"); setVimMode("insert"); return;
+          case "O": insertAt(lineBounds(position).start, "\n"); setVimMode("insert"); return;
+          case "x": deleteRange(position, Math.min(value.length, position + 1)); return;
+          case "d": vimPending.current = "d"; return;
+          case "y": vimPending.current = "y"; return;
+          case "p": insertAt(Math.min(value.length, position + 1), vimRegister.current); return;
+          case "P": insertAt(position, vimRegister.current); return;
+          case "u": if (onUndo) onUndo(tab.path); return;
+          case "v": vimAnchor.current = position; setVimMode("visual"); return;
+          case ":": setExLine(""); return;
+          case "Escape": setVimMode("normal"); return;
+          default: return;
+        }
+      }, [applyVim, deleteRange, insertAt, lineBounds, lineColOf, moveTo, nextWordStart, onRedo, onUndo, positionAt, prevWordStart, setCaret, tab, theme.keys, vimMode, wordEnd]);
+
+      // Pin the layer to the textarea's exact content box, scrollbar included, so
+      // both wrap at identical widths and line positions never drift apart.
+      const applyWrapWidth = useCallback(() => {
+        const textarea = editorRef.current;
+        const wrap = wrapRef.current;
+        if (!textarea || !wrap) return;
+        wrap.style.setProperty("--ps-pre-width", `${textarea.clientWidth}px`);
       }, [editorRef]);
 
-      useEffect(() => { syncHighlight(); }, [markup, activePath, syncHighlight]);
+      useLayoutEffectSafe(() => {
+        if (!theme.wrap) return;
+        applyWrapWidth();
+      }, [theme.wrap, applyWrapWidth, activePath, tab ? tab.path : ""]);
+
+      useEffect(() => {
+        if (!theme.vim || vimMode === "insert") {
+          setCaretBox(null);
+          return;
+        }
+        const textarea = editorRef.current;
+        if (!textarea) {
+          setCaretBox(null);
+          return;
+        }
+        if (theme.wrap) {
+          setCaretBox(caretCoordinates(textarea, textarea.selectionStart, true));
+          return;
+        }
+        const point = caretPoint(textarea, textarea.selectionStart);
+        const style = window.getComputedStyle(textarea);
+        const height = Number.parseFloat(style.lineHeight) || 20;
+        const width = measureMono(style.font || `${style.fontSize} ${style.fontFamily}`);
+        setCaretBox({
+          left: point.x + textarea.scrollLeft,
+          top: point.y + textarea.scrollTop - height,
+          width,
+          height,
+        });
+      }, [theme.vim, theme.wrap, vimMode, cursor.line, cursor.col, activePath, tab ? tab.content : ""]);
+
+      useEffect(() => {
+        const wrap = wrapRef.current;
+        const textarea = editorRef.current;
+        if (!wrap || !textarea) return undefined;
+        const onWheel = (event) => {
+          if (event.target === textarea) return;
+          const before = textarea.scrollTop;
+          textarea.scrollTop += event.deltaY;
+          if (textarea.scrollTop === before) return;
+          event.preventDefault();
+          onScroll({ currentTarget: textarea });
+          if (highlightInnerRef.current) highlightInnerRef.current.style.top = `${-textarea.scrollTop}px`;
+          if (blockRef.current) blockRef.current.style.transform = `translate(0, ${-textarea.scrollTop}px)`;
+        };
+        wrap.addEventListener("wheel", onWheel, { passive: false });
+        return () => wrap.removeEventListener("wheel", onWheel);
+      }, [onScroll]);
+
+      const syncHighlight = useCallback(() => {
+        const textarea = editorRef.current;
+        const inner = highlightInnerRef.current;
+        if (!textarea || !inner) return;
+        // Offset with layout properties: transforms on this layer were not
+        // repainting in practice, while top/left force a reflow and a repaint.
+        inner.style.top = `${-textarea.scrollTop}px`;
+        inner.style.left = `${-textarea.scrollLeft}px`;
+      }, [editorRef]);
+
+      useEffect(() => {
+        const textarea = editorRef.current;
+        if (!textarea) return undefined;
+        const onNativeScroll = () => syncHighlight();
+        textarea.addEventListener("scroll", onNativeScroll, { passive: true });
+        return () => textarea.removeEventListener("scroll", onNativeScroll);
+      }, [syncHighlight, theme.wrap, tab ? tab.path : ""]);
+
+      useLayoutEffectSafe(() => { syncHighlight(); }, [markup, activePath, syncHighlight]);
+
+      useLayoutEffectSafe(() => {
+        if (!theme.diagnostics) return;
+        const textarea = editorRef.current;
+        const pre = highlightRef.current;
+        if (!textarea || !pre) return;
+        const style = window.getComputedStyle(pre);
+        const inner = pre.firstElementChild;
+        setDiagnostics([
+          `build ${CLIENT_BUILD.slice(11, 16)}`,
+          `cw ${textarea.clientWidth}`,
+          `sw ${textarea.scrollWidth}`,
+          `pw ${Math.round(pre.getBoundingClientRect().width)}`,
+          `ws ${style.whiteSpace}`,
+          `st ${textarea.scrollTop}`,
+          `top ${inner ? inner.style.top || "0" : "?"}`,
+          `sh ${textarea.scrollHeight}`,
+          `ch ${textarea.clientHeight}`,
+        ].join(" · "));
+      }, [theme.diagnostics, markup, cursor.line, cursor.col, tab ? tab.content : "", theme.wrap]);
+
+      // A wrap toggle remounts the textarea (to apply wrapping), so restore the
+      // caret, then measure and sync before the browser paints.
+      useLayoutEffectSafe(() => {
+        const textarea = editorRef.current;
+        if (!textarea) return undefined;
+        textarea.scrollLeft = 0;
+        const position = Math.min(caretMemory.current, textarea.value.length);
+        textarea.focus();
+        textarea.setSelectionRange(position, position);
+        if (theme.wrap) {
+          applyWrapWidth();
+          const point = caretCoordinates(textarea, position, true);
+          if (point.top < textarea.scrollTop || point.top + point.height > textarea.scrollTop + textarea.clientHeight) {
+            textarea.scrollTop = Math.max(0, point.top - Math.round(textarea.clientHeight / 3));
+          }
+        }
+        syncHighlight();
+        onCursor({ currentTarget: textarea });
+        if (typeof ResizeObserver === "undefined") return undefined;
+        const area = areaRef.current;
+        if (!area) return undefined;
+        const observer = new ResizeObserver(() => {
+          if (theme.wrap) applyWrapWidth();
+          syncHighlight();
+        });
+        observer.observe(area);
+        observer.observe(textarea);
+        return () => observer.disconnect();
+      }, [theme.wrap, syncHighlight, onCursor, applyWrapWidth, activePath, tab ? tab.path : ""]);
 
       const handleScroll = useCallback((event) => {
         onScroll(event);
@@ -991,12 +1734,59 @@ body.ps-resizing *{cursor:inherit!important}
       const handleChange = useCallback((event) => {
         const value = event.target.value;
         const position = event.target.selectionStart;
-        onEdit(tab.path, value);
+        caretMemory.current = position;
+        onEdit(tab.path, value, position);
         onCursor({ currentTarget: event.target });
         requestAnimationFrame(() => openCompletion(undefined, value, position));
       }, [onEdit, openCompletion, tab]);
 
       const handleKeyDown = useCallback((event) => {
+        if (event.defaultPrevented) return;
+        if (theme.vim) {
+          if (exLine !== null) {
+            handleExKey(event);
+            return;
+          }
+          if (vimMode !== "insert") {
+            handleVimKey(event);
+            return;
+          }
+          if (event.key === "Escape") {
+            event.preventDefault();
+            setVimMode("normal");
+            return;
+          }
+        }
+        if (matchesBinding(event, keys.undo)) {
+          event.preventDefault();
+          if (onUndo && tab) onUndo(tab.path);
+          return;
+        }
+        if (matchesBinding(event, keys.redo) || matchesBinding(event, "mod+y")) {
+          event.preventDefault();
+          if (onRedo && tab) onRedo(tab.path);
+          return;
+        }
+        if (matchesBinding(event, keys.bold)) {
+          event.preventDefault();
+          wrapSelection("\\textbf{", "}");
+          return;
+        }
+        if (matchesBinding(event, keys.italic)) {
+          event.preventDefault();
+          wrapSelection("\\textit{", "}");
+          return;
+        }
+        if (matchesBinding(event, keys.underline)) {
+          event.preventDefault();
+          wrapSelection("\\underline{", "}");
+          return;
+        }
+        if (matchesBinding(event, keys.save)) {
+          event.preventDefault();
+          if (onSave && tab) onSave(tab.path);
+          return;
+        }
         if (completion) {
           if (event.key === "ArrowDown") {
             event.preventDefault();
@@ -1008,10 +1798,14 @@ body.ps-resizing *{cursor:inherit!important}
             setCompletion((current) => (current ? { ...current, index: (current.index - 1 + current.items.length) % current.items.length } : current));
             return;
           }
-          if ((event.key === "Enter" || event.key === "Tab") && !event.ctrlKey && !event.metaKey && !event.altKey) {
+          if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
             event.preventDefault();
             acceptCompletion(completion.items[completion.index]);
             return;
+          }
+          if (event.key === "Enter" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+            // Enter inserts a newline; only Tab (or a click) accepts a suggestion.
+            setCompletion(null);
           }
           if (event.key === "Escape") {
             event.preventDefault();
@@ -1029,7 +1823,71 @@ body.ps-resizing *{cursor:inherit!important}
           onInsertText("  ");
         }
         if (event.key === "Escape") setCompletion(null);
-      }, [acceptCompletion, completion, onInsertText, openCompletion]);
+      }, [acceptCompletion, completion, exLine, handleExKey, handleVimKey, keys, onInsertText, onRedo, onSave, onUndo, openCompletion, tab, theme.vim, vimMode, wrapSelection]);
+
+      const copySelection = useCallback(async () => {
+        const textarea = editorRef.current;
+        if (!textarea) return;
+        const text = textarea.value.slice(textarea.selectionStart, textarea.selectionEnd);
+        setMenu(null);
+        if (!text) return;
+        try {
+          await navigator.clipboard.writeText(text);
+          if (notify) notify(t("copied"));
+        } catch {
+          if (notify) notify(t("clipboardDenied"), "err");
+        }
+      }, [notify, t]);
+
+      const cutSelection = useCallback(async () => {
+        const textarea = editorRef.current;
+        if (!textarea || !tab) return;
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const text = textarea.value.slice(start, end);
+        setMenu(null);
+        if (!text) return;
+        try {
+          await navigator.clipboard.writeText(text);
+        } catch {
+          if (notify) notify(t("clipboardDenied"), "err");
+          return;
+        }
+        onEdit(tab.path, textarea.value.slice(0, start) + textarea.value.slice(end), start);
+        requestAnimationFrame(() => setCaret(start));
+      }, [notify, onEdit, setCaret, t, tab]);
+
+      const pasteFromClipboard = useCallback(async () => {
+        const textarea = editorRef.current;
+        if (!textarea || !tab) return;
+        setMenu(null);
+        try {
+          const text = await navigator.clipboard.readText();
+          if (!text) return;
+          const start = textarea.selectionStart;
+          const end = textarea.selectionEnd;
+          const next = textarea.value.slice(0, start) + text + textarea.value.slice(end);
+          onEdit(tab.path, next, start + text.length);
+          requestAnimationFrame(() => setCaret(start + text.length));
+        } catch {
+          if (notify) notify(t("clipboardDenied"), "err");
+        }
+      }, [notify, onEdit, setCaret, t, tab]);
+
+      const [menu, setMenu] = useState(null);
+      useEffect(() => {
+        if (!menu) return undefined;
+        const close = () => setMenu(null);
+        const onKey = (event) => { if (event.key === "Escape") setMenu(null); };
+        window.addEventListener("mousedown", close);
+        window.addEventListener("keydown", onKey, true);
+        window.addEventListener("scroll", close, true);
+        return () => {
+          window.removeEventListener("mousedown", close);
+          window.removeEventListener("keydown", onKey, true);
+          window.removeEventListener("scroll", close, true);
+        };
+      }, [menu]);
 
       return h("section", { className: "ps-pane ps-editor", "aria-label": t("editor") },
         h("div", { className: "ps-tabs", role: "tablist" },
@@ -1055,37 +1913,56 @@ body.ps-resizing *{cursor:inherit!important}
           h("button", { className: "ps-btn", type: "button", onClick: () => onReloadDisk(tab.path) }, t("reloadDisk")),
           h("button", { className: "ps-btn", type: "button", onClick: () => onKeepMine(tab.path) }, t("keepMine"))) : null) : null,
         tab ? h("div", { className: "ps-code-wrap", ref: wrapRef, style: styleVars },
-          h("div", { className: "ps-gutter" },
-            h("div", { className: "ps-gutter-inner", ref: gutterInnerRef },
-              numbers.map((number) => h("div", { key: number }, number)))),
           h("div", { className: "ps-code-area", ref: areaRef },
           h("pre", {
-            className: "ps-highlight",
+            className: `ps-highlight${theme.wrap ? " wrap" : ""}`,
             ref: highlightRef,
             "aria-hidden": "true",
+          }, h("div", {
+            className: "ps-hl-inner",
+            ref: highlightInnerRef,
             dangerouslySetInnerHTML: { __html: markup },
-          }),
+          })),
           h("textarea", {
+            key: `code-${theme.wrap ? "wrap" : "nowrap"}`,
             ref: editorRef,
-            className: "ps-code",
+            className: `ps-code${theme.wrap ? " wrap" : ""}${theme.vim && vimMode !== "insert" ? " vim-normal" : ""}`,
             value: tab.content,
             spellCheck: false,
-            wrap: "off",
+            wrap: theme.wrap ? "soft" : "off",
             autoComplete: "off",
             autoCorrect: "off",
             autoCapitalize: "off",
             "aria-label": tab.path,
             onChange: handleChange,
             onScroll: handleScroll,
-            onSelect: (event) => { onCursor(event); },
-            onClick: (event) => { onCursor(event); },
+            onSelect: (event) => { caretMemory.current = event.currentTarget.selectionStart; onCursor(event); },
+            onClick: (event) => { caretMemory.current = event.currentTarget.selectionStart; onCursor(event); },
             onKeyDown: handleKeyDown,
+            onContextMenu: (event) => {
+              event.preventDefault();
+              const target = event.currentTarget;
+              setMenu({ x: event.clientX, y: event.clientY, selected: target.selectionStart !== target.selectionEnd });
+            },
             onBlur: closeCompletion,
           }),
+          theme.vim && vimMode !== "insert" && caretBox
+            ? h("div", {
+              className: "ps-block-caret",
+              ref: blockRef,
+              style: {
+                left: caretBox.left,
+                top: caretBox.top,
+                width: caretBox.width,
+                height: caretBox.height,
+                transform: `translate(${-(editorRef.current ? editorRef.current.scrollLeft : 0)}px, ${-(editorRef.current ? editorRef.current.scrollTop : 0)}px)`,
+              },
+            })
+            : null,
           completion ? h("div", {
             className: "ps-ac",
             role: "listbox",
-            style: { left: completion.left, top: completion.top },
+            style: { left: completion.left, top: completion.top, maxHeight: completion.maxHeight },
             onMouseDown: (event) => event.preventDefault(),
           }, completion.items.map((item, index) => h("button", {
             key: `${item.insert}:${index}`,
@@ -1102,12 +1979,43 @@ body.ps-resizing *{cursor:inherit!important}
           title: t("noFileTitle"),
           body: t("noFileBody"),
         }),
+        tab && exLine !== null ? h("div", { className: "ps-exline" }, `:${exLine}`) : null,
         tab ? h("div", { className: "ps-code-foot" },
           h("span", { className: "ps-grow", title: tab.path }, tab.path),
+          theme.vim ? h("span", { className: "ps-vim" }, vimMode.toUpperCase()) : null,
+          h("button", {
+            className: `ps-btn${theme.wrap ? " active" : ""}`, type: "button",
+            title: t("wrapLines"), "aria-pressed": Boolean(theme.wrap),
+            onClick: () => { if (onToggleWrap) onToggleWrap(); },
+          }, t("wrapShort")),
+          h("span", { className: "ps-build-tag", title: `client ${CLIENT_BUILD}` }, `b${CLIENT_BUILD.slice(11, 16)}`),
+          theme.diagnostics ? h("span", { className: "ps-diag" }, diagnostics) : null,
           h("span", null, fmt(t("lineCol"), cursor)),
           h("span", null, fmt(t("lines"), { count: lineCount })),
+          h("button", {
+            className: "ps-btn icon", type: "button", title: `${t("save")} (${keys.save})`,
+            "aria-label": t("save"), onClick: () => { if (onSave) onSave(tab.path); },
+          }, h(Icon.save)),
           h("span", { className: compile && !compile.ok ? "ps-status err" : "ps-status" },
-            status.kind === "saving" || tab.saving ? t("saving") : tab.dirty ? t("unsaved") : t("saved"))) : null);
+            status.kind === "saving" || tab.saving ? t("saving") : tab.dirty ? t("unsaved") : t("saved"))) : null,
+        menu ? h("div", {
+          className: "ps-ctx",
+          style: { left: menu.x, top: menu.y },
+          onMouseDown: (event) => event.stopPropagation(),
+        },
+        h("button", { className: "ps-ctx-item", type: "button", disabled: !menu.selected, onClick: () => { void cutSelection(); } },
+          t("cut"), h("kbd", null, "Ctrl/⌘ X")),
+        h("button", { className: "ps-ctx-item", type: "button", disabled: !menu.selected, onClick: copySelection },
+          t("copyText"), h("kbd", null, "Ctrl/⌘ C")),
+        h("button", { className: "ps-ctx-item", type: "button", onClick: () => { void pasteFromClipboard(); } },
+          t("paste"), h("kbd", null, "Ctrl/⌘ V")),
+        h("div", { className: "ps-ctx-sep", key: "sep" }),
+        h("button", { className: "ps-ctx-item", type: "button", onClick: () => { wrapSelection("\\textbf{", "}"); setMenu(null); } },
+          t("bold"), h("kbd", null, keys.bold)),
+        h("button", { className: "ps-ctx-item", type: "button", onClick: () => { wrapSelection("\\textit{", "}"); setMenu(null); } },
+          t("italic"), h("kbd", null, keys.italic)),
+        h("button", { className: "ps-ctx-item", type: "button", onClick: () => { wrapSelection("\\underline{", "}"); setMenu(null); } },
+          t("underline"), h("kbd", null, keys.underline))) : null);
     }
 
     function Dock(props) {
@@ -1234,6 +2142,328 @@ body.ps-resizing *{cursor:inherit!important}
           h("button", { className: "ps-btn", type: "button", onClick: onClose }, t("cancel"))));
     }
 
+    function Explosion(props) {
+      const { nonce, onDone } = props;
+      const particles = useMemo(() => {
+        if (!nonce) return [];
+        const colors = ["#f97316", "#ef4444", "#facc15", "#fb923c", "#e879f9", "#38bdf8"];
+        const list = [];
+        for (let index = 0; index < 46; index += 1) {
+          const angle = (Math.PI * 2 * index) / 46 + Math.random() * 0.3;
+          const distance = 80 + Math.random() * 240;
+          list.push({
+            key: `${nonce}-${index}`,
+            dx: `${Math.round(Math.cos(angle) * distance)}px`,
+            dy: `${Math.round(Math.sin(angle) * distance)}px`,
+            size: `${Math.round(4 + Math.random() * 7)}px`,
+            color: colors[index % colors.length],
+            delay: `${Math.round(Math.random() * 70)}ms`,
+          });
+        }
+        return list;
+      }, [nonce]);
+      useEffect(() => {
+        if (!nonce) return undefined;
+        const timer = setTimeout(onDone, 1600);
+        return () => clearTimeout(timer);
+      }, [nonce, onDone]);
+      if (!nonce) return null;
+      return h("div", { className: "ps-boom", "aria-hidden": "true" },
+        h("div", { className: "ps-boom-flash", key: "flash" }),
+        h("div", { className: "ps-boom-ring", key: "ring" }),
+        particles.map((particle) => h("span", {
+          key: particle.key,
+          className: "ps-boom-particle",
+          style: {
+            "--dx": particle.dx,
+            "--dy": particle.dy,
+            width: particle.size,
+            height: particle.size,
+            background: particle.color,
+            animationDelay: particle.delay,
+          },
+        })),
+        h("div", { className: "ps-boom-text", key: "text" }, "\u{1F4A5}"));
+    }
+
+    function GitView(props) {
+      const { t, info, diff, diffOpen, busy, onAction, onNewBranch, onNuke, onSwitch, onRefresh, onOpenFile, onToggleDiff } = props;
+      const data = info.data;
+      if (info.error) return h("div", { className: "ps-git" }, h("div", { className: "ps-hint" }, info.error));
+      if (!data) return h("div", { className: "ps-git" }, h("div", { className: "ps-hint" }, t("loading")));
+      if (!data.repo) {
+        return h("div", { className: "ps-git" },
+          h("div", { className: "ps-hint" }, t("notGitRepo")),
+          h("button", { className: "ps-btn", type: "button", onClick: () => onAction("init") }, t("initializeGit")),
+          h("button", { className: "ps-btn icon", type: "button", title: t("refresh"), onClick: onRefresh }, h(Icon.refresh)));
+      }
+      const lines = (diff || "").split("\n");
+      const capped = lines.slice(0, 2500);
+      return h("div", { className: "ps-git" },
+        h("div", { className: "ps-git-head" },
+          h("code", { className: "ps-git-branch" }, data.branch || "?"),
+          data.upstream ? h("span", { className: "ps-git-muted" }, `\u2192 ${data.upstream}`) : null,
+          data.ahead || data.behind ? h("span", { className: "ps-git-muted" }, `\u2191${data.ahead} \u2193${data.behind}`) : null,
+          h("button", { className: "ps-btn icon", type: "button", title: t("refresh"), onClick: onRefresh }, h(Icon.refresh))),
+        h("div", { className: "ps-git-actions" },
+          h("button", { className: "ps-btn", type: "button", disabled: Boolean(busy), title: t("fetchHint"), onClick: () => onAction("fetch") }, h(Icon.fetch), t("fetch")),
+          h("button", { className: "ps-btn", type: "button", disabled: Boolean(busy), title: t("pullHint"), onClick: () => onAction("pull") }, h(Icon.pull), t("pull")),
+          h("button", { className: "ps-btn", type: "button", disabled: Boolean(busy), title: t("pushHint"), onClick: () => onAction("push") }, h(Icon.push), t("push")),
+          h("button", { className: "ps-btn", type: "button", disabled: Boolean(busy), onClick: onNewBranch }, h(Icon.plus), t("newBranch")),
+          h("button", { className: "ps-btn danger", type: "button", disabled: Boolean(busy), title: t("nukeHint"), onClick: onNuke }, h(Icon.bomb), t("nuke"))),
+        h("select", {
+          className: "ps-select",
+          value: data.branch || "",
+          onChange: (event) => onSwitch(event.target.value),
+        }, data.branches.map((branch) => h("option", { key: branch, value: branch }, branch))),
+        data.sshKey ? h("div", { className: "ps-git-meta" }, h("span", null, t("sshKey")), h("code", { title: data.sshKey }, data.sshKey)) : null,
+        data.lastCommit ? h("div", { className: "ps-git-meta" }, h("code", { title: data.lastCommit }, data.lastCommit)) : null,
+        h("div", { className: "ps-git-files" },
+          data.files.length === 0
+            ? h("div", { className: "ps-hint" }, t("cleanTree"))
+            : data.files.map((file) => h("button", {
+              key: file.path,
+              className: "ps-git-file",
+              type: "button",
+              title: file.path,
+              onClick: () => onOpenFile(file.path),
+            },
+            h("span", { className: "ps-git-status" }, file.status || "?"),
+            h("span", { className: "ps-git-path" }, file.path)))),
+        h("button", { className: "ps-btn", type: "button", onClick: onToggleDiff }, diffOpen ? t("hideDiff") : t("showDiff")),
+        diffOpen
+          ? h("pre", { className: "ps-git-diff" },
+            capped.map((line, index) => h("div", {
+              key: index,
+              className: line.startsWith("+") ? "add" : line.startsWith("-") ? "del" : line.startsWith("@@") ? "hunk" : "",
+            }, line.length > 0 ? line : " ")),
+            lines.length > capped.length ? h("div", null, `… ${lines.length - capped.length} more lines`) : null)
+          : null);
+    }
+
+    const pageWordCache = new Map();
+
+    /**
+     * One rendered PDF page with a selectable word layer built from the PDF's own
+     * word boxes. Dragging selects words, double-click selects one, and the bar
+     * can send the selection back to the editor.
+     */
+    /**
+     * Reading order for a page. A two-column body would otherwise interleave
+     * lines from both columns when the selection is dragged downwards.
+     */
+    function orderPageWords(list, width, height) {
+      if (!list || list.length === 0 || !width) return list || [];
+      const mid = width / 2;
+      const body = height ? list.filter((word) => word.yMin > height * 0.25) : list;
+      let crossing = 0;
+      for (const word of body) if (word.xMin < mid && word.xMax > mid) crossing += 1;
+      const hasLeft = body.some((word) => word.xMax <= mid);
+      const hasRight = body.some((word) => word.xMin >= mid);
+      const twoColumn = body.length > 8 && crossing / body.length < 0.15 && hasLeft && hasRight;
+      if (!twoColumn) {
+        return [...list].sort((left, right) => (Math.abs(left.yMin - right.yMin) > 2 ? left.yMin - right.yMin : left.xMin - right.xMin));
+      }
+      const columnOf = (word) => {
+        if (word.xMax <= mid) return 0;
+        if (word.xMin >= mid) return 1;
+        return -1;
+      };
+      return [...list].sort((left, right) => {
+        const leftColumn = columnOf(left);
+        const rightColumn = columnOf(right);
+        if (leftColumn !== rightColumn) return leftColumn - rightColumn;
+        if (Math.abs(left.yMin - right.yMin) > 2) return left.yMin - right.yMin;
+        return left.xMin - right.xMin;
+      });
+    }
+
+    const PageTextLayer = React.memo(function PageTextLayer({ words, layerRef }) {
+      const spans = useMemo(() => {
+        if (!words || !words.width || !words.height || words.words.length === 0) return [];
+        return orderPageWords(words.words, words.width, words.height)
+          .map((word, index) => ({ word, index }));
+      }, [words]);
+      return h("div", { className: "ps-text-layer", ref: layerRef },
+        spans.map(({ word, index }) => h("span", {
+          key: index,
+          "data-x": (word.xMin + word.xMax) / 2,
+          "data-y": (word.yMin + word.yMax) / 2,
+          style: {
+            left: `${(word.xMin / words.width) * 100}%`,
+            top: `${(word.yMin / words.height) * 100}%`,
+            width: `${((word.xMax - word.xMin) / words.width) * 100}%`,
+            height: `${((word.yMax - word.yMin) / words.height) * 100}%`,
+            fontSize: `${((word.yMax - word.yMin) / words.height).toFixed(5)}em`,
+          },
+        }, word.text)));
+    });
+
+    function PdfPage(props) {
+      const { t, project, page, rev, url, eager, onGoTo, notify, onMissing } = props;
+      const boxRef = useRef(null);
+      const layerRef = useRef(null);
+      const [words, setWords] = useState(null);
+      const [selection, setSelection] = useState(null);
+      const [busy, setBusy] = useState(false);
+
+      useEffect(() => {
+        const box = boxRef.current;
+        if (!box) return undefined;
+        const pane = box.closest(".ps-pdf-scroll");
+        if (!pane) return undefined;
+        const onWheel = (event) => {
+          if (event.ctrlKey) return;
+          const before = pane.scrollTop;
+          pane.scrollTop += event.deltaY;
+          if (event.deltaX !== 0) pane.scrollLeft += event.deltaX;
+          if (pane.scrollTop !== before || event.deltaX !== 0) event.preventDefault();
+        };
+        box.addEventListener("wheel", onWheel, { passive: false });
+        return () => box.removeEventListener("wheel", onWheel);
+      }, []);
+
+      const loadWords = useCallback(async () => {
+        if (words) return words;
+        const key = `${project}:${rev}:${page}`;
+        if (!pageWordCache.has(key)) {
+          const promise = request("page/words", { query: { project, page, rev } });
+          pageWordCache.set(key, promise.catch((error) => {
+            pageWordCache.delete(key);
+            throw error;
+          }));
+        }
+        const data = await pageWordCache.get(key);
+        setWords(data);
+        return data;
+      }, [page, project, rev, words]);
+
+      // Fetch word boxes when the page approaches the viewport, not all at once.
+      useEffect(() => {
+        if (words) return undefined;
+        const box = boxRef.current;
+        if (!box) return undefined;
+        let cancelled = false;
+        const load = () => {
+          loadWords().catch((error) => { if (!cancelled) notify(error.message, "err"); });
+        };
+        if (typeof IntersectionObserver === "undefined") {
+          load();
+          return () => { cancelled = true; };
+        }
+        const observer = new IntersectionObserver((entries) => {
+          if (entries.some((entry) => entry.isIntersecting)) {
+            observer.disconnect();
+            load();
+          }
+        }, { rootMargin: "600px" });
+        observer.observe(box);
+        return () => {
+          cancelled = true;
+          observer.disconnect();
+        };
+      }, [loadWords, notify, words]);
+
+      // The layer is sized in pixels; spans use em, so zoom just rescales them.
+      useEffect(() => {
+        const box = boxRef.current;
+        const layer = layerRef.current;
+        if (!box || !layer) return undefined;
+        const resize = () => {
+          layer.style.fontSize = `${box.getBoundingClientRect().height}px`;
+        };
+        resize();
+        if (typeof ResizeObserver === "undefined") return undefined;
+        const observer = new ResizeObserver(resize);
+        observer.observe(box);
+        return () => observer.disconnect();
+      }, [words]);
+
+      // Follow the browser's native selection; no custom drag/selection model.
+      useEffect(() => {
+        const onSelectionChange = () => {
+          const live = window.getSelection();
+          if (!live || live.rangeCount === 0 || live.isCollapsed) {
+            setSelection(null);
+            return;
+          }
+          const range = live.getRangeAt(0);
+          const layer = layerRef.current;
+          const box = boxRef.current;
+          if (!layer || !box || !layer.contains(range.commonAncestorContainer)) {
+            setSelection(null);
+            return;
+          }
+          const parts = [...range.cloneContents().querySelectorAll("span")]
+            .map((node) => node.textContent)
+            .filter(Boolean);
+          const text = (parts.length > 0 ? parts.join(" ") : live.toString()).replace(/\s+/gu, " ").trim();
+          if (text.length === 0) {
+            setSelection(null);
+            return;
+          }
+          const anchor = range.startContainer.nodeType === 3 ? range.startContainer.parentElement : range.startContainer;
+          const span = anchor && anchor.closest ? anchor.closest("span[data-x]") : null;
+          const rect = range.getBoundingClientRect();
+          const boxRect = box.getBoundingClientRect();
+          setSelection({
+            text,
+            x: span ? Number(span.dataset.x) : (words ? words.width / 2 : 0),
+            y: span ? Number(span.dataset.y) : (words ? words.height / 2 : 0),
+            left: rect.left - boxRect.left + rect.width / 2,
+            top: rect.bottom - boxRect.top + 6,
+          });
+        };
+        document.addEventListener("selectionchange", onSelectionChange);
+        return () => document.removeEventListener("selectionchange", onSelectionChange);
+      }, [words]);
+
+      const goToEditor = useCallback(async () => {
+        if (!selection || busy) return;
+        setBusy(true);
+        try {
+          await onGoTo({ page, x: selection.x, y: selection.y, text: selection.text });
+        } finally {
+          setBusy(false);
+        }
+      }, [busy, onGoTo, page, selection]);
+
+      const copyText = useCallback(async () => {
+        if (!selection) return;
+        try {
+          await navigator.clipboard.writeText(selection.text);
+          notify(t("copied"));
+        } catch {
+          notify(t("copyFailed"), "err");
+        }
+      }, [notify, selection, t]);
+
+      return h("div", { className: "ps-page-box", ref: boxRef },
+        h("img", {
+          className: "ps-page",
+          src: url,
+          alt: `page ${page}`,
+          loading: eager ? "eager" : "lazy",
+          draggable: false,
+          onError: () => { if (onMissing) onMissing(); },
+        }),
+        words && words.words.length > 0
+          ? h(PageTextLayer, { words, layerRef })
+          : null,
+        selection
+          ? h("div", {
+            className: "ps-page-bar",
+            style: { left: selection.left, top: selection.top },
+            onMouseDown: (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+            },
+          },
+          h("button", { className: "ps-btn primary", type: "button", disabled: busy, onClick: goToEditor }, busy ? "…" : t("goToEditor")),
+          h("button", { className: "ps-btn", type: "button", onClick: copyText }, t("copyText")))
+          : null);
+    }
+
     // -- main component ----------------------------------------------------
     function Studio(props) {
       const t = props.t || ((key) => key);
@@ -1256,7 +2486,7 @@ body.ps-resizing *{cursor:inherit!important}
       const [expanded, setExpanded] = useState(() => new Set(["sections"]));
       const [explorerOpen, setExplorerOpen] = useState(() => readUi().explorer !== false);
       const [pdfOpen, setPdfOpen] = useState(() => readUi().pdf !== false);
-      const [autoCompile, setAutoCompile] = useState(() => Boolean(readUi().autoCompile));
+
       const [zoom, setZoom] = useState(() => Number(readUi().zoom) || 100);
       const [pdf, setPdf] = useState({ rev: null, pages: 0, mode: "none" });
       const [compile, setCompile] = useState(null);
@@ -1272,7 +2502,14 @@ body.ps-resizing *{cursor:inherit!important}
       const [stage, setStage] = useState("");
       const [elapsed, setElapsed] = useState(0);
       const [symbols, setSymbols] = useState({ labels: [], citations: [], files: [] });
+      const [misspelled, setMisspelled] = useState(() => new Set());
       const [missing, setMissing] = useState(null);
+      const [explorerTab, setExplorerTab] = useState(() => (readUi().explorerTab === "git" ? "git" : "files"));
+      const [gitInfo, setGitInfo] = useState({ data: null, error: "" });
+      const [gitDiff, setGitDiff] = useState("");
+      const [gitDiffOpen, setGitDiffOpen] = useState(false);
+      const [gitBusy, setGitBusy] = useState("");
+      const [boom, setBoom] = useState(0);
       const [syntax, setSyntax] = useState(() => readSyntax());
       const [status, setStatus] = useState({ kind: "idle" });
       const [dialog, setDialog] = useState(null);
@@ -1292,7 +2529,7 @@ body.ps-resizing *{cursor:inherit!important}
       const mtimeByPath = useRef({});
       const scrollByPath = useRef({});
       const pendingLine = useRef(null);
-      const autoCompileRef = useRef(autoCompile);
+      const autoCompileRef = useRef(Boolean(syntax.autoCompile));
       const compileTimer = useRef(null);
       const toastTimer = useRef(null);
       const compilingRef = useRef(false);
@@ -1300,12 +2537,34 @@ body.ps-resizing *{cursor:inherit!important}
       const jobSourceRef = useRef(null);
       const compileStartedRef = useRef(0);
       const catalogRef = useRef({ projects: [] });
+      const historyRef = useRef(new Map());
+      const spellTimer = useRef(null);
 
       useEffect(() => { tabsRef.current = tabs; }, [tabs]);
       useEffect(() => { projectIdRef.current = project ? project.id : null; projectRef.current = project; }, [project]);
       useEffect(() => { activeRef.current = active; }, [active]);
-      useEffect(() => { autoCompileRef.current = autoCompile; }, [autoCompile]);
+      useEffect(() => { autoCompileRef.current = Boolean(syntax.autoCompile); }, [syntax.autoCompile]);
       useEffect(() => { catalogRef.current = catalog; }, [catalog]);
+
+      useEffect(() => {
+        const tab = tabs.find((item) => item.path === active) || null;
+        clearTimeout(spellTimer.current);
+        if (!syntax.spellcheck || !tab || !/\.tex$/iu.test(tab.path)) {
+          setMisspelled((current) => (current.size === 0 ? current : new Set()));
+          return undefined;
+        }
+        const text = tab.content;
+        const projectId = projectIdRef.current;
+        spellTimer.current = setTimeout(() => {
+          request("spell", { method: "POST", body: { text, lang: syntax.spellLang } })
+            .then((result) => {
+              if (projectIdRef.current !== projectId) return;
+              setMisspelled(new Set(result.words || []));
+            })
+            .catch(() => setMisspelled(new Set()));
+        }, 900);
+        return () => clearTimeout(spellTimer.current);
+      }, [active, tabs, syntax.spellcheck, syntax.spellLang]);
 
       useEffect(() => {
         if (!compiling) return undefined;
@@ -1386,6 +2645,9 @@ body.ps-resizing *{cursor:inherit!important}
           saveChains.current.clear();
           setStatus({ kind: "loading" });
           setMissing(null);
+          setGitInfo({ data: null, error: "" });
+          setGitDiff("");
+          setGitDiffOpen(false);
           setTabs([]);
           tabsRef.current = [];
           setActive(null);
@@ -1452,6 +2714,56 @@ body.ps-resizing *{cursor:inherit!important}
         }
       }, [notify]);
 
+      const clearBoom = useCallback(() => setBoom(0), []);
+
+      const refreshGit = useCallback(async (options) => {
+        const id = projectIdRef.current;
+        if (!id) return;
+        try {
+          const data = await request("git/info", { query: { project: id } });
+          if (projectIdRef.current !== id) return;
+          setGitInfo({ data, error: "" });
+          if (options && options.diff && data.repo) {
+            const diff = await request("git/diff", { query: { project: id } });
+            if (projectIdRef.current === id) setGitDiff(diff.patch || "");
+          }
+        } catch (error) {
+          setGitInfo({ data: null, error: error.message });
+        }
+      }, []);
+
+      const runGitAction = useCallback(async (action, extra) => {
+        const id = projectIdRef.current;
+        if (!id) return;
+        setGitBusy(action);
+        try {
+          const result = await request("git", { method: "POST", body: { project: id, action, ...(extra || {}) } });
+          if (result && result.ok === false) {
+            notify((result.output || "").slice(0, 400) || t("error"), "err");
+            await refreshGit({ diff: gitDiffOpen });
+            return false;
+          }
+          notify(action);
+          await refreshGit({ diff: gitDiffOpen });
+          if (["pull", "nuke", "switch", "create"].includes(action)) {
+            await refreshCatalog();
+            await openProject(id, { restoreTabs: true });
+            await refreshGit({ diff: false });
+          }
+          return true;
+        } catch (error) {
+          notify(error.message, "err");
+          return false;
+        } finally {
+          setGitBusy("");
+        }
+      }, [gitDiffOpen, notify, openProject, refreshCatalog, refreshGit, t]);
+
+      useEffect(() => {
+        if (explorerTab !== "git" || !project) return;
+        void refreshGit({ diff: gitDiffOpen });
+      }, [explorerTab, project, gitDiffOpen, refreshGit]);
+
       // Load the registry and restore the last project.
       useEffect(() => {
         let cancelled = false;
@@ -1479,16 +2791,16 @@ body.ps-resizing *{cursor:inherit!important}
             active,
             explorer: explorerOpen,
             pdf: pdfOpen,
-            autoCompile,
             zoom,
             dock,
             dockHeight,
             explorerWidth,
             pdfPct,
+            explorerTab,
           });
         }, 300);
         return () => clearTimeout(timer);
-      }, [tabs, active, explorerOpen, pdfOpen, autoCompile, zoom, dock, dockHeight, explorerWidth, pdfPct]);
+      }, [tabs, active, explorerOpen, pdfOpen, zoom, dock, dockHeight, explorerWidth, pdfPct, explorerTab]);
 
       // Cursor refresh when switching files.
       useEffect(() => {
@@ -1678,12 +2990,17 @@ body.ps-resizing *{cursor:inherit!important}
       useEffect(() => {
         if (!panelActive) return undefined;
         const onKeyDown = (event) => {
-          const mod = event.metaKey || event.ctrlKey;
-          if (!mod) return;
-          if (event.key === "s" || event.key === "S") {
+          // While a dialog is open, keys belong to it (including binding capture).
+          if (dialog) return;
+          const keys = syntax.keys || DEFAULT_SYNTAX.keys;
+          if (matchesBinding(event, keys.save)) {
             event.preventDefault();
             if (activeRef.current) void saveTab(activeRef.current);
-          } else if (event.key === "Enter") {
+            return;
+          }
+          const mod = event.metaKey || event.ctrlKey;
+          if (!mod) return;
+          if (event.key === "Enter") {
             event.preventDefault();
             void runCompileRef.current();
           } else if (event.key === "`") {
@@ -1693,14 +3010,14 @@ body.ps-resizing *{cursor:inherit!important}
         };
         window.addEventListener("keydown", onKeyDown, true);
         return () => window.removeEventListener("keydown", onKeyDown, true);
-      }, [panelActive, saveTab]);
+      }, [dialog, panelActive, saveTab, syntax.keys]);
 
       // Escape closes the topmost dialog.
       useEffect(() => {
         if (!dialog) return undefined;
         const onKeyDown = (event) => {
           if (event.key !== "Escape") return;
-          if (dialog.kind === "syntax" && dialog.original) setSyntax(dialog.original);
+          if (dialog.kind === "prefs" && dialog.original) setSyntax(dialog.original);
           setDialog(null);
           setDialogError("");
         };
@@ -1715,7 +3032,29 @@ body.ps-resizing *{cursor:inherit!important}
         if (jobSourceRef.current) jobSourceRef.current.close();
       }, []);
 
-      const onEdit = useCallback((path, content) => {
+      const onEdit = useCallback((path, content, caret) => {
+        const current = tabsRef.current.find((item) => item.path === path);
+        if (current && current.content !== content) {
+          const now = Date.now();
+          let history = historyRef.current.get(path);
+          if (!history) {
+            history = { past: [], future: [], at: 0, word: false };
+            historyRef.current.set(path, history);
+          }
+          const previous = current.content;
+          const insertion = typeof caret === "number" && content.length === previous.length + 1;
+          const wordChar = insertion && /[\p{L}\p{N}]/u.test(content[caret - 1] || "");
+          // Consecutive letters within 600 ms collapse into one undo step, so
+          // Ctrl+Z removes a word rather than a character.
+          const coalesce = history.at > 0 && now - history.at < 600 && wordChar && history.word;
+          if (!coalesce) {
+            history.past.push({ content: previous, caret: typeof caret === "number" ? Math.max(0, caret - (insertion ? 1 : 0)) : 0 });
+            if (history.past.length > 200) history.past.shift();
+            history.future = [];
+          }
+          history.at = now;
+          history.word = Boolean(wordChar);
+        }
         setTabs((list) => list.map((item) => (item.path === path ? { ...item, content, dirty: content !== item.saved } : item)));
         clearTimeout(saveTimers.current.get(path));
         saveTimers.current.set(path, setTimeout(() => {
@@ -1723,6 +3062,55 @@ body.ps-resizing *{cursor:inherit!important}
           void saveTab(path);
         }, 850));
       }, [saveTab]);
+
+      const restoreCaret = useCallback((path, caret) => {
+        requestAnimationFrame(() => {
+          const textarea = editorRef.current;
+          const tab = tabsRef.current.find((item) => item.path === path);
+          if (!textarea || !tab) return;
+          const position = Math.max(0, Math.min(tab.content.length, caret || 0));
+          textarea.focus();
+          textarea.setSelectionRange(position, position);
+          if (activeRef.current === path) {
+            const before = tab.content.slice(0, position);
+            setCursor({ line: before.split("\n").length, col: position - before.lastIndexOf("\n") });
+          }
+        });
+      }, []);
+
+      const undo = useCallback((path) => {
+        const history = historyRef.current.get(path);
+        const tab = tabsRef.current.find((item) => item.path === path);
+        if (!history || !tab || history.past.length === 0) return;
+        const snapshot = history.past.pop();
+        history.future.push({ content: tab.content, caret: 0 });
+        history.at = 0;
+        history.word = false;
+        setTabs((list) => list.map((item) => (item.path === path ? { ...item, content: snapshot.content, dirty: snapshot.content !== item.saved } : item)));
+        clearTimeout(saveTimers.current.get(path));
+        saveTimers.current.set(path, setTimeout(() => {
+          saveTimers.current.delete(path);
+          void saveTab(path);
+        }, 850));
+        restoreCaret(path, snapshot.caret);
+      }, [restoreCaret, saveTab]);
+
+      const redo = useCallback((path) => {
+        const history = historyRef.current.get(path);
+        const tab = tabsRef.current.find((item) => item.path === path);
+        if (!history || !tab || history.future.length === 0) return;
+        const snapshot = history.future.pop();
+        history.past.push({ content: tab.content, caret: 0 });
+        history.at = 0;
+        history.word = false;
+        setTabs((list) => list.map((item) => (item.path === path ? { ...item, content: snapshot.content, dirty: snapshot.content !== item.saved } : item)));
+        clearTimeout(saveTimers.current.get(path));
+        saveTimers.current.set(path, setTimeout(() => {
+          saveTimers.current.delete(path);
+          void saveTab(path);
+        }, 850));
+        restoreCaret(path, snapshot.caret);
+      }, [restoreCaret, saveTab]);
 
       const closeTab = useCallback((path) => {
         const tab = tabsRef.current.find((item) => item.path === path);
@@ -1752,7 +3140,6 @@ body.ps-resizing *{cursor:inherit!important}
       const onScroll = useCallback((event) => {
         const textarea = event.currentTarget;
         if (activeRef.current) scrollByPath.current[activeRef.current] = textarea.scrollTop;
-        if (gutterInnerRef.current) gutterInnerRef.current.style.transform = `translateY(${-textarea.scrollTop}px)`;
       }, []);
 
       const insertText = useCallback((text) => {
@@ -1762,7 +3149,7 @@ body.ps-resizing *{cursor:inherit!important}
         const start = textarea.selectionStart;
         const end = textarea.selectionEnd;
         const next = textarea.value.slice(0, start) + text + textarea.value.slice(end);
-        onEdit(path, next);
+        onEdit(path, next, start + text.length);
         requestAnimationFrame(() => {
           textarea.selectionStart = start + text.length;
           textarea.selectionEnd = start + text.length;
@@ -1770,26 +3157,19 @@ body.ps-resizing *{cursor:inherit!important}
         });
       }, [onCursor, onEdit]);
 
-      const locateFromPdf = useCallback(async (event, page) => {
+      const locateSelection = useCallback(async ({ page, x, y, text }) => {
         const id = projectIdRef.current;
         if (!id) return;
-        const image = event.currentTarget;
-        const rect = image.getBoundingClientRect();
-        if (!rect.width || !rect.height || !image.naturalWidth || !image.naturalHeight) return;
-        const px = ((event.clientX - rect.left) / rect.width) * image.naturalWidth;
-        const py = ((event.clientY - rect.top) / rect.height) * image.naturalHeight;
-        const dpi = Number(catalogRef.current && catalogRef.current.pageDpi) || 110;
-        const scale = 72 / dpi;
         try {
           const result = await request("pdf/locate", {
             method: "POST",
-            body: { project: id, page, x: px * scale, y: py * scale, current: activeRef.current || undefined },
+            body: { project: id, page, x, y, text, current: activeRef.current || undefined },
           });
           if (result && result.file) {
             await openFile(result.file, result.line);
-            notify(`${result.file}:${result.line}`, result.method === "text" ? "" : "");
+            notify(`${result.file}:${result.line}`);
           } else {
-            notify(t("locateFailed"), "err");
+            notify((result && result.reason) || t("locateFailed"), "err");
           }
         } catch (error) {
           notify(error.message, "err");
@@ -1871,14 +3251,7 @@ body.ps-resizing *{cursor:inherit!important}
             await refreshCatalog();
             await openProject(result.project.id, { restoreTabs: false });
             notify(fmt(t("cloned"), { name: result.project.name }));
-          } else if (dialog.kind === "locate") {
-            await request("project/update", { method: "POST", body: { project: dialog.projectId, path: dialog.path || "" } });
-            setDialog(null);
-            setMissing(null);
-            await refreshCatalog();
-            await openProject(dialog.projectId, { restoreTabs: false });
-            notify(t("saved"));
-          } else if (dialog.kind === "settings") {
+          } else if (dialog.kind === "prefs" && (dialog.tab || "editor") === "project") {
             await request("project/update", { method: "POST", body: {
               project: dialog.projectId,
               name: dialog.name,
@@ -1888,6 +3261,22 @@ body.ps-resizing *{cursor:inherit!important}
             setDialog(null);
             await refreshCatalog();
             await refreshTree();
+            notify(t("saved"));
+          } else if (dialog.kind === "nuke") {
+            setDialog(null);
+            const reset = await runGitAction("nuke");
+            if (reset) setBoom(Date.now());
+          } else if (dialog.kind === "branch") {
+            const name = String(dialog.name || "").trim();
+            if (name.length === 0) throw new Error(t("branchName"));
+            setDialog(null);
+            await runGitAction("create", { branch: name });
+          } else if (dialog.kind === "locate") {
+            await request("project/update", { method: "POST", body: { project: dialog.projectId, path: dialog.path || "" } });
+            setDialog(null);
+            setMissing(null);
+            await refreshCatalog();
+            await openProject(dialog.projectId, { restoreTabs: false });
             notify(t("saved"));
           } else if (dialog.kind === "newFile" || dialog.kind === "newFolder") {
             await request("file/create", { method: "POST", body: { project: id, path: dialog.path || "", kind: dialog.kind === "newFolder" ? "dir" : "file" } });
@@ -1924,7 +3313,7 @@ body.ps-resizing *{cursor:inherit!important}
         } finally {
           setBusy(false);
         }
-      }, [closeTab, dialog, notify, openFile, openProject, refreshCatalog, refreshTree, t]);
+      }, [closeTab, dialog, notify, openFile, openProject, refreshCatalog, refreshTree, runGitAction, t]);
 
       const toggleExpanded = useCallback((path) => {
         setExpanded((current) => {
@@ -1952,7 +3341,10 @@ body.ps-resizing *{cursor:inherit!important}
       const statusView = (() => {
         if (compiling) return { kind: "", text: t("compiling"), spin: true };
         if (status.kind === "error") return { kind: "err", text: status.message || t("error") };
-        if (compile && !compile.ok) return { kind: "err", text: fmt(t("compileFailedWith"), { count: compile.errors ? compile.errors.length : 0 }) };
+        if (compile && !compile.ok) {
+          const count = (compile.errors || []).length + (compile.warningsList || []).length;
+          return { kind: "err", text: fmt(t("compileFailedWith"), { count }) };
+        }
         if (compile && compile.ok) return { kind: "ok", text: fmt(t("compileOkShort"), { pages: compile.pages }) };
         if (activeTabDirty) return { kind: "", text: t("unsaved") };
         if (status.kind === "saved") return { kind: "ok", text: t("saved") };
@@ -2021,6 +3413,7 @@ body.ps-resizing *{cursor:inherit!important}
         let title = "";
         let body = null;
         let actions = null;
+
         if (dialog.kind === "newProject") {
           title = t("newPaper");
           body = [
@@ -2050,28 +3443,10 @@ body.ps-resizing *{cursor:inherit!important}
             h("span", { className: "ps-hint", key: "clone-hint" }, t("cloneHint")),
           ];
           actions = footer(t("clone"));
-        } else if (dialog.kind === "settings") {
-          title = t("settings");
+        } else if (dialog.kind === "prefs") {
+          title = t("settingsTitle");
+          const tab = dialog.tab === "project" ? "project" : "editor";
           const current = catalog.projects.find((item) => item.id === dialog.projectId) || project || {};
-          body = [
-            field(t("title"), "name", {}),
-            field(t("mainFile"), "mainFile", { placeholder: "main.tex", hint: t("mainFileHint") }),
-            field(t("remote"), "remote", { placeholder: "https://git.overleaf.com/…", hint: t("remoteHint") }),
-            field(t("token"), "token", { type: "password", placeholder: current.overleaf && current.overleaf.hasToken ? t("tokenSaved") : "", hint: t("tokenHint") }),
-            h("div", { className: "ps-git-row", key: "git" },
-              h("button", { className: "ps-btn", type: "button", onClick: () => runGit("status") }, t("status")),
-              h("button", { className: "ps-btn", type: "button", onClick: () => runGit("pull") }, t("pull")),
-              h("button", { className: "ps-btn", type: "button", onClick: () => runGit("push") }, t("push")),
-              h("button", { className: "ps-btn", type: "button", onClick: () => runGit("init") }, t("initializeGit"))),
-            gitState.output ? h("pre", { className: "ps-output", key: "output" }, gitState.output) : null,
-            h("button", {
-              className: "ps-btn danger", key: "remove", type: "button",
-              onClick: () => openDialog("removeProject", { projectId: dialog.projectId }),
-            }, t("removeProject")),
-          ];
-          actions = footer(t("apply"));
-        } else if (dialog.kind === "syntax") {
-          title = t("highlightSettings");
           const draft = dialog.draft || syntax;
           const updateDraft = (patch) => {
             const next = { ...dialog.draft, ...patch };
@@ -2093,7 +3468,24 @@ body.ps-resizing *{cursor:inherit!important}
               onChange: (event) => updateDraft({ [key]: event.target.checked }),
             }),
             h("span", null, label));
-          body = [
+          const tabs = h("div", { className: "ps-prefs-tabs", key: "tabs" },
+            h("button", {
+              className: `ps-drawer-tab${tab === "editor" ? " active" : ""}`,
+              type: "button", onClick: () => setDialog({ ...dialog, tab: "editor" }),
+            }, t("editorSettings")),
+            dialog.projectId ? h("button", {
+              className: `ps-drawer-tab${tab === "project" ? " active" : ""}`,
+              type: "button", onClick: () => setDialog({ ...dialog, tab: "project" }),
+            }, t("projectSettings")) : null);
+          const section = dialog.section || "appearance";
+          const editingBody = [
+            h("div", { className: "ps-color-group", key: "layout" },
+              h("h3", null, t("editing")),
+              toggle(t("wrapLines"), "wrap"),
+              toggle(t("autoCompile"), "autoCompile"),
+              toggle(t("diagnostics"), "diagnostics")),
+          ];
+          const appearanceBody = [
             h("div", { className: "ps-color-group", key: "tokens" },
               h("h3", null, t("syntaxColors")),
               color(t("colorCommand"), "command"),
@@ -2114,23 +3506,110 @@ body.ps-resizing *{cursor:inherit!important}
               toggle(t("enableCursorLine"), "currentLine"),
               color(t("colorCursorLine"), "currentLineColor")),
           ];
+          const spellingBody = [
+            h("div", { className: "ps-color-group", key: "spelling" },
+              h("h3", null, t("spelling")),
+              toggle(t("spellcheck"), "spellcheck"),
+              h("label", { className: "ps-color-row" },
+                h("span", { className: "ps-color-label" }, t("spellLanguage")),
+                h("select", {
+                  className: "ps-select",
+                  value: draft.spellLang || "en_US",
+                  onChange: (event) => updateDraft({ spellLang: event.target.value }),
+                },
+                h("option", { value: "en_US" }, "English (US)"),
+                h("option", { value: "en_GB" }, "English (UK)")))),
+          ];
+          const shortcutsBody = [
+            h("div", { className: "ps-color-group", key: "vim" },
+              h("h3", null, t("vim")),
+              toggle(t("vimBindings"), "vim")),
+            h("div", { className: "ps-color-group", key: "keys" },
+              h("h3", null, t("shortcuts")),
+              h("span", { className: "ps-hint" }, t("keysHint")),
+              ["save", "bold", "italic", "underline", "undo", "redo"].map((name) => h("label", { className: "ps-key-row", key: name },
+                h("span", { className: "ps-color-label" }, t(`shortcut${name.charAt(0).toUpperCase()}${name.slice(1)}`)),
+                h("input", {
+                  className: "ps-input ps-key-input",
+                  readOnly: true,
+                  value: draft.keys[name],
+                  onKeyDown: (event) => {
+                    event.preventDefault();
+                    const binding = bindingFromEvent(event);
+                    if (!binding) return;
+                    const keys = { ...draft.keys, [name]: binding };
+                    setDialog({ ...dialog, draft: { ...draft, keys } });
+                    setSyntax({ ...syntax, keys });
+                  },
+                })))),
+          ];
+          const sections = tab === "editor" ? h("div", { className: "ps-prefs-subtabs", key: "sections" },
+            ["appearance", "editing", "spelling", "shortcuts"].map((name) => h("button", {
+              key: name,
+              className: `ps-drawer-tab${section === name ? " active" : ""}`,
+              type: "button",
+              onClick: () => setDialog({ ...dialog, section: name }),
+            }, t(name)))) : null;
+          const projectBody = [
+            field(t("title"), "name", {}),
+            field(t("mainFile"), "mainFile", { placeholder: "main.tex", hint: t("mainFileHint") }),
+            field(t("remote"), "remote", { placeholder: "https://git.overleaf.com/…", hint: t("remoteHint") }),
+            field(t("token"), "token", { type: "password", placeholder: current.overleaf && current.overleaf.hasToken ? t("tokenSaved") : "", hint: t("tokenHint") }),
+            h("div", { className: "ps-git-row", key: "git" },
+              h("button", { className: "ps-btn", type: "button", onClick: () => runGit("status") }, h(Icon.fetch), t("status")),
+              h("button", { className: "ps-btn", type: "button", onClick: () => runGit("pull") }, h(Icon.pull), t("pull")),
+              h("button", { className: "ps-btn", type: "button", onClick: () => runGit("push") }, h(Icon.push), t("push")),
+              h("button", { className: "ps-btn", type: "button", onClick: () => runGit("init") }, t("initializeGit"))),
+            gitState.output ? h("pre", { className: "ps-output", key: "output" }, gitState.output) : null,
+            h("button", {
+              className: "ps-btn danger", key: "remove", type: "button",
+              onClick: () => openDialog("removeProject", { projectId: dialog.projectId }),
+            }, t("removeProject")),
+          ];
+          const activeBody = section === "spelling"
+            ? spellingBody
+            : section === "shortcuts"
+              ? shortcutsBody
+              : section === "editing"
+                ? editingBody
+                : appearanceBody;
+          body = [tabs, ...(tab === "project" ? projectBody : [sections, ...activeBody]),
+            h("div", { className: "ps-build", key: "build" }, `build ${CLIENT_BUILD}`)];
+          actions = tab === "project"
+            ? footer(t("apply"))
+            : h(React.Fragment, null,
+              h("button", {
+                className: "ps-btn", type: "button",
+                onClick: () => {
+                  const next = { ...DEFAULT_SYNTAX };
+                  setDialog({ ...dialog, draft: next });
+                  setSyntax(next);
+                },
+              }, t("resetDefaults")),
+              h("button", {
+                className: "ps-btn", type: "button",
+                onClick: () => { setSyntax(dialog.original); setDialog(null); },
+              }, t("cancel")),
+              h("button", {
+                className: "ps-btn primary", type: "button",
+                onClick: () => { writeSyntax(syntax); setDialog(null); notify(t("saved")); },
+              }, t("save")));
+        } else if (dialog.kind === "nuke") {
+          title = t("nukeHeading");
+          body = [h("div", { className: "ps-nuke-warn", key: "nuke" },
+            h("h3", { className: "ps-nuke-title" }, t("nukeTitle")),
+            dialog.target ? h("code", { className: "ps-nuke-target" }, dialog.target) : null,
+            h("p", { className: "ps-nuke-body" }, t("nukeBody")))];
           actions = h(React.Fragment, null,
+            h("button", { className: "ps-btn", type: "button", onClick: () => setDialog(null) }, t("nukeCancel")),
             h("button", {
-              className: "ps-btn", type: "button",
-              onClick: () => {
-                const next = { ...DEFAULT_SYNTAX };
-                setDialog({ ...dialog, draft: next });
-                setSyntax(next);
-              },
-            }, t("resetDefaults")),
-            h("button", {
-              className: "ps-btn", type: "button",
-              onClick: () => { setSyntax(dialog.original); setDialog(null); },
-            }, t("cancel")),
-            h("button", {
-              className: "ps-btn primary", type: "button",
-              onClick: () => { writeSyntax(syntax); setDialog(null); notify(t("saved")); },
-            }, t("save")));
+              className: "ps-btn danger-solid ps-nuke-confirm", type: "button", disabled: busy,
+              onClick: submitDialog,
+            }, t("nukeConfirm")));
+        } else if (dialog.kind === "branch") {
+          title = t("branchTitle");
+          body = [field(t("branchName"), "name", { placeholder: "feature/new-section" })];
+          actions = footer(t("create"));
         } else if (dialog.kind === "locate") {
           title = t("locateTitle");
           body = [pathField(t("path"), "path", { placeholder: "~/Documents/Papers/my-paper", hint: t("addFolderHint") })];
@@ -2155,7 +3634,7 @@ body.ps-resizing *{cursor:inherit!important}
         return h(Modal, {
           title,
           onClose: () => {
-            if (dialog.kind === "syntax" && dialog.original) setSyntax(dialog.original);
+            if (dialog.kind === "prefs" && dialog.original) setSyntax(dialog.original);
             setDialog(null);
           },
         },
@@ -2191,9 +3670,9 @@ body.ps-resizing *{cursor:inherit!important}
       const showExplorer = Boolean(project) && explorerOpen;
       const showPdf = Boolean(project) && pdfOpen;
       const columns = [];
-      if (showExplorer) columns.push(`${explorerWidth}px`, "5px");
+      if (showExplorer) columns.push(`${explorerWidth}px`, "9px");
       columns.push("minmax(0, 1fr)");
-      if (showPdf) columns.push("5px", `${pdfPct}%`);
+      if (showPdf) columns.push("9px", `${pdfPct}%`);
 
       const problemCount = compile ? ((compile.errors || []).length + (compile.warningsList || []).length) : 0;
       const canRenderPages = () => {
@@ -2201,6 +3680,23 @@ body.ps-resizing *{cursor:inherit!important}
         return !tooling || tooling.pdftoppm !== false;
       };
       const paneMode = (pages) => (pages > 0 ? (canRenderPages() ? "pages" : "iframe") : "none");
+
+      const refreshPdf = useCallback(async () => {
+        const id = projectIdRef.current;
+        if (!id) return;
+        try {
+          const info = await request("pdf-info", { query: { project: id } });
+          if (info && info.exists) {
+            setPdf({ rev: info.rev, pages: info.pages, mode: paneMode(info.pages) });
+            notify(t("pdfReloaded"));
+          } else {
+            setPdf({ rev: null, pages: 0, mode: "missing" });
+            notify(t("pdfMissing"), "err");
+          }
+        } catch (error) {
+          notify(error.message, "err");
+        }
+      }, [notify, t]);
 
       return h("div", { className: "ps-root" },
         h("header", { className: "ps-head" },
@@ -2222,7 +3718,10 @@ body.ps-resizing *{cursor:inherit!important}
             h(Icon.git), h("span", { className: "ps-hide-narrow" }, t("cloneOverleaf"))),
           project ? h("button", {
             className: "ps-btn icon", type: "button", title: t("settings"), "aria-label": t("settings"),
-            onClick: () => openDialog("settings", {
+            onClick: () => openDialog("prefs", {
+              tab: "editor",
+              draft: syntax,
+              original: syntax,
               projectId: project.id,
               name: project.name,
               mainFile: project.mainFile || "",
@@ -2234,9 +3733,6 @@ body.ps-resizing *{cursor:inherit!important}
           h("span", { className: `ps-status ${statusView.kind}` },
             statusView.spin ? h(Icon.refresh, { className: "ps-spin" }) : h("span", { className: "ps-dot" }),
             statusView.text),
-          h("label", { className: "ps-toggle", title: t("autoCompile") },
-            h("input", { type: "checkbox", checked: autoCompile, onChange: (event) => setAutoCompile(event.target.checked) }),
-            h("span", { className: "ps-hide-narrow" }, t("autoCompile"))),
           h("button", {
             className: `ps-btn icon${explorerOpen ? " active" : ""}`, type: "button", title: t("files"), "aria-label": t("files"),
             "aria-pressed": explorerOpen, onClick: () => setExplorerOpen((value) => !value),
@@ -2246,19 +3742,11 @@ body.ps-resizing *{cursor:inherit!important}
             "aria-pressed": pdfOpen, onClick: () => setPdfOpen((value) => !value),
           }, h(Icon.pdf)),
           h("button", {
-            className: "ps-btn icon", type: "button", title: t("highlightSettings"), "aria-label": t("highlightSettings"),
-            onClick: () => openDialog("syntax", { draft: syntax, original: syntax }),
-          }, h(Icon.palette)),
-          h("button", {
-            className: `ps-btn${dock === "terminal" ? " active" : ""}`, type: "button", title: `${t("terminal")} — ${t("terminalHint")}`,
-            "aria-pressed": dock === "terminal",
-            onClick: () => setDock((current) => (current === "terminal" ? null : "terminal")),
-          }, h(Icon.terminal), h("span", { className: "ps-hide-narrow" }, t("terminal"))),
-          h("button", {
-            className: `ps-btn${dock === "problems" ? " active" : ""}`, type: "button", title: t("problemsHint"), disabled: !project,
-            "aria-pressed": dock === "problems",
-            onClick: () => setDock((current) => (current === "problems" ? null : "problems")),
-          }, h(Icon.alert), h("span", { className: "ps-hide-narrow" }, t("problems")),
+            className: `ps-btn${dock ? " active" : ""}`, type: "button", disabled: !project,
+            title: `${t("output")} — ${t("terminalHint")}`,
+            "aria-pressed": Boolean(dock),
+            onClick: () => setDock((current) => (current ? null : (problemCount > 0 ? "problems" : "terminal"))),
+          }, h(Icon.terminal), h("span", { className: "ps-hide-narrow" }, t("output")),
             problemCount > 0 ? h("span", { className: "ps-badge", style: { padding: "0 5px", fontSize: 10 } }, problemCount) : null),
           h("button", {
             className: "ps-btn primary", type: "button", onClick: () => { void runCompile(); },
@@ -2269,11 +3757,38 @@ body.ps-resizing *{cursor:inherit!important}
           h("div", { className: "ps-body", ref: bodyRef, style: { gridTemplateColumns: columns.join(" ") } },
           showExplorer ? h("section", { className: "ps-pane ps-explorer", "aria-label": t("files") },
             h("div", { className: "ps-pane-head" },
-              h("span", { className: "ps-pane-title" }, t("files")),
-              h("button", { className: "ps-btn icon", type: "button", title: t("newFile"), "aria-label": t("newFile"), onClick: () => openDialog("newFile", { path: "" }) }, h(Icon.plus)),
-              h("button", { className: "ps-btn icon", type: "button", title: t("newFolder"), "aria-label": t("newFolder"), onClick: () => openDialog("newFolder", { path: "" }) }, h(Icon.folder)),
-              h("button", { className: "ps-btn icon", type: "button", title: t("refresh"), "aria-label": t("refresh"), onClick: () => { void refreshTree(); } }, h(Icon.refresh))),
-            h("div", { className: "ps-tree", role: "tree" },
+              h("button", {
+                className: `ps-drawer-tab${explorerTab === "files" ? " active" : ""}`,
+                type: "button", onClick: () => setExplorerTab("files"),
+              }, t("files")),
+              h("button", {
+                className: `ps-drawer-tab${explorerTab === "git" ? " active" : ""}`,
+                type: "button", onClick: () => setExplorerTab("git"),
+              }, t("gitTab")),
+              h("div", { className: "ps-spacer" }),
+              explorerTab === "files" ? h(React.Fragment, null,
+                h("button", { className: "ps-btn icon", type: "button", title: t("newFile"), "aria-label": t("newFile"), onClick: () => openDialog("newFile", { path: "" }) }, h(Icon.plus)),
+                h("button", { className: "ps-btn icon", type: "button", title: t("newFolder"), "aria-label": t("newFolder"), onClick: () => openDialog("newFolder", { path: "" }) }, h(Icon.folder)),
+                h("button", { className: "ps-btn icon", type: "button", title: t("refresh"), "aria-label": t("refresh"), onClick: () => { void refreshTree(); } }, h(Icon.refresh)))
+                : h("button", { className: "ps-btn icon", type: "button", title: t("refresh"), "aria-label": t("refresh"), onClick: () => { void refreshGit({ diff: gitDiffOpen }); } }, h(Icon.refresh))),
+            explorerTab === "git" ? h(GitView, {
+              t,
+              info: gitInfo,
+              diff: gitDiff,
+              diffOpen: gitDiffOpen,
+              busy: gitBusy,
+              onAction: (action) => { void runGitAction(action); },
+              onNewBranch: () => openDialog("branch", { name: "" }),
+              onNuke: () => openDialog("nuke", {
+                target: gitInfo.data
+                  ? `${gitInfo.data.branch || "?"} \u2192 ${gitInfo.data.upstream || `origin/${gitInfo.data.branch || "?"}`}`
+                  : "",
+              }),
+              onSwitch: (branch) => { if (branch) void runGitAction("switch", { branch }); },
+              onRefresh: () => { void refreshGit({ diff: gitDiffOpen }); },
+              onOpenFile: (path) => { void openFile(path); },
+              onToggleDiff: () => setGitDiffOpen((current) => !current),
+            }) : h("div", { className: "ps-tree", role: "tree" },
               visibleEntries.length === 0
                 ? h("div", { className: "ps-hint", style: { padding: "10px 8px" } }, project.mainFile ? "" : t("emptyFolder"))
                 : visibleEntries.map((entry) => {
@@ -2303,7 +3818,19 @@ body.ps-resizing *{cursor:inherit!important}
               h("span", { className: "ps-path", title: project.path }, project.path),
               h("button", {
                 className: "ps-btn", type: "button", title: t("sync"),
-                onClick: () => { openDialog("settings", { projectId: project.id, name: project.name, mainFile: project.mainFile || "", remote: project.overleaf ? project.overleaf.remote : "", token: "" }); void runGit("status"); },
+                onClick: () => {
+                  openDialog("prefs", {
+                    tab: "project",
+                    draft: syntax,
+                    original: syntax,
+                    projectId: project.id,
+                    name: project.name,
+                    mainFile: project.mainFile || "",
+                    remote: project.overleaf ? project.overleaf.remote : "",
+                    token: "",
+                  });
+                  void runGit("status");
+                },
               }, project.overleaf ? t("overleafBadge") : t("gitBadge")))) : null,
 
           showExplorer ? h("div", {
@@ -2312,12 +3839,11 @@ body.ps-resizing *{cursor:inherit!important}
           }) : null,
 
           h(EditorPane, {
-            t, tabs, activePath: active, tab: currentTab, cursor, compile, autoCompile, status,
+            t, tabs, activePath: active, tab: currentTab, cursor, compile, status,
             onSelectTab: (path) => { setActive(path); activeRef.current = path; },
             onCloseTab: closeTab,
             onEdit,
             onCompile: runCompile,
-            onSave: (path) => { void saveTab(path); },
             editorRef, gutterInnerRef,
             onScroll, onCursor,
             onInsertText: insertText,
@@ -2325,6 +3851,16 @@ body.ps-resizing *{cursor:inherit!important}
             onKeepMine: keepMine,
             symbols,
             syntax,
+            misspelled,
+            onSave: (path) => { void saveTab(path); },
+            onUndo: undo,
+            onRedo: redo,
+            notify,
+            onToggleWrap: () => {
+              const next = { ...syntax, wrap: !syntax.wrap };
+              setSyntax(next);
+              writeSyntax(next);
+            },
           }),
 
           showPdf ? h("div", {
@@ -2335,22 +3871,32 @@ body.ps-resizing *{cursor:inherit!important}
           showPdf ? h("section", { className: "ps-pane ps-pdf", "aria-label": t("pdf") },
             h("div", { className: "ps-pane-head" },
               h("span", { className: "ps-pane-title" }, t("pdf")),
+              h("button", { className: "ps-btn icon", type: "button", title: t("pdfReload"), "aria-label": t("pdfReload"), onClick: () => { void refreshPdf(); } }, h(Icon.refresh)),
               h("button", { className: "ps-btn icon", type: "button", title: t("openInNewTab"), "aria-label": t("openInNewTab"), disabled: !pdf.rev, onClick: () => window.open(pdfUrl(), "_blank", "noopener") }, h(Icon.external)),
               h("button", { className: "ps-btn icon", type: "button", title: t("close"), "aria-label": t("close"), onClick: () => setPdfOpen(false) }, h(Icon.close))),
             pdf.mode === "pages"
               ? h("div", { className: "ps-pdf-scroll" },
                 h("div", { className: "ps-pages", style: { "--ps-zoom": `${zoom}%` } },
-                  Array.from({ length: pdf.pages }, (unused, index) => h("img", {
+                  Array.from({ length: pdf.pages }, (unused, index) => h(PdfPage, {
                     key: `${pdf.rev}-${index + 1}`,
-                    className: "ps-page",
-                    src: pageUrl(index + 1),
-                    alt: `page ${index + 1}`,
-                    loading: index < 2 ? "eager" : "lazy",
-                    draggable: false,
-                    title: t("pdfLocateHint"),
-                    onDoubleClick: (event) => { void locateFromPdf(event, index + 1); },
+                    t,
+                    project: project.id,
+                    page: index + 1,
+                    rev: pdf.rev,
+                    url: pageUrl(index + 1),
+                    eager: index < 2,
+                    onGoTo: locateSelection,
+                    notify,
+                    onMissing: () => setPdf({ rev: null, pages: 0, mode: "missing" }),
                   }))))
-              : pdf.mode === "iframe"
+              : pdf.mode === "missing"
+                ? h(EmptyState, {
+                  icon: Icon.filePdf,
+                  title: t("pdfMissingTitle"),
+                  body: t("pdfMissingBody"),
+                  children: h("button", { className: "ps-btn primary", type: "button", disabled: compiling || !project, onClick: () => { void runCompile(); } }, h(Icon.play), t("compile")),
+                })
+                : pdf.mode === "iframe"
                 ? h("iframe", { className: "ps-frame", src: pdfUrl(), title: t("pdf") })
                 : h(EmptyState, {
                   icon: Icon.filePdf,
@@ -2398,14 +3944,15 @@ body.ps-resizing *{cursor:inherit!important}
         treeInfo.truncated ? h("div", { className: "ps-banner" }, h("span", { className: "ps-banner-text" }, t("filesTruncated"))) : null,
 
         renderDialog(),
-        toast ? h("div", { className: `ps-toast${toast.kind === "err" ? " err" : ""}`, role: "status" }, toast.message) : null);
+        toast ? h("div", { className: `ps-toast${toast.kind === "err" ? " err" : ""}`, role: "status" }, toast.message) : null,
+        h(Explosion, { nonce: boom, onDone: clearBoom }));
     }
 
     // -- plugin ------------------------------------------------------------
     return {
       inject: ["slots", "locale", "layout"],
       /** Pure helpers exercised by test/client.test.mjs (no browser needed). */
-      __internals: { Studio, EditorPane, Dock, FolderPicker, highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables },
+      __internals: { Studio, EditorPane, Dock, FolderPicker, PdfPage, GitView, Explosion, highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet },
       apply(ctx) {
         ctx.effect(() => {
           const style = document.createElement("style");

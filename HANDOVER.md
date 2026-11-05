@@ -1,6 +1,6 @@
 # Paper Studio — handover
 
-Prepared 2026-11-04, for Paper Studio 1.1.0.
+Prepared 2026-11-04; updated 2026-11-05 for Paper Studio 1.3.0.
 
 ## Where it lives now
 
@@ -26,6 +26,52 @@ reinstalling from the new path, restart the process that runs `dsh web`, then
 reload the page (the panel's API token is injected into the page HTML at load
 time). A page reload alone is enough for `client.js`-only changes; anything in
 `index.js` needs the restart.
+
+## 1.3.0 — editor, Git panel, PDF text layer, settings
+
+**Operational note (important):** the Web host snapshots client bundles at boot
+and serves them under an immutable rev, so a page reload alone does **not** pick
+up a changed `client.js`. After client-side changes, **restart the Harness**. The
+editor footer and Settings show a build tag (e.g. `b05:24`) to confirm what the
+page actually loaded.
+
+- **Editor scroll/wrap rewrite:** the highlighted text layer is aligned with the
+  textarea by width (`textarea.clientWidth`, scrollbar included), re-applied when
+  a file mounts, and kept in sync via layout effects; a stray `blockRef`
+  reference in the host-side scroll handler (which threw and aborted the sync)
+  was removed.
+- **Soft wrap:** toggle in Settings → Editor → Editing and in the editor footer;
+  line numbers are rendered inside the text layer so they stay aligned with
+  wrapped logical lines.
+- **Vim mode** (Settings → Editor → Shortcuts): normal/insert/visual, motions
+  `h j k l w b e 0 $ gg G`, operators `x dd yy p P u`, visual `v`+`d`/`y`, and an
+  ex command line supporting `:w`, `:wq`, `:<n>`, `:%s/pat/rep/g`,
+  `:s/pat/rep/g` (with `i`). Arrow/Home/End/Page keys stay native, so they follow
+  visual rows under wrap. Block cursor in normal mode, line caret in insert.
+- **Spellcheck** via aspell (`--mode=tex`) with US/UK dictionaries and wavy
+  underlines; off by default.
+- **Completion:** project macros (`\newcommand`/`\def`/`\DeclareMathOperator`,
+  with arity) and custom environments are indexed; commands insert their required
+  argument braces; `\begin{…}` expands figure/table/itemize/enumerate/equation/
+  align/theorem/proof/abstract/tikzpicture snippets with the caret placed
+  sensibly. The popup is fixed below the caret line and accepts with Tab or click
+  (Enter inserts a newline).
+- **Context menu:** Cut/Copy/Paste, separator, then Bold/Italic/Underline with
+  shortcut hints.
+- **Settings:** one gear dialog, Editor tab split into Appearance / Editing /
+  Spelling / Shortcuts, plus the Project tab (name, main file, remote, token,
+  git sync, remove). Optional diagnostics readout for layout investigations.
+- **Git panel:** status, upstream/ahead/behind, changed files, diff vs upstream,
+  fetch/pull/push, branch switch/create, SSH key display, and *Reset to origin*
+  behind an explicit red confirmation (explosion animation on success).
+- **PDF:** real text layer over the page (drag selection, double-click a word,
+  *Go to editor*), column-aware reading order for two-column papers, reload
+  button and a missing-PDF state.
+- **Header:** Terminal and Problems merged into one Output button; auto-compile
+  moved to Settings (off by default).
+
+Verification: 27 offline tests plus the headless render smoke; scroll/wrap
+alignment confirmed against the diagnostics readout (`cw` == `pw`).
 
 ## What is new in 1.1.0
 

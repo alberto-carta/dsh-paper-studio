@@ -477,6 +477,11 @@ function parseLatexWarnings(log, fallbackFile) {
     const bibtexWarning = /^Warning--(.+)$/u.exec(text);
     if (bibtexWarning) {
       push({ kind: "bibtex", file: null, line: null, message: bibtexWarning[1].trim().slice(0, 400) });
+      continue;
+    }
+    const bibtexError = /^(I couldn't open .+|I found no .+|Sorry---you've exceeded.+)$/u.exec(text);
+    if (bibtexError) {
+      push({ kind: "bibtex", file: null, line: null, message: text.slice(0, 400) });
     }
   }
   return warnings;
@@ -606,10 +611,13 @@ async function compileProject(project, emit) {
   };
   const auxPath = join(buildDir, `${base}.aux`);
   const bblPath = join(buildDir, `${base}.bbl`);
+  const latexPasses = [];
+  const lastOfLatex = () => latexPasses[latexPasses.length - 1] || first;
   const latexPass = async (label) => {
     signal({ type: "command", argv: latexArgv, stage: label });
     const result = await run(latexArgv, { cwd: project.path, timeoutMs: COMPILE_TIMEOUT_MS, onData: streamOutput });
     passes.push(result);
+    latexPasses.push(result);
     return result;
   };
   const first = await latexPass("pdflatex · pass 1");
@@ -650,14 +658,14 @@ async function compileProject(project, emit) {
   if (bibtexChanged || first.code !== 0 || rerunHint(first)) {
     await latexPass(bibtexRan ? "pdflatex · pass 2" : "pdflatex · retry");
   }
-  let last = passes[passes.length - 1];
-  if (last !== first && rerunHint(last)) last = await latexPass("pdflatex · pass 3 (cross-references)");
+  let lastLatex = lastOfLatex();
+  if (lastLatex !== first && rerunHint(lastLatex)) lastLatex = await latexPass("pdflatex · pass 3 (cross-references)");
 
   const combined = passes.map((pass) => `${pass.stdout}\n${pass.stderr}`).join("\n");
   const log = truncateLog(combined);
   // Diagnose the last pass only: an earlier pass's "undefined citation" is fixed
   // by the rerun, so reporting it would flag a successful build as broken.
-  const finalLog = `${last.stdout}\n${last.stderr}`;
+  const finalLog = `${lastLatex.stdout}\n${lastLatex.stderr}`;
   const bibtexLog = bibtexPass ? `${bibtexPass.stdout}\n${bibtexPass.stderr}` : "";
   const relativeFile = (entry) => {
     let file = String(entry.file ?? "").replace(/^\.\//u, "");
@@ -670,7 +678,7 @@ async function compileProject(project, emit) {
   const warningsList = parseLatexWarnings(`${finalLog}\n${bibtexLog}`, mainFile).map(relativeFile);
   const pdfPath = join(buildDir, `${base}.pdf`);
   const pdfInfo = await stat(pdfPath).catch(() => null);
-  const ok = last.code === 0 && Boolean(pdfInfo?.isFile());
+  const ok = lastLatex.code === 0 && Boolean(pdfInfo?.isFile());
   const pages = ok ? await pdfPageCount(pdfPath, tooling) : 0;
   let files = [];
   if (ok) {
@@ -698,8 +706,9 @@ async function compileProject(project, emit) {
     fingerprint: fingerprint.hash,
     bibHash: fingerprint.bibHash,
     auxHash: await hashFile(auxPath),
-    exitCode: last.code,
-    timedOut: passes.some((pass) => pass.timedOut),
+    exitCode: lastLatex.code,
+    bibtexExitCode: bibtexRan && bibtexPass ? bibtexPass.code : null,
+    timedOut: latexPasses.some((pass) => pass.timedOut),
     at: new Date().toISOString(),
   };
   if (ok) compiled.set(project.id, cache);
@@ -716,8 +725,9 @@ async function compileProject(project, emit) {
     bibtex: bibtexRan,
     passes: passes.length,
     rev: cache.rev,
-    exitCode: last.code,
-    timedOut: passes.some((pass) => pass.timedOut),
+    exitCode: lastLatex.code,
+    bibtexExitCode: bibtexRan && bibtexPass ? bibtexPass.code : null,
+    timedOut: latexPasses.some((pass) => pass.timedOut),
     log,
     tooling,
   };
@@ -781,6 +791,8 @@ async function runGit(cwd, args, { token, timeoutMs = 180_000 } = {}) {
     ok: result.code === 0,
     code: result.code,
     output: truncateLog(`${result.stdout}${result.stderr}`.trim()).slice(-20_000),
+    // Raw stdout keeps porcelain's significant leading space (` M main.tex`).
+    stdout: result.stdout.slice(-200_000),
     timedOut: result.timedOut,
   };
 }
@@ -809,7 +821,123 @@ async function gitStatus(project) {
   };
 }
 
-async function gitSync(project, action) {
+const sshKeyCache = new Map();
+
+/** Which SSH key git actually offers, best effort: config override, then a probe. */
+async function gitSshKey(project) {
+  const cached = sshKeyCache.get(project.id);
+  if (cached && Date.now() - cached.at < 60_000) return cached.value;
+  let value = null;
+  const configured = await runGit(project.path, ["config", "--get", "core.sshCommand"], { timeoutMs: 10_000 });
+  if (configured.ok && configured.output.trim().length > 0) {
+    value = configured.output.trim();
+  } else {
+    const remote = (await runGit(project.path, ["remote", "get-url", "origin"], { timeoutMs: 10_000 })).output.trim();
+    const host = /^[^@]+@([^:]+):/u.exec(remote)?.[1] ?? (/^ssh:\/\/([^/]+)/u.exec(remote)?.[1]) ?? null;
+    if (host) {
+      const probe = await run(
+        ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5", "-v", "-T", `git@${host}`],
+        { timeoutMs: 12_000 },
+      );
+      const offered = /Offering public key:\s*(\S+)/u.exec(`${probe.stdout}\n${probe.stderr}`);
+      if (offered) value = offered[1];
+    }
+  }
+  sshKeyCache.set(project.id, { at: Date.now(), value });
+  return value;
+}
+
+/** Run a process with stdin, for filters such as aspell. */
+function runWithInput(argv, input, { timeoutMs = 30_000 } = {}) {
+  return new Promise((resolveRun) => {
+    let stdout = "";
+    let stderr = "";
+    let settled = false;
+    const finish = (code, error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (error) stderr += `\n${error.message}`;
+      resolveRun({ code, stdout, stderr });
+    };
+    let child;
+    try {
+      child = spawn(argv[0], argv.slice(1), { stdio: ["pipe", "pipe", "pipe"] });
+    } catch (error) {
+      resolveRun({ code: -1, stdout: "", stderr: String(error?.message ?? error) });
+      return;
+    }
+    const timer = setTimeout(() => {
+      try { child.kill("SIGKILL"); } catch { /* already gone */ }
+    }, Math.max(1000, timeoutMs));
+    child.stdout.on("data", (chunk) => { stdout += chunk.toString("utf8"); });
+    child.stderr.on("data", (chunk) => { stderr += chunk.toString("utf8"); });
+    child.on("error", (error) => finish(-1, error));
+    child.on("close", (code) => finish(code));
+    child.stdin.on("error", () => {});
+    child.stdin.end(input);
+  });
+}
+
+const SPELL_LANGS = new Set(["en_US", "en_GB"]);
+
+/** Unique misspelled words in LaTeX source, via aspell's TeX mode. */
+async function spellCheck(text, lang) {
+  const language = SPELL_LANGS.has(lang) ? lang : "en_US";
+  const input = String(text ?? "").slice(0, 200_000);
+  if (input.trim().length === 0) return { ok: true, lang: language, words: [] };
+  const result = await runWithInput(
+    ["aspell", "-a", "--mode=tex", `--lang=${language}`],
+    input,
+    { timeoutMs: 20_000 },
+  );
+  if (result.code !== 0) {
+    return { ok: false, lang: language, words: [], error: result.stderr.trim() || `aspell exited ${result.code}` };
+  }
+  const words = new Set();
+  for (const line of result.stdout.split(/\r?\n/u)) {
+    const match = /^[&#]\s+(\S+)/u.exec(line);
+    if (!match) continue;
+    const word = match[1].replace(/^[^A-Za-z]+|[^A-Za-z]+$/gu, "").toLowerCase();
+    if (word.length > 0) words.add(word);
+  }
+  return { ok: true, lang: language, words: [...words].slice(0, 2000) };
+}
+
+async function gitInfo(project) {
+  const base = await gitStatus(project);
+  if (!base.repo) return base;
+  const [filesResult, upstream, branches, last] = await Promise.all([
+    runGit(project.path, ["status", "--porcelain=v1"], { timeoutMs: 30_000 }),
+    runGit(project.path, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"], { timeoutMs: 10_000 }),
+    runGit(project.path, ["for-each-ref", "--format=%(refname:short)", "refs/heads"], { timeoutMs: 10_000 }),
+    runGit(project.path, ["log", "-1", "--format=%h %s"], { timeoutMs: 10_000 }),
+  ]);
+  const files = filesResult.stdout.split(/\r?\n/u).filter(Boolean).map((line) => ({
+    status: line.slice(0, 2).trim(),
+    path: line.slice(3).trim(),
+  })).filter((entry) => entry.path.length > 0 && !entry.path.startsWith(".paper-studio/"));
+  return {
+    ...base,
+    upstream: upstream.ok ? upstream.output.trim() : null,
+    files,
+    branches: branches.output.split(/\r?\n/u).filter(Boolean),
+    lastCommit: last.ok ? last.output.trim() : null,
+    sshKey: await gitSshKey(project),
+  };
+}
+
+async function gitDiff(project) {
+  const status = await gitStatus(project);
+  if (!status.repo) return { ok: false, reason: "Not a git repository" };
+  // Differences from the published branch: committed-but-unpushed plus local edits.
+  const upstream = await runGit(project.path, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"], { timeoutMs: 10_000 });
+  const base = upstream.ok && upstream.output.trim().length > 0 ? upstream.output.trim() : "HEAD";
+  const patch = await runGit(project.path, ["diff", "--no-color", base], { timeoutMs: 60_000 });
+  return { ok: true, patch: patch.output.slice(-200_000), branch: status.branch, base };
+}
+
+async function gitSync(project, action, options = {}) {
   if (action === "status") return { ok: true, ...(await gitStatus(project)) };
   const token = project.overleaf?.token ?? null;
   if (action === "pull") {
@@ -818,6 +946,32 @@ async function gitSync(project, action) {
   }
   if (action === "push") {
     const result = await runGit(project.path, ["push", "origin", "HEAD"], { token });
+    return { ...result, ...(await gitStatus(project)) };
+  }
+  if (action === "fetch") {
+    const result = await runGit(project.path, ["fetch", "--all", "--prune"], { token });
+    return { ...result, ...(await gitStatus(project)) };
+  }
+  if (action === "nuke") {
+    const branch = (await gitStatus(project)).branch;
+    if (!branch) throw new HttpError(400, "No branch is checked out");
+    const fetch = await runGit(project.path, ["fetch", "--all", "--prune"], { token });
+    if (!fetch.ok) return { ...fetch, ...(await gitStatus(project)) };
+    const reset = await runGit(project.path, ["reset", "--hard", `origin/${branch}`], { timeoutMs: 60_000 });
+    if (!reset.ok) return { ...reset, ...(await gitStatus(project)) };
+    // Keep Paper Studio's own build directory: it is untracked and rebuilding is cheap.
+    const clean = await runGit(project.path, ["clean", "-fd", "-e", ".paper-studio"], { timeoutMs: 60_000 });
+    return {
+      ok: clean.ok,
+      output: truncateLog([fetch.output, reset.output, clean.output].filter(Boolean).join("\n")).slice(-20_000),
+      ...(await gitStatus(project)),
+    };
+  }
+  if (action === "switch" || action === "create") {
+    const name = String(options.branch ?? "").trim();
+    if (!/^[A-Za-z0-9][A-Za-z0-9._/-]{0,80}$/u.test(name)) throw new HttpError(400, "Invalid branch name");
+    const argv = action === "create" ? ["switch", "-c", name] : ["switch", name];
+    const result = await runGit(project.path, argv, { token });
     return { ...result, ...(await gitStatus(project)) };
   }
   if (action === "init") {
@@ -977,6 +1131,123 @@ async function listSourceFiles(root, relative, out) {
   }
 }
 
+const wordsCache = new Map();
+
+/** Word boxes for one page in PDF points (origin top-left). */
+async function pageWords(pdfPath, page) {
+  const key = `${pdfPath}:${page}`;
+  const cached = wordsCache.get(key);
+  if (cached) return cached;
+  const result = await run(
+    ["pdftotext", "-f", String(page), "-l", String(page), "-bbox", pdfPath, "-"],
+    { timeoutMs: 20_000 },
+  );
+  const size = /<page width="([\d.]+)" height="([\d.]+)"/u.exec(result.stdout);
+  const words = [];
+  const pattern = /<word xMin="([\d.]+)" yMin="([\d.]+)" xMax="([\d.]+)" yMax="([\d.]+)">([^<]*)<\/word>/gu;
+  let match;
+  while ((match = pattern.exec(result.stdout))) {
+    words.push({
+      text: decodeXmlEntities(match[5]),
+      xMin: Number(match[1]),
+      yMin: Number(match[2]),
+      xMax: Number(match[3]),
+      yMax: Number(match[4]),
+    });
+  }
+  const value = { width: Number(size ? size[1] : 0), height: Number(size ? size[2] : 0), words };
+  wordsCache.set(key, value);
+  if (wordsCache.size > 80) wordsCache.delete(wordsCache.keys().next().value);
+  return value;
+}
+
+function escapeRegExp(text) {
+  return String(text).replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}
+
+/**
+ * Find a phrase (as selected in the PDF) in the sources. Tries the whole phrase,
+ * then shorter prefixes and finally its longest word, because LaTeX markup often
+ * sits between the words the PDF shows.
+ */
+async function findTextInSources(project, phrase, preferred) {
+  const tokens = String(phrase ?? "")
+    .replace(/\s+/gu, " ")
+    .trim()
+    .split(" ")
+    .map((token) => token.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ""))
+    .filter((token) => token.length > 0);
+  if (tokens.length === 0) return null;
+  const files = [];
+  await listSourceFiles(project.path, "", files);
+  const ordered = preferred && files.includes(preferred)
+    ? [preferred, ...files.filter((file) => file !== preferred)]
+    : files;
+  const longest = [...tokens].sort((left, right) => right.length - left.length)[0];
+  const variants = [];
+  const add = (list) => {
+    if (list.length === 0) return;
+    if (!variants.some((existing) => existing.join(" ") === list.join(" "))) variants.push(list);
+  };
+  if (tokens.length > 1) add(tokens);
+  if (tokens.length > 4) add(tokens.slice(0, 4));
+  if (tokens.length > 2) add(tokens.slice(0, 2));
+  add([longest]);
+  for (const variant of variants) {
+    const pattern = new RegExp(variant.map(escapeRegExp).join("\\s+"), "iu");
+    for (const file of ordered) {
+      const text = await readFile(join(project.path, file), "utf8").catch(() => "");
+      const match = pattern.exec(text);
+      if (match) return { file, line: text.slice(0, match.index).split("\n").length };
+    }
+  }
+  return null;
+}
+
+/**
+ * SyncTeX reports the line where a paragraph's box started, so several words on
+ * one page can map to the same line. Given the word/phrase actually selected,
+ * pick the occurrence closest to that line instead.
+ */
+async function refineTextLine(project, file, line, text) {
+  const source = await readFile(join(project.path, file), "utf8").catch(() => "");
+  if (source.length === 0) return null;
+  const tokens = String(text ?? "")
+    .replace(/\s+/gu, " ")
+    .trim()
+    .split(" ")
+    .map((token) => token.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ""))
+    .filter((token) => token.length > 0);
+  if (tokens.length === 0) return null;
+  const longest = [...tokens].sort((left, right) => right.length - left.length)[0];
+  const variants = [];
+  const add = (list) => {
+    if (list.length === 0) return;
+    if (!variants.some((existing) => existing.join(" ") === list.join(" "))) variants.push(list);
+  };
+  if (tokens.length > 1) add(tokens);
+  if (tokens.length > 4) add(tokens.slice(0, 4));
+  if (tokens.length > 2) add(tokens.slice(0, 2));
+  add([longest]);
+
+  let best = null;
+  for (const variant of variants) {
+    const pattern = new RegExp(variant.map(escapeRegExp).join("\\s+"), "giu");
+    let match;
+    while ((match = pattern.exec(source)) !== null) {
+      const candidate = source.slice(0, match.index).split("\n").length;
+      const distance = Math.abs(candidate - line);
+      if (!best || distance < best.distance) best = { line: candidate, distance, phrase: variant.length > 1 };
+      if (pattern.lastIndex === match.index) pattern.lastIndex += 1;
+    }
+    if (best && best.distance <= 30) break;
+  }
+  if (!best) return null;
+  // A multi-word phrase is specific enough to trust even far from the SyncTeX
+  // hint; a single common word is not.
+  return best.distance <= 120 || best.phrase ? best.line : null;
+}
+
 /** First source line containing `needle`, preferring the file already open. */
 async function findInSources(project, needle, preferred) {
   const files = [];
@@ -1027,9 +1298,20 @@ async function locateInPdf(project, options) {
     if (input && line) {
       const file = relative(input[1]);
       if (file.length > 0 && !isAbsolute(file) && !file.startsWith("..")) {
-        return { ok: true, file, line: Number(line[1]), method: "synctex" };
+        const syncLine = Number(line[1]);
+        const text = typeof options.text === "string" ? options.text : "";
+        const refined = text.length > 0 ? await refineTextLine(project, file, syncLine, text) : null;
+        // Only a nearby match may override SyncTeX; otherwise its paragraph start
+        // is the more trustworthy answer.
+        if (refined !== null) return { ok: true, file, line: refined, method: "synctex+text" };
+        return { ok: true, file, line: syncLine, method: "synctex" };
       }
     }
+  }
+
+  if (typeof options.text === "string" && options.text.trim().length > 0) {
+    const found = await findTextInSources(project, options.text, current);
+    if (found) return { ok: true, file: found.file, line: found.line, method: "text", text: options.text };
   }
 
   const bbox = await run(
@@ -1293,7 +1575,19 @@ const ops = {
     return { project: publicProject(project), ...result };
   },
 
-  async git({ project: reference, action, url, token, name: cloneName, path: clonePath }) {
+  async gitInfo({ project: reference }) {
+    return gitInfo(projectRef(reference));
+  },
+
+  async gitDiff({ project: reference }) {
+    return gitDiff(projectRef(reference));
+  },
+
+  async spell({ text, lang }) {
+    return spellCheck(text, lang);
+  },
+
+  async git({ project: reference, action, url, token, name: cloneName, path: clonePath, branch }) {
     if (action === "clone") {
       const remote = normalizeOverleafRemote(url);
       if (remote.length === 0) throw new HttpError(400, "Repository URL is required");
@@ -1318,7 +1612,7 @@ const ops = {
       return { ok: true, project: publicProject(project), output };
     }
     const project = projectRef(reference);
-    return gitSync(project, action ?? "status");
+    return gitSync(project, action ?? "status", { branch });
   },
 };
 
@@ -1605,7 +1899,11 @@ async function collectSymbols(project) {
   if (cached && Date.now() - cached.at < SYMBOL_CACHE_MS) return cached.value;
   const labels = [];
   const citations = [];
+  const commands = [];
+  const environments = [];
   const files = [];
+  const seenCommands = new Set();
+  const seenEnvironments = new Set();
   const seenLabels = new Set();
   const seenCites = new Set();
   const visit = async (relative) => {
@@ -1629,13 +1927,43 @@ async function collectSymbols(project) {
       if (!info?.isFile() || info.size > MAX_FILE_BYTES) continue;
       const text = await readFile(join(project.path, child), "utf8").catch(() => "");
       if (/\.tex$/iu.test(entry.name)) {
+        const lineOf = (index) => text.slice(0, index).split("\n").length;
         const labelRe = /\\label\s*\{([^{}]+)\}/gu;
         let match;
         while ((match = labelRe.exec(text))) {
           const key = match[1].trim();
           if (key.length === 0 || seenLabels.has(key)) continue;
           seenLabels.add(key);
-          labels.push({ key, file: child, line: text.slice(0, match.index).split("\n").length });
+          labels.push({ key, file: child, line: lineOf(match.index) });
+        }
+        // User macros: \newcommand{\name}[n], \def\name#1..., \DeclareMathOperator
+        const newCommand = /\\(?:newcommand|renewcommand|providecommand|DeclareRobustCommand)\*?\s*\{\s*\\([A-Za-z@]+)\s*\}(?:\s*\[(\d)\])?/gu;
+        while ((match = newCommand.exec(text))) {
+          const name = match[1];
+          if (seenCommands.has(name)) continue;
+          seenCommands.add(name);
+          commands.push({ name, arity: Number(match[2] || 0), file: child, line: lineOf(match.index) });
+        }
+        const defCommand = /\\def\s*\\([A-Za-z@]+)((?:#\d)*)/gu;
+        while ((match = defCommand.exec(text))) {
+          const name = match[1];
+          if (seenCommands.has(name)) continue;
+          seenCommands.add(name);
+          commands.push({ name, arity: (match[2].match(/#\d/gu) || []).length, file: child, line: lineOf(match.index) });
+        }
+        const operator = /\\DeclareMathOperator\*?\s*\{\s*\\([A-Za-z@]+)\s*\}/gu;
+        while ((match = operator.exec(text))) {
+          const name = match[1];
+          if (seenCommands.has(name)) continue;
+          seenCommands.add(name);
+          commands.push({ name, arity: 0, file: child, line: lineOf(match.index) });
+        }
+        const newEnvironment = /\\(?:newenvironment|renewenvironment)\s*\{\s*([^{}]+?)\s*\}/gu;
+        while ((match = newEnvironment.exec(text))) {
+          const name = match[1].trim();
+          if (name.length === 0 || /[#\\]/u.test(name) || seenEnvironments.has(name)) continue;
+          seenEnvironments.add(name);
+          environments.push({ name, file: child, line: lineOf(match.index) });
         }
       } else {
         for (const cite of parseBibEntries(text)) {
@@ -1650,6 +1978,8 @@ async function collectSymbols(project) {
   const value = {
     labels: labels.slice(0, 2000),
     citations: citations.slice(0, 2000),
+    commands: commands.slice(0, 1000),
+    environments: environments.slice(0, 500),
     files: files.slice(0, 2000),
   };
   symbolsCache.set(project.id, { at: Date.now(), value });
@@ -1728,9 +2058,16 @@ function createHandler(token) {
       if (request.method === "GET" && action === "pdf-info") {
         const project = projectRef(url.searchParams.get("project"));
         const cache = await ensureCompiled(project).catch(() => null);
-        return sendJson(response, 200, cache?.pdfPath
-          ? { exists: true, rev: cache.rev, pages: cache.pages, renderedPages: cache.files.length, at: cache.at, mainFile: cache.mainFile, restored: Boolean(cache.restored) }
-          : { exists: false });
+        if (!cache?.pdfPath) return sendJson(response, 200, { exists: false });
+        const onDisk = await stat(cache.pdfPath).catch(() => null);
+        if (!onDisk?.isFile()) {
+          compiled.delete(project.id);
+          return sendJson(response, 200, { exists: false });
+        }
+        return sendJson(response, 200, {
+          exists: true, rev: cache.rev, pages: cache.pages, renderedPages: cache.files.length,
+          at: cache.at, mainFile: cache.mainFile, restored: Boolean(cache.restored),
+        });
       }
       if (request.method === "GET" && action === "git") {
         return sendJson(response, 200, await ops.git({ project: url.searchParams.get("project"), action: url.searchParams.get("action") ?? "status" }));
@@ -1750,6 +2087,10 @@ function createHandler(token) {
         const project = projectRef(url.searchParams.get("project"));
         const cache = await ensureCompiled(project);
         if (!cache?.pdfPath) return sendJson(response, 404, { error: "No compiled PDF yet" });
+        if (!(await stat(cache.pdfPath).catch(() => null))?.isFile()) {
+          compiled.delete(project.id);
+          return sendJson(response, 404, { error: "Compiled PDF is missing; compile again." });
+        }
         if (action === "pdf") {
           const bytes = await readFile(cache.pdfPath);
           return sendBytes(response, 200, bytes, "application/pdf", { "content-disposition": "inline" });
@@ -1766,8 +2107,22 @@ function createHandler(token) {
         const bytes = await readFile(join(buildDir, "pages", rendered));
         return sendBytes(response, 200, bytes, "image/png");
       }
+      if (request.method === "GET" && action === "page/words") {
+        const project = projectRef(url.searchParams.get("project"));
+        const cache = await ensureCompiled(project);
+        if (!cache?.pdfPath) return sendJson(response, 404, { error: "No compiled PDF yet" });
+        const page = Number(url.searchParams.get("page") ?? "1");
+        if (!Number.isInteger(page) || page < 1) return sendJson(response, 400, { error: "Invalid page number" });
+        return sendJson(response, 200, await pageWords(cache.pdfPath, page));
+      }
       if (request.method === "GET" && action === "fs/list") {
         return sendJson(response, 200, await listDirectories(url.searchParams.get("path")));
+      }
+      if (request.method === "GET" && action === "git/info") {
+        return sendJson(response, 200, await ops.gitInfo({ project: url.searchParams.get("project") }));
+      }
+      if (request.method === "GET" && action === "git/diff") {
+        return sendJson(response, 200, await ops.gitDiff({ project: url.searchParams.get("project") }));
       }
       if (request.method === "GET" && action === "symbols") {
         const project = projectRef(url.searchParams.get("project"));
@@ -1792,6 +2147,7 @@ function createHandler(token) {
         case "file/rename": return sendJson(response, 200, await ops.renameEntry(body));
         case "compile": return sendJson(response, 200, await ops.compile(body));
         case "pdf/locate": return sendJson(response, 200, await ops.locate(body));
+        case "spell": return sendJson(response, 200, await ops.spell(body));
         case "compile/start": {
           const project = projectRef(body.project);
           const job = startCompileJob(project);
@@ -1895,6 +2251,13 @@ export const __test = {
   collectSymbols,
   locateInPdf,
   findInSources,
+  findTextInSources,
+  refineTextLine,
+  spellCheck,
+  gitInfo,
+  gitDiff,
+  gitSshKey,
+  pageWords,
   run,
   parseBibEntries,
   parseLatexErrors,

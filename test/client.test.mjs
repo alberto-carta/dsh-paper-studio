@@ -18,6 +18,7 @@ const React = {
   useCallback: (fn) => fn,
   useEffect: () => {},
   useMemo: (fn) => fn(),
+  memo: (component) => component,
   useRef: (value) => ({ current: value }),
   useState: (value) => [value, () => {}],
 };
@@ -25,7 +26,7 @@ const plugin = definition.factory((id) => {
   if (id === "react") return React;
   throw new Error(`unexpected require: ${id}`);
 });
-const { highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables } = plugin.__internals;
+const { highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet } = plugin.__internals;
 
 test("highlighter marks commands, braces and comments and escapes HTML", () => {
   const html = highlightLatex("\\section{Intro} % note <b>\nText $x^2$ here");
@@ -55,9 +56,8 @@ test("completion context recognises cites, refs, commands, packages and paths", 
   assert.deepEqual(completionContext("\\begi", 5), { kind: "command", query: "begi", start: 1, end: 5 });
   assert.deepEqual(completionContext("\\usepackage{ams", 15), { kind: "package", query: "ams", start: 12, end: 15 });
   assert.deepEqual(completionContext("\\includegraphics[width=1\\linewidth]{fig", 39), { kind: "image", query: "fig", start: 36, end: 39 });
-  // Outside a command, a bare word is a candidate filename: completion filters
-  // it against the project's files before showing anything.
-  assert.deepEqual(completionContext("plain text", 10), { kind: "anyfile", query: "text", start: 6, end: 10 });
+  // Prose never opens the completion popup: files exist only inside commands.
+  assert.equal(completionContext("plain text", 10), null);
 });
 
 test("defaults are purple commands with translucent environment bands", () => {
@@ -66,6 +66,62 @@ test("defaults are purple commands with translucent environment bands", () => {
   assert.equal(vars["--ps-hl-command"], "#8b5cf6");
   assert.match(vars["--ps-bg-figure"], /^rgba\(59, 130, 246, 0\.12\)$/u);
   assert.match(vars["--ps-current-line"], /^rgba\(139, 92, 246, 0\.85\)$/u);
+});
+
+test("two-column pages read the left column before the right", () => {
+  const title = { text: "Title", xMin: 150, xMax: 450, yMin: 20, yMax: 35 };
+  const left = Array.from({ length: 5 }, (unused, index) => ({
+    text: `L${index + 1}`, xMin: 50, xMax: 250, yMin: 100 + index * 20, yMax: 112 + index * 20,
+  }));
+  const right = Array.from({ length: 5 }, (unused, index) => ({
+    text: `R${index + 1}`, xMin: 330, xMax: 550, yMin: 100 + index * 20, yMax: 112 + index * 20,
+  }));
+  const ordered = orderPageWords([...right, ...left, title], 600, 300);
+  assert.deepEqual(ordered.map((word) => word.text), ["Title", "L1", "L2", "L3", "L4", "L5", "R1", "R2", "R3", "R4", "R5"]);
+
+  const single = [
+    { text: "A", xMin: 50, xMax: 550, yMin: 100, yMax: 112 },
+    { text: "B", xMin: 50, xMax: 550, yMin: 80, yMax: 92 },
+    { text: "C", xMin: 50, xMax: 550, yMin: 120, yMax: 132 },
+  ];
+  assert.deepEqual(orderPageWords(single, 600, 300).map((word) => word.text), ["B", "A", "C"]);
+});
+
+test("project macros complete with their argument shape", () => {
+  const symbols = {
+    labels: [], citations: [], files: [],
+    commands: [{ name: "pref", arity: 1, file: "main.tex" }, { name: "acarta", arity: 0, file: "main.tex" }],
+    environments: [{ name: "mybox", file: "main.tex" }],
+  };
+  const pref = completionItems("command", "pre", symbols).find((item) => item.insert === "pref");
+  assert.ok(pref, "user macro is offered");
+  assert.equal(pref.suffix, "{}");
+  assert.equal(pref.caret, "pref".length + 1);
+
+  const acarta = completionItems("command", "acar", symbols).find((item) => item.insert === "acarta");
+  assert.equal(acarta.suffix, "", "a zero-argument macro adds no braces");
+
+  const section = completionItems("command", "sect", symbols).find((item) => item.insert === "section");
+  assert.equal(section.suffix, "{}");
+  assert.equal(section.caret, "section".length + 1);
+
+  const figure = completionItems("environment", "figu", symbols).find((item) => item.insert === "figure");
+  assert.ok(figure.template);
+  assert.match(figure.template.text, /\\begin\{figure\}/u);
+  assert.match(figure.template.text, /\\includegraphics/u);
+
+  const custom = completionItems("environment", "myb", symbols).find((item) => item.insert === "mybox");
+  assert.equal(custom.template, null);
+  assert.equal(environmentSnippet("itemize").text.includes("\\item"), true);
+});
+
+test("key bindings normalize modifiers and compare exactly", () => {
+  assert.equal(bindingFromEvent({ key: "b", ctrlKey: true, metaKey: false, shiftKey: false, altKey: false }), "mod+b");
+  assert.equal(bindingFromEvent({ key: "Z", ctrlKey: false, metaKey: true, shiftKey: true, altKey: false }), "mod+shift+z");
+  assert.equal(bindingFromEvent({ key: "Shift", shiftKey: true }), null);
+  assert.equal(matchesBinding({ key: "s", ctrlKey: true, metaKey: false, shiftKey: false, altKey: false }, "mod+s"), true);
+  assert.equal(matchesBinding({ key: "s", ctrlKey: true, metaKey: false, shiftKey: true, altKey: false }, "mod+s"), false);
+  assert.equal(matchesBinding({ key: "s", ctrlKey: false, metaKey: false, shiftKey: false, altKey: false }, "mod+s"), false);
 });
 
 test("completion ranking prefers prefixes and filters by type", () => {
@@ -90,11 +146,6 @@ test("completion ranking prefers prefixes and filters by type", () => {
   const bibs = completionItems("bibfile", "", symbols);
   assert.deepEqual(bibs.map((item) => item.insert), ["references.bib"]);
 
-  // Typing a bare filename inside a figure completes against project files.
-  const bareImage = completionItems("anyfile", "plo", symbols);
-  assert.deepEqual(bareImage.map((item) => item.insert), ["figures/plot.png"]);
-  const barePath = completionItems("anyfile", "figures/", symbols);
-  assert.deepEqual(barePath.map((item) => item.insert), ["figures/plot.png"]);
-  // Prose that matches no file yields nothing, so the popup stays closed.
-  assert.deepEqual(completionItems("anyfile", "text", symbols), []);
+  // Images are completed only inside \includegraphics{…}.
+  assert.deepEqual(completionItems("image", "plo", symbols).map((item) => item.insert), ["figures/plot.png"]);
 });
