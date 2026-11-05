@@ -93,6 +93,27 @@ test("compile streams commands, output and a finish event", async () => {
   assert.equal(finish.result.errors.length, 0);
 });
 
+test("fs/list browses directories for the folder picker", async () => {
+  const { status, body } = await json(api("fs/list", { path: "/home/acarta/Documents/Papers" }));
+  assert.equal(status, 200);
+  assert.ok(body.entries.some((entry) => entry.name === "paper-studio-demo"));
+  assert.ok(body.entries.every((entry) => typeof entry.path === "string" && entry.path.startsWith("/")));
+  assert.equal(body.entries.some((entry) => entry.name === "node_modules"), false);
+});
+
+test("project/update can re-point a project at an existing folder", async () => {
+  const info = await json(api("info"));
+  const project = info.body.projects.find((entry) => entry.name === "Paper Studio Demo");
+  const { status, body } = await json(api("project/update"), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ project: project.id, path: project.path }),
+  });
+  assert.equal(status, 200);
+  assert.equal(body.project.path, project.path);
+  assert.equal(body.project.mainFile, "main.tex");
+});
+
 test("page 1 is served and unknown pages are refused", async () => {
   const info = await json(api("info"));
   const project = info.body.projects.find((entry) => entry.name === "Paper Studio Demo");

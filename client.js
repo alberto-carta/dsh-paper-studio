@@ -130,6 +130,20 @@ window.__ModuleLoader__.load({
         cachedBuild: "No source changes since the last build",
         stageSaving: "saving files",
         shortcutsHint: "Ctrl/⌘+Space: complete · Ctrl/⌘+`: terminal",
+        browse: "Browse…",
+        useFolder: "Use this folder",
+        up: "Up",
+        home: "Home",
+        papersFolder: "Papers",
+        noSubfolders: "No subfolders here.",
+        loading: "Loading…",
+        registered: "In Paper Studio",
+        missingTitle: "Project folder is missing",
+        missingBody: "This project is still registered, but its folder no longer exists on disk. Locate it again, or remove the registration — files are never deleted by Paper Studio.",
+        locate: "Locate folder…",
+        locateTitle: "Locate the project folder",
+        projectMissingBadge: "missing",
+        retry: "Retry",
       },
     };
 
@@ -285,6 +299,19 @@ body.ps-resizing *{cursor:inherit!important}
 .ps-ac-item.active{background:var(--dsw-alias-bg-layer-2)}
 .ps-ac-item .ps-ac-label{font-family:${MONO};font-size:12px;overflow:hidden;text-overflow:ellipsis}
 .ps-ac-item .ps-ac-detail{margin-left:auto;font-size:10.5px;color:var(--dsw-alias-label-secondary);overflow:hidden;text-overflow:ellipsis;max-width:52%;padding-left:8px}
+.ps-path-row{display:flex;align-items:center;gap:6px}
+.ps-path-row .ps-input{flex:1;min-width:0}
+.ps-browser{margin-top:2px;border:.5px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-base);overflow:hidden}
+.ps-browser-head{display:flex;align-items:center;gap:4px;padding:4px 6px;border-bottom:.5px solid var(--dsw-alias-border-l1)}
+.ps-browser-path{flex:1;min-width:0;font:11px/1.4 ${MONO};color:var(--dsw-alias-label-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl;text-align:left}
+.ps-browser-list{max-height:158px;overflow:auto;padding:3px}
+.ps-browser-row{display:flex;align-items:center;gap:6px;width:100%;padding:3px 6px;border:0;border-radius:4px;background:transparent;color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;text-align:left;cursor:pointer;white-space:nowrap}
+.ps-browser-row:hover{background:var(--dsw-alias-bg-layer-2)}
+.ps-browser-row svg{width:13px;height:13px;flex:none;color:var(--dsw-alias-label-secondary)}
+.ps-browser-row .ps-browser-name{overflow:hidden;text-overflow:ellipsis}
+.ps-browser-row .ps-browser-tag{margin-left:auto;font-size:10px;color:var(--dsw-alias-label-secondary);padding-left:8px}
+.ps-browser-foot{display:flex;align-items:center;gap:6px;padding:4px 6px;border-top:.5px solid var(--dsw-alias-border-l1)}
+.ps-browser-empty{padding:10px 8px;font-size:11.5px;color:var(--dsw-alias-label-secondary)}
 .ps-git-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .ps-badge{display:inline-flex;align-items:center;gap:4px;padding:1px 6px;border-radius:9px;border:.5px solid var(--dsw-alias-border-l2);font-size:10.5px;color:var(--dsw-alias-label-secondary)}
 @media (max-width: 1080px){.ps-hide-narrow{display:none}}
@@ -955,6 +982,60 @@ body.ps-resizing *{cursor:inherit!important}
               : lines.map((line, index) => h("div", { key: index, className: `ps-term-line${line.kind ? ` ${line.kind}` : ""}` }, line.text.length > 0 ? line.text : " "))));
     }
 
+    function FolderPicker(props) {
+      const { t, start, onPick, onClose } = props;
+      const [state, setState] = useState({ path: "", parent: null, home: "", papers: "", entries: [], loading: true, error: "" });
+      const load = useCallback(async (target) => {
+        setState((current) => ({ ...current, loading: true, error: "" }));
+        try {
+          const data = await request("fs/list", { query: { path: target || undefined } });
+          setState({
+            path: data.path,
+            parent: data.parent,
+            home: data.home,
+            papers: data.papers,
+            entries: data.entries || [],
+            loading: false,
+            error: "",
+          });
+        } catch (error) {
+          setState((current) => ({ ...current, loading: false, error: error.message }));
+        }
+      }, []);
+      useEffect(() => { void load(start); }, [load, start]);
+      const go = (target) => { if (target) void load(target); };
+      return h("div", { className: "ps-browser" },
+        h("div", { className: "ps-browser-head" },
+          h("button", { className: "ps-btn icon", type: "button", title: t("up"), "aria-label": t("up"), disabled: !state.parent, onClick: () => go(state.parent) }, "\u2191"),
+          h("span", { className: "ps-browser-path", title: state.path }, state.path || "\u2026"),
+          h("button", { className: "ps-btn", type: "button", onClick: () => go(state.home) }, t("home")),
+          h("button", { className: "ps-btn", type: "button", onClick: () => go(state.papers) }, t("papersFolder"))),
+        h("div", { className: "ps-browser-list" },
+          state.loading
+            ? h("div", { className: "ps-browser-empty" }, t("loading"))
+            : state.error
+              ? h("div", { className: "ps-browser-empty" }, state.error)
+              : state.entries.length === 0
+                ? h("div", { className: "ps-browser-empty" }, t("noSubfolders"))
+                : state.entries.map((entry) => h("button", {
+                  key: entry.path,
+                  className: "ps-browser-row",
+                  type: "button",
+                  title: entry.path,
+                  onClick: () => go(entry.path),
+                },
+                h(Icon.folder),
+                h("span", { className: "ps-browser-name" }, entry.name),
+                entry.registered ? h("span", { className: "ps-browser-tag" }, t("registered")) : null))),
+        h("div", { className: "ps-browser-foot" },
+          h("button", {
+            className: "ps-btn primary", type: "button",
+            disabled: state.loading || Boolean(state.error),
+            onClick: () => onPick(state.path),
+          }, t("useFolder")),
+          h("button", { className: "ps-btn", type: "button", onClick: onClose }, t("cancel"))));
+    }
+
     // -- main component ----------------------------------------------------
     function Studio(props) {
       const t = props.t || ((key) => key);
@@ -993,6 +1074,7 @@ body.ps-resizing *{cursor:inherit!important}
       const [stage, setStage] = useState("");
       const [elapsed, setElapsed] = useState(0);
       const [symbols, setSymbols] = useState({ labels: [], citations: [], files: [] });
+      const [missing, setMissing] = useState(null);
       const [status, setStatus] = useState({ kind: "idle" });
       const [dialog, setDialog] = useState(null);
       const [busy, setBusy] = useState(false);
@@ -1018,11 +1100,13 @@ body.ps-resizing *{cursor:inherit!important}
       const bodyRef = useRef(null);
       const jobSourceRef = useRef(null);
       const compileStartedRef = useRef(0);
+      const catalogRef = useRef({ projects: [] });
 
       useEffect(() => { tabsRef.current = tabs; }, [tabs]);
       useEffect(() => { projectIdRef.current = project ? project.id : null; projectRef.current = project; }, [project]);
       useEffect(() => { activeRef.current = active; }, [active]);
       useEffect(() => { autoCompileRef.current = autoCompile; }, [autoCompile]);
+      useEffect(() => { catalogRef.current = catalog; }, [catalog]);
 
       useEffect(() => {
         if (!compiling) return undefined;
@@ -1102,6 +1186,7 @@ body.ps-resizing *{cursor:inherit!important}
           saveTimers.current.clear();
           saveChains.current.clear();
           setStatus({ kind: "loading" });
+          setMissing(null);
           setTabs([]);
           tabsRef.current = [];
           setActive(null);
@@ -1145,6 +1230,24 @@ body.ps-resizing *{cursor:inherit!important}
           }).catch(() => {});
           setStatus({ kind: "idle" });
         } catch (error) {
+          if (error.status === 410 || error.status === 404) {
+            // Registered project whose folder is gone: keep it selectable and show
+            // a recovery view instead of leaving the panel in a broken state.
+            const entry = catalogRef.current.projects.find((item) => item.id === id);
+            setMissing({ id, name: entry ? entry.name : "Project", path: entry ? entry.path : "", message: error.message });
+            setProject(entry ? { ...entry, exists: false } : null);
+            projectIdRef.current = id;
+            projectRef.current = entry || null;
+            setTabs([]);
+            tabsRef.current = [];
+            setActive(null);
+            activeRef.current = null;
+            setTree([]);
+            setCompile(null);
+            setPdf({ rev: null, pages: 0, mode: "none" });
+            setStatus({ kind: "idle" });
+            return;
+          }
           setStatus({ kind: "error", message: error.message });
           notify(error.message, "err");
         }
@@ -1538,6 +1641,13 @@ body.ps-resizing *{cursor:inherit!important}
             await refreshCatalog();
             await openProject(result.project.id, { restoreTabs: false });
             notify(fmt(t("cloned"), { name: result.project.name }));
+          } else if (dialog.kind === "locate") {
+            await request("project/update", { method: "POST", body: { project: dialog.projectId, path: dialog.path || "" } });
+            setDialog(null);
+            setMissing(null);
+            await refreshCatalog();
+            await openProject(dialog.projectId, { restoreTabs: false });
+            notify(t("saved"));
           } else if (dialog.kind === "settings") {
             await request("project/update", { method: "POST", body: {
               project: dialog.projectId,
@@ -1569,6 +1679,7 @@ body.ps-resizing *{cursor:inherit!important}
             await request("project/remove", { method: "POST", body: { project: dialog.projectId } });
             setDialog(null);
             const next = await refreshCatalog();
+            setMissing(null);
             setProject(null);
             projectIdRef.current = null;
             setTree([]);
@@ -1639,6 +1750,40 @@ body.ps-resizing *{cursor:inherit!important}
               }),
             opts.hint ? h("span", { className: "ps-hint" }, opts.hint) : null);
         };
+        const slug = (value) => String(value || "").toLowerCase().replace(/[^a-z0-9]+/gu, "-").replace(/^-+|-+$/gu, "").slice(0, 60);
+        const pickFolder = (chosen) => {
+          if (dialog.kind === "newProject" || dialog.kind === "clone") {
+            const base = slug(dialog.name) || (dialog.kind === "clone" ? "overleaf-paper" : "new-paper");
+            setDialog({ ...dialog, path: `${chosen}/${base}`, picking: null });
+          } else {
+            setDialog({ ...dialog, path: chosen, picking: null });
+          }
+        };
+        const pathField = (label, key, options) => {
+          const opts = options || {};
+          return h("div", { className: "ps-field", key },
+            h("span", { className: "ps-label" }, label),
+            h("div", { className: "ps-path-row" },
+              h("input", {
+                className: "ps-input", type: "text", value: dialog[key] ?? "", placeholder: opts.placeholder || "",
+                onChange: (event) => setDialog({ ...dialog, [key]: event.target.value }),
+                autoComplete: "off", spellCheck: false,
+              }),
+              h("button", {
+                className: "ps-btn", type: "button",
+                "aria-expanded": dialog.picking === key ? "true" : "false",
+                onClick: () => setDialog({ ...dialog, picking: dialog.picking === key ? null : key }),
+              }, t("browse"))),
+            opts.hint ? h("span", { className: "ps-hint" }, opts.hint) : null,
+            dialog.picking === key
+              ? h(FolderPicker, {
+                t,
+                start: dialog[key] || catalog.newProjectRoot || "",
+                onPick: pickFolder,
+                onClose: () => setDialog({ ...dialog, picking: null }),
+              })
+              : null);
+        };
         const footer = (submitLabel, extra) => h(React.Fragment, null,
           extra || null,
           h("button", { className: "ps-btn", type: "button", onClick: () => setDialog(null) }, t("cancel")),
@@ -1650,7 +1795,7 @@ body.ps-resizing *{cursor:inherit!important}
           title = t("newPaper");
           body = [
             field(t("title"), "name", { placeholder: "Ising model paper" }),
-            field(t("path"), "path", { placeholder: catalog.newProjectRoot ? `${catalog.newProjectRoot}/ising-model-paper` : "~/Documents/Papers/…", hint: t("pathHint") }),
+            pathField(t("path"), "path", { placeholder: catalog.newProjectRoot ? `${catalog.newProjectRoot}/ising-model-paper` : "~/Documents/Papers/…", hint: t("pathHint") }),
             h("label", { className: "ps-field", key: "template" },
               h("span", { className: "ps-label" }, t("template")),
               h("select", { className: "ps-select", style: { maxWidth: "100%" }, value: dialog.template || "article", onChange: (event) => setDialog({ ...dialog, template: event.target.value }) },
@@ -1661,7 +1806,7 @@ body.ps-resizing *{cursor:inherit!important}
         } else if (dialog.kind === "addProject") {
           title = t("addFolder");
           body = [
-            field(t("path"), "path", { placeholder: "/home/me/papers/existing-paper", hint: t("addFolderHint") }),
+            pathField(t("path"), "path", { placeholder: "/home/me/papers/existing-paper", hint: t("addFolderHint") }),
             field(t("nameOptional"), "name", { placeholder: "" }),
           ];
           actions = footer(t("add"));
@@ -1671,7 +1816,7 @@ body.ps-resizing *{cursor:inherit!important}
             field("Overleaf URL", "url", { placeholder: "https://www.overleaf.com/project/…", hint: t("remoteHint") }),
             field(t("token"), "token", { type: "password", hint: t("tokenHint") }),
             field(t("nameOptional"), "name", { placeholder: "My paper" }),
-            field(t("path"), "path", { placeholder: "~/Documents/Papers/my-paper", hint: t("pathHint") }),
+            pathField(t("path"), "path", { placeholder: "~/Documents/Papers/my-paper", hint: t("pathHint") }),
             h("span", { className: "ps-hint", key: "clone-hint" }, t("cloneHint")),
           ];
           actions = footer(t("clone"));
@@ -1695,6 +1840,10 @@ body.ps-resizing *{cursor:inherit!important}
             }, t("removeProject")),
           ];
           actions = footer(t("apply"));
+        } else if (dialog.kind === "locate") {
+          title = t("locateTitle");
+          body = [pathField(t("path"), "path", { placeholder: "~/Documents/Papers/my-paper", hint: t("addFolderHint") })];
+          actions = footer(t("locate"));
         } else if (dialog.kind === "newFile" || dialog.kind === "newFolder") {
           title = dialog.kind === "newFile" ? t("newFile") : t("newFolder");
           body = [field(t("path"), "path", { placeholder: dialog.kind === "newFile" ? "sections/related-work.tex" : "figures", hint: t("newFileHint") })];
@@ -1742,10 +1891,12 @@ body.ps-resizing *{cursor:inherit!important}
         window.addEventListener("pointerup", up);
       }, [dockHeight, explorerWidth, pdfPct]);
 
+      const showExplorer = Boolean(project) && explorerOpen;
+      const showPdf = Boolean(project) && pdfOpen;
       const columns = [];
-      if (explorerOpen) columns.push(`${explorerWidth}px`, "5px");
+      if (showExplorer) columns.push(`${explorerWidth}px`, "5px");
       columns.push("minmax(0, 1fr)");
-      if (pdfOpen) columns.push("5px", `${pdfPct}%`);
+      if (showPdf) columns.push("5px", `${pdfPct}%`);
 
       const problemCount = compile ? ((compile.errors || []).length + (compile.warningsList || []).length) : 0;
 
@@ -1759,7 +1910,8 @@ body.ps-resizing *{cursor:inherit!important}
             title: t("chooseProject"),
           },
           !project ? h("option", { value: "" }, t("chooseProject")) : null,
-          catalog.projects.map((item) => h("option", { key: item.id, value: item.id }, item.name))) : null,
+          catalog.projects.map((item) => h("option", { key: item.id, value: item.id },
+            item.exists === false ? `${item.name} — ${t("projectMissingBadge")}` : item.name))) : null,
           h("button", { className: "ps-btn", type: "button", onClick: () => openDialog("newProject"), title: t("newPaper") },
             h(Icon.plus), h("span", { className: "ps-hide-narrow" }, t("newPaper"))),
           h("button", { className: "ps-btn", type: "button", onClick: () => openDialog("addProject"), title: t("addFolder") },
@@ -1809,7 +1961,7 @@ body.ps-resizing *{cursor:inherit!important}
 
         h("div", { className: "ps-main" },
           h("div", { className: "ps-body", ref: bodyRef, style: { gridTemplateColumns: columns.join(" ") } },
-          project && explorerOpen ? h("section", { className: "ps-pane ps-explorer", "aria-label": t("files") },
+          showExplorer ? h("section", { className: "ps-pane ps-explorer", "aria-label": t("files") },
             h("div", { className: "ps-pane-head" },
               h("span", { className: "ps-pane-title" }, t("files")),
               h("button", { className: "ps-btn icon", type: "button", title: t("newFile"), "aria-label": t("newFile"), onClick: () => openDialog("newFile", { path: "" }) }, h(Icon.plus)),
@@ -1848,7 +2000,7 @@ body.ps-resizing *{cursor:inherit!important}
                 onClick: () => { openDialog("settings", { projectId: project.id, name: project.name, mainFile: project.mainFile || "", remote: project.overleaf ? project.overleaf.remote : "", token: "" }); void runGit("status"); },
               }, project.overleaf ? t("overleafBadge") : t("gitBadge")))) : null,
 
-          explorerOpen ? h("div", {
+          showExplorer ? h("div", {
             className: "ps-split", role: "separator", "aria-orientation": "vertical", title: t("files"),
             onPointerDown: startResize("explorer"), onDoubleClick: () => setExplorerWidth(238),
           }) : null,
@@ -1868,12 +2020,12 @@ body.ps-resizing *{cursor:inherit!important}
             symbols,
           }),
 
-          pdfOpen ? h("div", {
+          showPdf ? h("div", {
             className: "ps-split", role: "separator", "aria-orientation": "vertical", title: t("pdf"),
             onPointerDown: startResize("pdf"), onDoubleClick: () => setPdfPct(44),
           }) : null,
 
-          project && pdfOpen ? h("section", { className: "ps-pane ps-pdf", "aria-label": t("pdf") },
+          showPdf ? h("section", { className: "ps-pane ps-pdf", "aria-label": t("pdf") },
             h("div", { className: "ps-pane-head" },
               h("span", { className: "ps-pane-title" }, t("pdf")),
               h("button", { className: "ps-btn icon", type: "button", title: t("openInNewTab"), "aria-label": t("openInNewTab"), disabled: !pdf.rev, onClick: () => window.open(pdfUrl(), "_blank", "noopener") }, h(Icon.external)),
@@ -1904,7 +2056,7 @@ body.ps-resizing *{cursor:inherit!important}
                 h("select", { value: zoom, onChange: (event) => setZoom(Number(event.target.value)) },
                   [75, 100, 125, 150, 200].map((value) => h("option", { key: value, value }, `${value}%`)))))) : null),
 
-          dock ? h(Dock, {
+          dock && !missing ? h(Dock, {
             t, tab: dock, onTab: setDock, onClose: () => setDock(null),
             compile, terminal, stage, elapsed, compiling,
             onClear: () => setTerminal([]),
@@ -1913,7 +2065,18 @@ body.ps-resizing *{cursor:inherit!important}
             onOpenProblem: (problem) => { if (problem.file) void openFile(problem.file, problem.line); },
           }) : null),
 
-        !project
+        missing
+          ? h("div", { className: "ps-empty", role: "alert", style: { position: "absolute", inset: "48px 0 0", background: "var(--dsw-alias-bg-base)", paddingTop: "calc(48px + var(--dsh-frame-top-clearance,0px))" } },
+            h("div", { className: "ps-empty-icon" }, h(Icon.alert)),
+            h("h2", null, t("missingTitle")),
+            h("p", { style: { fontFamily: MONO, fontSize: 11.5, wordBreak: "break-all" } }, missing.path),
+            h("p", null, t("missingBody")),
+            h("div", { className: "ps-empty-actions" },
+              h("button", { className: "ps-btn primary", type: "button", onClick: () => openDialog("locate", { projectId: missing.id, path: "" }) }, h(Icon.folder), t("locate")),
+              h("button", { className: "ps-btn", type: "button", onClick: () => openDialog("removeProject", { projectId: missing.id }) }, t("removeProject")),
+              h("button", { className: "ps-btn", type: "button", onClick: () => { void openProject(missing.id, { restoreTabs: false }); } }, t("retry")))) : null,
+
+        !project && !missing
           ? h("div", { className: "ps-empty", style: { position: "absolute", inset: "48px 0 0", background: "var(--dsw-alias-bg-base)", paddingTop: "calc(48px + var(--dsh-frame-top-clearance,0px))" } },
             h("div", { className: "ps-empty-icon" }, h(Icon.logo)),
             h("h2", null, t("noProjectTitle")),
@@ -1933,7 +2096,7 @@ body.ps-resizing *{cursor:inherit!important}
     return {
       inject: ["slots", "locale", "layout"],
       /** Pure helpers exercised by test/client.test.mjs (no browser needed). */
-      __internals: { Studio, EditorPane, Dock, highlightLatex, completionContext, completionItems, escapeHtml },
+      __internals: { Studio, EditorPane, Dock, FolderPicker, highlightLatex, completionContext, completionItems, escapeHtml },
       apply(ctx) {
         ctx.effect(() => {
           const style = document.createElement("style");

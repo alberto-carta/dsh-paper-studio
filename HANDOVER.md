@@ -53,6 +53,21 @@ time). A page reload alone is enough for `client.js`-only changes; anything in
 - Host additions: `GET symbols`, `POST compile/start`, `GET compile/events`,
   on-demand `GET page`, structured `warningsList` on compile results.
 
+## 1.1.1 — missing folders and the folder picker
+
+- **Fixed:** with no usable project the pane grid still emitted its 5px splitter
+  columns, collapsing the editor into a strip ("GUI all messed up") when the
+  last opened project's folder had been deleted. Splitters and panes now share
+  one visibility source, and a missing folder gets its own recovery view
+  (Locate folder / Remove / Retry) instead of an error toast over a broken grid.
+- **Folder picker:** `GET fs/list` lists subdirectories; the Add, New, Clone and
+  Locate dialogs have a Browse button that opens it inline (Up, Home, Papers,
+  and an "In Paper Studio" tag on already-registered folders).
+- **Re-pointing:** `project/update` accepts `path`, so Locate can move an
+  existing registration to a folder that still exists (main `.tex` re-detected,
+  build and symbol caches invalidated).
+- Missing projects are labelled `— missing` in the project dropdown.
+
 ## Verification (2026-11-04)
 
 Automated, all passing:

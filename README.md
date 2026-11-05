@@ -15,6 +15,12 @@ A persistent Overleaf-style LaTeX workspace for the DeepSeek Harness Web GUI.
   environments, packages, `\ref` labels, `\cite` keys and file paths.
 - **Resizable panes**: drag the dividers between explorer, editor, PDF and the
   bottom dock; widths and heights persist.
+- **Folder picker**: Add folder, New paper, Clone and Locate offer an inline
+  directory browser (Up / Home / Papers, "In Paper Studio" markers) instead of
+  typing an absolute path by hand.
+- **Missing-folder recovery**: if a registered project's folder disappears, the
+  panel shows a dedicated view with Locate folder, Remove from Paper Studio and
+  Retry, and the project is marked `missing` in the dropdown — no broken layout.
 - **Incremental builds**: unchanged sources reuse the last PDF instantly, a
   prose-only edit skips bibtex and the second pass, and pages render on demand,
   so a compile no longer rasterizes the whole document.

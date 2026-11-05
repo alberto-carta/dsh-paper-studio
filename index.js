@@ -1035,9 +1035,18 @@ const ops = {
     return { project: publicProject(project), existing: false };
   },
 
-  async updateProject({ project: reference, name: nextName, mainFile, overleaf }) {
+  async updateProject({ project: reference, name: nextName, path: nextPath, mainFile, overleaf }) {
     const project = projectRef(reference);
     if (typeof nextName === "string" && nextName.trim().length > 0) project.name = nextName.trim();
+    if (nextPath !== undefined) {
+      const target = expandPath(String(nextPath ?? "").trim());
+      if (target.length === 0) throw new HttpError(400, "Folder path is required");
+      if (!(await directoryExists(target))) throw new HttpError(404, `Folder not found: ${target}`);
+      project.path = target;
+      project.mainFile = null;
+      compiled.delete(project.id);
+      symbolsCache.delete(project.id);
+    }
     if (mainFile !== undefined) {
       const value = String(mainFile ?? "").trim();
       if (value.length > 0) {
@@ -1047,6 +1056,8 @@ const ops = {
       } else {
         project.mainFile = null;
       }
+    } else if (nextPath !== undefined) {
+      project.mainFile = await findMainFile(project);
     }
     if (overleaf !== undefined) {
       if (overleaf === null) {
@@ -1217,6 +1228,45 @@ async function walkTree(root, relative, out, depth) {
     const info = await stat(join(root, child)).catch(() => null);
     out.push({ path: child, name, dir: false, size: info?.size ?? 0, mtime: info?.mtimeMs ?? 0 });
   }
+}
+
+// ---------------------------------------------------------------------------
+// Directory browsing (the panel's folder picker)
+// ---------------------------------------------------------------------------
+
+const BROWSER_MAX_ENTRIES = 400;
+
+/** List subdirectories of a path so the panel can offer a folder picker. */
+async function listDirectories(input) {
+  const requested = String(input ?? "").trim();
+  const target = expandPath(requested.length === 0 ? papersRoot() : requested);
+  const info = await stat(target).catch(() => null);
+  if (!info?.isDirectory()) throw new HttpError(404, `Folder not found: ${target}`);
+  let children;
+  try {
+    children = await readdir(target, { withFileTypes: true });
+  } catch {
+    throw new HttpError(403, `Cannot read folder: ${target}`);
+  }
+  const directories = children
+    .filter((entry) => entry.isDirectory() && !entry.name.startsWith(".") && entry.name !== "node_modules")
+    .sort((left, right) => left.name.localeCompare(right.name, undefined, { numeric: true, sensitivity: "base" }));
+  const entries = directories.slice(0, BROWSER_MAX_ENTRIES).map((entry) => {
+    const child = join(target, entry.name);
+    return {
+      name: entry.name,
+      path: child,
+      registered: store.projects.some((project) => project.path === child),
+    };
+  });
+  return {
+    path: target,
+    parent: dirname(target) === target ? null : dirname(target),
+    home: homedir(),
+    papers: papersRoot(),
+    entries,
+    truncated: directories.length > BROWSER_MAX_ENTRIES,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -1559,6 +1609,9 @@ function createHandler(token) {
         }
         const bytes = await readFile(join(buildDir, "pages", rendered));
         return sendBytes(response, 200, bytes, "image/png");
+      }
+      if (request.method === "GET" && action === "fs/list") {
+        return sendJson(response, 200, await listDirectories(url.searchParams.get("path")));
       }
       if (request.method === "GET" && action === "symbols") {
         const project = projectRef(url.searchParams.get("project"));

@@ -47,7 +47,7 @@ const plugin = definition.factory((id) => {
   if (id === "react") return React;
   throw new Error(`unexpected require: ${id}`);
 });
-const { Studio, EditorPane, Dock } = plugin.__internals;
+const { Studio, EditorPane, Dock, FolderPicker } = plugin.__internals;
 
 const t = (key) => key;
 
@@ -56,6 +56,9 @@ const empty = renderToStaticMarkup(h(Studio, { t, panelInfo: null }));
 assert.match(empty, /ps-root/u);
 assert.match(empty, /noProjectTitle/u);
 assert.match(empty, /ps-head/u);
+// Regression: without a project the grid must not keep 5px splitter columns,
+// which squeezed the editor into a 5px strip.
+assert.doesNotMatch(empty, /ps-split/u);
 
 // 2. Editor with LaTeX highlighting and the completion popup closed.
 const tab = {
@@ -125,4 +128,15 @@ assert.match(problems, /Undefined control sequence/u);
 assert.match(problems, /Overfull/u);
 assert.match(problems, /ps-sev/u);
 
-console.log("render smoke test passed: empty state, editor, terminal, problems");
+// 5. Folder picker (the effect that lists directories does not run during SSR).
+const picker = renderToStaticMarkup(h(FolderPicker, {
+  t,
+  start: "/home/example/Papers",
+  onPick() {},
+  onClose() {},
+}));
+assert.match(picker, /ps-browser/u);
+assert.match(picker, /ps-browser-foot/u);
+assert.match(picker, /useFolder/u);
+
+console.log("render smoke test passed: empty state, editor, terminal, problems, picker");
