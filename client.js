@@ -8,7 +8,7 @@ window.__ModuleLoader__.load({
 
     const PANEL_ID = "paper-studio";
     /** Shown in Settings so the loaded client can be matched to the source file. */
-    const CLIENT_BUILD = "2026-11-05T16:00";
+    const CLIENT_BUILD = "2026-11-05T23:10";
     const NS = "paperStudio";
     const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
 
@@ -116,12 +116,28 @@ window.__ModuleLoader__.load({
         deleteChat: "Delete chat",
         chatDeleteConfirm: "Delete this chat and its transcript?",
         chatDeleted: "Chat deleted",
+        chatSummarized: "Older messages summarized to keep the context within budget",
         recentChats: "Recent chats",
         noChats: "No old conversations yet.",
         newChatWith: "New chat",
         startNewChat: "Start new chat",
         oldChats: "Old conversations",
-        agentPaths: "Global agents: ~/.dsh/paper-studio/agents/ · Project agents: <project>/.paper-studio/agents/",
+        agentPaths: "Global agents: ~/.dsh/paper-studio/agents/ · Project agents: <project>/agents/",
+        exportAgents: "Export agents",
+        importAgents: "Import agents",
+        agentsImported: "Agents imported",
+        agentRename: "Rename",
+        viewPrompt: "Show full prompt",
+        promptTitle: "Conversation prompt",
+        promptEmpty: "No prompt snapshot yet; it is captured with the next message.",
+        memory: "Memory",
+        memoryTitle: "Conversation memory",
+        memoryHint: "Only this conversation: never summarized, not inherited by new chats. One note per line.",
+        memorySaved: "Memory saved",
+        memoryUpdated: "Agent memory updated",
+        agentRenamePrompt: "New agent name",
+        commonPrompt: "Common prompt (all agents)",
+        scopeCommon: "common",
         agentBaseHint: "Optionally start from existing agents, then edit the merged prompt.",
         agentBaseMerge: "Merge selected",
         addToChat: "Add selection to current chat",
@@ -142,7 +158,13 @@ window.__ModuleLoader__.load({
         newChat: "New chat",
         send: "Send",
         stop: "Stop",
-        thinking: "Thinking…",
+        thinking: "Thinking",
+        thinkingMode: "Model thinking",
+        thinkingOff: "Off",
+        thinkingLast: "Last step",
+        thinkingFull: "Full",
+        showThinking: "Show thinking",
+        hideThinking: "Hide thinking",
         you: "You",
         chatPlaceholder: "Ask this agent about the paper…  (Enter sends, Shift+Enter newline)",
         chatStartHint: "Send a message to start this chat. The selected passage is attached as context.",
@@ -537,8 +559,20 @@ window.__ModuleLoader__.load({
 .ps-chat-new .ps-select{flex:1;min-width:0}
 .ps-chat-pick-main .ps-agent-pick-name b{font-weight:700}
 .ps-chat-pick-row .ps-agent-pick{flex:1;min-width:0}
+.ps-chat-prompt{color:var(--dsw-alias-label-secondary)}
+.ps-memory-area{width:100%;min-height:220px;max-height:50vh;resize:vertical;background:var(--dsw-alias-bg-layer-1);border:.5px solid var(--dsw-alias-border-l1);border-radius:7px;padding:8px;font:10.5px/1.5 ${MONO};color:inherit;box-sizing:border-box}
+.ps-prompt-body{max-height:55vh;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font:10.5px/1.5 ${MONO};background:var(--dsw-alias-bg-layer-1);border:.5px solid var(--dsw-alias-border-l1);border-radius:7px;padding:8px;margin:0}
 .ps-chat-delete{color:var(--dsw-alias-state-error-primary)}
 .ps-chat-delete:hover:not(:disabled){background:color-mix(in srgb,var(--dsw-alias-state-error-primary) 14%,transparent);color:var(--dsw-alias-state-error-primary)}
+.ps-math{display:inline-block;vertical-align:middle}
+.ps-math-display{display:block;margin:4px 0;overflow-x:auto;text-align:center}
+.ps-math math{font-size:1.03em}
+.ps-chat-think{border-left:2px solid var(--dsw-alias-border-l1);padding-left:6px;margin:2px 0 4px}
+.ps-chat-think-head{display:flex;align-items:center;gap:4px;width:100%;border:0;background:transparent;color:var(--dsw-alias-label-secondary);font-size:10.5px;cursor:pointer;text-align:left;padding:0}
+.ps-chat-think-head svg{width:10px !important;height:10px !important;flex:none}
+.ps-chat-think-last{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.8;margin-left:4px}
+.ps-chat-think-body{font:10.5px/1.5 ${MONO};white-space:pre-wrap;overflow-wrap:anywhere;max-height:220px;overflow:auto;color:var(--dsw-alias-label-secondary);margin:3px 0 0}
+.ps-chat-file{font:10.5px/1.4 ${MONO};color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-layer-1);border:.5px solid var(--dsw-alias-border-l1);border-radius:6px;padding:3px 6px;align-self:flex-start}
 .ps-chat-choice{border:.5px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-layer-1);padding:6px 8px;margin-top:4px;display:flex;flex-direction:column;gap:4px}
 .ps-chat-choice-head{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--dsw-alias-label-secondary)}
 .ps-chat-choice-option{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--dsw-alias-label-primary)}
@@ -566,11 +600,26 @@ window.__ModuleLoader__.load({
 .ps-chat-context-text{font-size:11px;color:var(--dsw-alias-label-secondary);white-space:pre-wrap;max-height:80px;overflow:hidden;margin-top:2px}
 .ps-chat-msg{display:flex;flex-direction:column;gap:2px}
 .ps-chat-who{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--dsw-alias-label-secondary)}
-.ps-chat-text{font-size:12px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--dsw-alias-label-primary)}
+.ps-chat-text{font-size:12px;line-height:1.5;overflow-wrap:anywhere;color:var(--dsw-alias-label-primary)}
+.ps-chat-text p{margin:0 0 6px}
+.ps-chat-text p:last-child{margin-bottom:0}
+.ps-chat-text .ps-md-h1,.ps-chat-text .ps-md-h2,.ps-chat-text .ps-md-h3{font-weight:650;margin:8px 0 4px;line-height:1.3}
+.ps-chat-text .ps-md-h1{font-size:15px}
+.ps-chat-text .ps-md-h2{font-size:13.5px}
+.ps-chat-text .ps-md-h3{font-size:12.5px}
+.ps-chat-text .ps-md-h4,.ps-chat-text .ps-md-h5,.ps-chat-text .ps-md-h6{font-weight:650;font-size:12px;margin:6px 0 3px}
+.ps-chat-text .ps-md-list{margin:2px 0 6px;padding-left:18px}
+.ps-chat-text .ps-md-list li{margin:1px 0}
+.ps-chat-text .ps-md-quote{border-left:2px solid var(--dsw-alias-border-l1);padding-left:7px;margin:4px 0;color:var(--dsw-alias-label-secondary)}
+.ps-chat-text .ps-md-hr{border:0;border-top:.5px solid var(--dsw-alias-border-l1);margin:7px 0}
+.ps-chat-text .ps-md-code{font:10.5px/1.4 ${MONO};background:var(--dsw-alias-bg-layer-1);border:.5px solid var(--dsw-alias-border-l1);border-radius:3px;padding:0 3px}
+.ps-chat-text .ps-chat-code{font:10.5px/1.45 ${MONO};background:var(--dsw-alias-bg-layer-1);border:.5px solid var(--dsw-alias-border-l1);border-radius:6px;padding:6px 7px;margin:4px 0;overflow:auto;white-space:pre-wrap}
+.ps-chat-text a{color:var(--dsw-alias-brand-primary);text-decoration:underline}
 .ps-chat-msg.user .ps-chat-text{background:var(--dsw-alias-bg-layer-2);border-radius:7px;padding:5px 7px}
 .ps-chat-thinking{opacity:.7;font-style:italic}
 .ps-chat-compose{display:flex;gap:4px;padding:6px 8px;border-top:.5px solid var(--dsw-alias-border-l1);align-items:flex-end}
 .ps-chat-input{flex:1;min-height:46px;max-height:140px;resize:vertical;font:12px/1.45 inherit;padding:6px 7px;border:.5px solid var(--dsw-alias-border-l1);border-radius:7px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary)}
+.ps-agents-tools{display:flex;gap:4px}
 .ps-agents-path{font:9.5px/1.4 ${MONO};color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-layer-1);border:.5px solid var(--dsw-alias-border-l1);border-radius:6px;padding:4px 6px;user-select:text;overflow-wrap:anywhere}
 .ps-agents-bases{border:.5px solid var(--dsw-alias-border-l1);border-radius:7px;padding:5px 7px;display:flex;flex-direction:column;gap:2px;max-height:120px;overflow:auto}
 .ps-agents-bases-head{font-size:10px;color:var(--dsw-alias-label-secondary)}
@@ -873,6 +922,7 @@ body.ps-resizing *{cursor:inherit!important}
       compileOnSave: true,
       autosave: true,
       autosaveDelay: 850,
+      thinking: "last",
       diagnostics: false,
       vim: false,
       keys: {
@@ -3407,6 +3457,18 @@ body.ps-resizing *{cursor:inherit!important}
       return blocks;
     }
 
+    function stripMemoryBlocks(text) {
+      return String(text || "").replace(/```memory\s*\n[\s\S]*?```/giu, "");
+    }
+
+    function stripWebBlocks(text) {
+      return String(text || "").replace(/```web\s*\n[\s\S]*?```/giu, "");
+    }
+
+    function stripReadBlocks(text) {
+      return String(text || "").replace(/```read\s*\n[^\n]+\n```/giu, "");
+    }
+
     function stripChoiceBlocks(text) {
       return String(text || "").replace(/```choices?\s*\n[\s\S]*?```/giu, "");
     }
@@ -3439,11 +3501,185 @@ body.ps-resizing *{cursor:inherit!important}
         }, t("choose")));
     }
 
+    let katexPromise = null;
+    function loadKatex() {
+      if (!katexPromise) katexPromise = import(apiUrl("asset", { name: "katex.js" })).catch(() => null);
+      return katexPromise;
+    }
+
+    function splitMath(text) {
+      const source = String(text || "");
+      const parts = [];
+      const pattern = /(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|\$[^$\n]+?\$)/gu;
+      let last = 0;
+      let match;
+      while ((match = pattern.exec(source))) {
+        if (match.index > last) parts.push({ math: false, text: source.slice(last, match.index) });
+        const raw = match[0];
+        const display = raw.startsWith("$$") || raw.startsWith("\\[");
+        const body = raw.startsWith("$$") ? raw.slice(2, -2)
+          : raw.startsWith("\\[") ? raw.slice(2, -2)
+            : raw.startsWith("\\(") ? raw.slice(2, -2)
+              : raw.slice(1, -1);
+        parts.push({ math: true, display, text: body });
+        last = match.index + raw.length;
+      }
+      if (last < source.length) parts.push({ math: false, text: source.slice(last) });
+      return parts;
+    }
+
+    function mathNode(part, katex, key) {
+      const props = {
+        key,
+        className: `ps-math${part.display ? " ps-math-display" : ""}`,
+      };
+      if (katex && katex.katex) {
+        props.dangerouslySetInnerHTML = {
+          __html: katex.katex.renderToString(part.text, { displayMode: part.display, throwOnError: false, output: "mathml" }),
+        };
+      } else {
+        props.children = part.display ? `$$${part.text}$$` : `$${part.text}$`;
+      }
+      return h("span", props);
+    }
+
+    function renderInline(text, katex, keyPrefix) {
+      const nodes = [];
+      const pattern = /(`[^`\n]+`|\$\$[\s\S]+?\$\$|\$[^$\n]+?\$|\[[^\]]+\]\([^)\s]+\)|\*\*[^*]+\*\*|__[^_]+__|~~[^~]+~~|\*[^*\n]+\*|_[^_\n]+_)/gu;
+      let last = 0;
+      let match;
+      let index = 0;
+      const push = (node) => nodes.push(h(React.Fragment, { key: `${keyPrefix}-${index++}` }, node));
+      while ((match = pattern.exec(String(text || "")))) {
+        if (match.index > last) push(String(text).slice(last, match.index));
+        const raw = match[0];
+        if (raw.startsWith("`")) {
+          push(h("code", { className: "ps-md-code" }, raw.slice(1, -1)));
+        } else if (raw.startsWith("$$") || raw.startsWith("$")) {
+          const display = raw.startsWith("$$");
+          push(mathNode({ math: true, display, text: display ? raw.slice(2, -2) : raw.slice(1, -1) }, katex, `${keyPrefix}-m-${index}`));
+        } else if (raw.startsWith("[")) {
+          const link = /^\[([^\]]+)\]\(([^)]+)\)$/u.exec(raw);
+          const href = link && /^(https?:\/\/|mailto:|\/|#)/iu.test(link[2]) ? link[2] : null;
+          push(href
+            ? h("a", { href, target: "_blank", rel: "noreferrer noopener" }, link[1])
+            : raw);
+        } else if (raw.startsWith("**") || raw.startsWith("__")) {
+          push(h("strong", null, renderInline(raw.slice(2, -2), katex, `${keyPrefix}-b-${index}`)));
+        } else if (raw.startsWith("~~")) {
+          push(h("del", null, renderInline(raw.slice(2, -2), katex, `${keyPrefix}-s-${index}`)));
+        } else {
+          push(h("em", null, renderInline(raw.slice(1, -1), katex, `${keyPrefix}-i-${index}`)));
+        }
+        last = match.index + raw.length;
+      }
+      if (last < String(text || "").length) push(String(text).slice(last));
+      return nodes;
+    }
+
+    function renderMarkdown(text, katex) {
+      const lines = String(text || "").replace(/\r\n/gu, "\n").split("\n");
+      const blocks = [];
+      let i = 0;
+      let blockIndex = 0;
+      const push = (node) => blocks.push(h(React.Fragment, { key: `md-${blockIndex++}` }, node));
+      while (i < lines.length) {
+        const line = lines[i];
+        if (/^\s*$/u.test(line)) { i += 1; continue; }
+        const fence = /^```\s*([\w-]*)\s*$/u.exec(line);
+        if (fence) {
+          const code = [];
+          i += 1;
+          while (i < lines.length && !/^```\s*$/u.test(lines[i])) { code.push(lines[i]); i += 1; }
+          i += 1;
+          push(h("pre", { className: "ps-chat-code" }, h("code", { className: fence[1] ? `language-${fence[1]}` : undefined }, code.join("\n"))));
+          continue;
+        }
+        const heading = /^(#{1,6})\s+(.*)$/u.exec(line);
+        if (heading) {
+          push(h(`h${heading[1].length}`, { className: `ps-md-h${heading[1].length}` }, renderInline(heading[2], katex, `md-${blockIndex}`)));
+          i += 1;
+          continue;
+        }
+        if (/^(---|\*\*\*|___)\s*$/u.test(line)) {
+          push(h("hr", { className: "ps-md-hr" }));
+          i += 1;
+          continue;
+        }
+        if (/^>\s?/u.test(line)) {
+          const quote = [];
+          while (i < lines.length && /^>\s?/u.test(lines[i])) { quote.push(lines[i].replace(/^>\s?/u, "")); i += 1; }
+          push(h("blockquote", { className: "ps-md-quote" }, renderInline(quote.join(" "), katex, `md-${blockIndex}`)));
+          continue;
+        }
+        const unordered = /^\s*[-*+]\s+(.*)$/u.exec(line);
+        const ordered = /^\s*\d+[.)]\s+(.*)$/u.exec(line);
+        if (unordered || ordered) {
+          const items = [];
+          const matcher = unordered ? /^\s*[-*+]\s+(.*)$/u : /^\s*\d+[.)]\s+(.*)$/u;
+          while (i < lines.length) {
+            const item = matcher.exec(lines[i]);
+            if (!item) break;
+            items.push(h("li", { key: `li-${blockIndex}-${items.length}` }, renderInline(item[1], katex, `md-${blockIndex}-${items.length}`)));
+            i += 1;
+          }
+          push(h(unordered ? "ul" : "ol", { className: "ps-md-list" }, items));
+          continue;
+        }
+        const paragraph = [line];
+        i += 1;
+        while (i < lines.length && !/^\s*$/u.test(lines[i]) && !/^```/u.test(lines[i]) && !/^#{1,6}\s+/u.test(lines[i])
+          && !/^>\s?/u.test(lines[i]) && !/^\s*[-*+]\s+/u.test(lines[i]) && !/^\s*\d+[.)]\s+/u.test(lines[i])
+          && !/^(---|\*\*\*|___)\s*$/u.test(lines[i])) {
+          paragraph.push(lines[i]);
+          i += 1;
+        }
+        push(h("p", null, renderInline(paragraph.join(" "), katex, `md-${blockIndex}`)));
+      }
+      return blocks;
+    }
+
+    function RichText({ text }) {
+      const [katex, setKatex] = useState(null);
+      useEffect(() => {
+        let alive = true;
+        loadKatex().then((module) => { if (alive) setKatex(module || null); });
+        return () => { alive = false; };
+      }, []);
+      const content = useMemo(() => renderMarkdown(text, katex), [text, katex]);
+      return h("div", { className: "ps-chat-text" }, content);
+    }
+
+    function lastThinkingStep(text) {
+      const clean = String(text || "").replace(/\s+/gu, " ").trim();
+      if (!clean) return "";
+      const sentences = clean.split(/(?<=[.!?])\s+/u);
+      const tail = sentences.slice(-2).join(" ");
+      return (tail || clean).slice(-280);
+    }
+
+    function ThinkingBlock({ t, text, mode }) {
+      const [open, setOpen] = useState(mode === "full");
+      useEffect(() => { setOpen(mode === "full"); }, [mode]);
+      if (!text || mode === "off") return null;
+      const last = lastThinkingStep(text);
+      return h("div", { className: "ps-chat-think" },
+        h("button", {
+          className: "ps-chat-think-head", type: "button",
+          title: open ? t("hideThinking") : t("showThinking"),
+          onClick: () => setOpen((value) => !value),
+        },
+        h(Icon.chevron, { className: `ps-chev${open ? " open" : ""}` }),
+        h("span", null, t("thinking")),
+        open ? null : h("span", { className: "ps-chat-think-last" }, last)),
+        open ? h("pre", { className: "ps-chat-think-body" }, text) : null);
+    }
+
     function ChatPane(props) {
       const {
         t, agent, chat, chats, input, onInput, onSend, onStop, busy, stream,
         onSelectChat, onNewChat, onClose, changes, onKeepChange, onDiscardChange, onKeepAll, onDiscardAll,
-        resolvedChoices, onChoose, onDeleteChat,
+        resolvedChoices, onChoose, onDeleteChat, onShowPrompt, onShowMemory, streamReasoning, thinkingMode,
       } = props;
       const logRef = useRef(null);
       useEffect(() => {
@@ -3458,6 +3694,8 @@ body.ps-resizing *{cursor:inherit!important}
             onChange: (event) => onSelectChat(event.target.value),
           }, chats.map((item) => h("option", { key: item.id, value: item.id }, `${item.title || t("newChat")}${item.messages ? ` · ${item.messages}` : ""}`))),
           h("button", { className: "ps-btn icon", type: "button", title: t("newChat"), onClick: onNewChat }, h(Icon.plus)),
+          h("button", { className: "ps-btn icon ps-chat-prompt", type: "button", title: t("memoryTitle"), onClick: () => onShowMemory && onShowMemory() }, "🧠"),
+          h("button", { className: "ps-btn icon ps-chat-prompt", type: "button", title: t("viewPrompt"), onClick: () => onShowPrompt && onShowPrompt() }, "ℹ"),
           h("button", { className: "ps-btn icon ps-chat-delete", type: "button", title: t("deleteChat"), onClick: () => onDeleteChat && onDeleteChat() }, "🗑"),
           h("button", { className: "ps-btn icon", type: "button", title: t("close"), onClick: onClose }, h(Icon.close))),
         h("div", { className: "ps-chat-log", ref: logRef },
@@ -3468,11 +3706,18 @@ body.ps-resizing *{cursor:inherit!important}
           messages.map((message, index) => {
             const choices = message.role === "assistant" ? parseChoiceBlocks(message.content) : [];
             const text = message.role === "assistant"
-              ? stripChoiceBlocks(stripDiffBlocks(message.content))
-              : message.content;
+              ? stripMemoryBlocks(stripWebBlocks(stripReadBlocks(stripChoiceBlocks(stripDiffBlocks(message.content)))))
+              : (message.kind === "file" ? "" : message.content);
             return h("div", { key: index, className: `ps-chat-msg ${message.role === "user" ? "user" : "assistant"}` },
               h("div", { className: "ps-chat-who" }, message.role === "user" ? t("you") : agent.name),
-              text ? h("div", { className: "ps-chat-text" }, text) : null,
+              message.role === "assistant" && message.reasoning
+                ? h(ThinkingBlock, { t, text: message.reasoning, mode: thinkingMode || "last" })
+                : null,
+              message.kind === "file"
+                ? h("div", { className: "ps-chat-file" }, `\u{1F4C4} ${message.path || ""}`)
+                : message.kind === "web"
+                  ? h("div", { className: "ps-chat-file" }, `\u{1F310} ${message.query || ""}`)
+                  : (text ? h(RichText, { text }) : null),
               choices
                 .filter((block) => !(resolvedChoices || new Set()).has(`${index}:${block.id}`))
                 .map((block) => h(ChoiceCard, {
@@ -3480,9 +3725,12 @@ body.ps-resizing *{cursor:inherit!important}
                   onChoose: (value) => onChoose && onChoose(`${index}:${block.id}`, value),
                 })));
           }),
+          streamReasoning ? h("div", { className: "ps-chat-msg assistant" },
+            h("div", { className: "ps-chat-who" }, agent.name),
+            h(ThinkingBlock, { t, text: streamReasoning, mode: thinkingMode || "last" })) : null,
           stream ? h("div", { className: "ps-chat-msg assistant" },
             h("div", { className: "ps-chat-who" }, agent.name),
-            h("div", { className: "ps-chat-text" }, stream)) : null,
+            h(RichText, { text: stream })) : null,
           busy && !stream ? h("div", { className: "ps-chat-msg assistant" },
             h("div", { className: "ps-chat-who" }, agent.name),
             h("div", { className: "ps-chat-text ps-chat-thinking" }, t("thinking"))) : null,
@@ -3564,6 +3812,7 @@ body.ps-resizing *{cursor:inherit!important}
       const [agentEdit, setAgentEdit] = useState(null);
       const [agentBusy, setAgentBusy] = useState(false);
       const [agentBases, setAgentBases] = useState(new Set());
+      const agentFileRef = useRef(null);
       const [rightTab, setRightTab] = useState("pdf");
       const [chatAgent, setChatAgent] = useState(null);
       const [chat, setChat] = useState(null);
@@ -3571,6 +3820,7 @@ body.ps-resizing *{cursor:inherit!important}
       const [chatInput, setChatInput] = useState("");
       const [chatBusy, setChatBusy] = useState(false);
       const [chatStream, setChatStream] = useState("");
+      const [chatReasoning, setChatReasoning] = useState("");
       const [changes, setChanges] = useState([]);
       const [reviewHidden, setReviewHidden] = useState(false);
       const [resolvedChoices, setResolvedChoices] = useState(new Set());
@@ -3834,6 +4084,16 @@ body.ps-resizing *{cursor:inherit!important}
         }
       }, [notify]);
 
+      const openCommonAgent = useCallback(async () => {
+        try {
+          const data = await request("agent/common");
+          setAgentEdit({ id: "_common", scope: "common", markdown: data.markdown || "" });
+          setAgentBases(new Set());
+        } catch (error) {
+          notify(error.message, "err");
+        }
+      }, [notify]);
+
       const openAgent = useCallback(async (agent) => {
         const id = projectIdRef.current;
         try {
@@ -3867,10 +4127,68 @@ body.ps-resizing *{cursor:inherit!important}
         }
       }, [agentBases, agentEdit, agents, notify]);
 
+      const exportAgentsToFile = useCallback(async () => {
+        const id = projectIdRef.current;
+        try {
+          const data = await request("agents/export", { query: id ? { project: id } : {} });
+          const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = "paper-studio-agents.json";
+          link.click();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } catch (error) {
+          notify(error.message, "err");
+        }
+      }, [notify]);
+
+      const importAgentsFromFile = useCallback(async (event) => {
+        const file = event.target.files && event.target.files[0];
+        event.target.value = "";
+        if (!file) return;
+        try {
+          const parsed = JSON.parse(await file.text());
+          const list = Array.isArray(parsed) ? parsed : parsed.agents;
+          const id = projectIdRef.current;
+          const result = await request("agents/import", { method: "POST", body: {
+            ...(id ? { project: id } : {}), agents: list,
+          } });
+          await refreshAgents();
+          notify(`${t("agentsImported")}: ${result.imported}`);
+        } catch (error) {
+          notify(error.message, "err");
+        }
+      }, [notify, refreshAgents, t]);
+
+      const renameAgent = useCallback(async () => {
+        if (!agentEdit || !agentEdit.id || agentEdit.scope === "common" || agentEdit.scope === "builtin") return;
+        const match = /^name:\s*(.+)$/mu.exec(agentEdit.markdown);
+        const current = match ? match[1].trim() : agentEdit.id;
+        const name = window.prompt(t("agentRenamePrompt"), current);
+        if (!name || !name.trim()) return;
+        try {
+          const id = projectIdRef.current;
+          const result = await request("agent/rename", { method: "POST", body: {
+            ...(id ? { project: id } : {}), id: agentEdit.id, scope: agentEdit.scope, name: name.trim(),
+          } });
+          setAgentEdit({ id: result.id, scope: result.scope, markdown: result.markdown });
+          await refreshAgents();
+          notify(t("agentSaved"));
+        } catch (error) {
+          notify(error.message, "err");
+        }
+      }, [agentEdit, notify, refreshAgents, t]);
+
       const saveAgent = useCallback(async () => {
         if (!agentEdit) return;
         setAgentBusy(true);
         try {
+          if (agentEdit.scope === "common") {
+            await request("agent/common", { method: "POST", body: { markdown: agentEdit.markdown } });
+            notify(t("agentSaved"));
+            return;
+          }
           const id = projectIdRef.current;
           const name = /^\s*name:\s*(.+)$/mu.exec(agentEdit.markdown);
           let agentId = agentEdit.id;
@@ -3962,6 +4280,7 @@ body.ps-resizing *{cursor:inherit!important}
           setChat({ id: result.chat.id, title: result.chat.title, updatedAt: result.chat.updatedAt, context: context || null, messages: [] });
           setChatInput("");
           setChatStream("");
+          setChatReasoning("");
           setChatBusy(false);
           setRightTab("chat");
           setPdfOpen(true);
@@ -4081,6 +4400,25 @@ body.ps-resizing *{cursor:inherit!important}
         }
       }, [resolvedKey]);
 
+      const openChatMemory = useCallback(() => {
+        if (!chat) return;
+        setDialog({
+          kind: "memory", draft: chat.memory || "", chatId: chat.id,
+          agentId: chatAgent ? chatAgent.id : chat.agentId, agentName: chatAgent ? chatAgent.name : "",
+        });
+      }, [chat, chatAgent]);
+
+      const openPrompt = useCallback(async (agentId, chatId, agentName, chatTitle) => {
+        const id = projectIdRef.current;
+        if (!id || !agentId || !chatId) return;
+        try {
+          const data = await request("chat", { query: { project: id, agent: agentId, chat: chatId } });
+          setDialog({ kind: "prompt", prompt: data.systemPrompt || "", agentName, title: chatTitle });
+        } catch (error) {
+          notify(error.message, "err");
+        }
+      }, [notify]);
+
       const openChatPicker = useCallback(async (agent, context) => {
         setDialog({ kind: "chatPick", agent, context, chats: null });
         const id = projectIdRef.current;
@@ -4128,6 +4466,7 @@ body.ps-resizing *{cursor:inherit!important}
           setReviewHidden(false);
           setChat(data);
           setChatStream("");
+          setChatReasoning("");
           setChatBusy(false);
         } catch (error) {
           notify(error.message, "err");
@@ -4151,6 +4490,7 @@ body.ps-resizing *{cursor:inherit!important}
         if (typeof override !== "string") setChatInput("");
         setChatBusy(true);
         setChatStream("");
+        setChatReasoning("");
         setChat((current) => (current ? { ...current, messages: [...(current.messages || []), { role: "user", content: message, at: new Date().toISOString() }] } : current));
         try {
           const started = await request("chat/send", { method: "POST", body: {
@@ -4161,6 +4501,7 @@ body.ps-resizing *{cursor:inherit!important}
           const source = new EventSource(apiUrl("chat/events", { job: started.jobId }));
           chatSourceRef.current = source;
           let acc = "";
+          let reasoningAcc = "";
           let finished = false;
           const finish = () => { finished = true; source.close(); chatSourceRef.current = null; chatJobRef.current = ""; setChatBusy(false); };
           source.onmessage = (event) => {
@@ -4169,15 +4510,23 @@ body.ps-resizing *{cursor:inherit!important}
             if (data.type === "delta") {
               acc += data.text;
               setChatStream(acc);
+            } else if (data.type === "reasoning") {
+              reasoningAcc += data.text;
+              setChatReasoning(reasoningAcc);
             } else if (data.type === "done") {
               finish();
               setChat((current) => (current ? {
                 ...current,
                 title: data.chat ? data.chat.title : current.title,
                 updatedAt: data.chat ? data.chat.updatedAt : current.updatedAt,
-                messages: acc ? [...(current.messages || []), { role: "assistant", content: acc, at: new Date().toISOString() }] : current.messages,
+                messages: acc ? [...(current.messages || []), {
+                  role: "assistant", content: acc,
+                  ...(reasoningAcc ? { reasoning: reasoningAcc.slice(0, 20000) } : {}),
+                  at: new Date().toISOString(),
+                }] : current.messages,
               } : current));
               setChatStream("");
+              setChatReasoning("");
               void refreshChats(chatAgent);
               const fresh = collectChanges([{ role: "assistant", content: acc }])
                 .filter((change) => !resolvedRef.current.has(change.id));
@@ -4186,13 +4535,22 @@ body.ps-resizing *{cursor:inherit!important}
                 setReviewHidden(false);
                 if (fresh[0].file) void openFile(fresh[0].file);
               }
+            } else if (data.type === "memory") {
+              notify(t("memoryUpdated"));
+            } else if (data.type === "summary") {
+              notify(t("chatSummarized"));
             } else if (data.type === "error" || data.type === "aborted") {
               finish();
               setChat((current) => (current && acc ? {
                 ...current,
-                messages: [...(current.messages || []), { role: "assistant", content: acc, at: new Date().toISOString() }],
+                messages: [...(current.messages || []), {
+                  role: "assistant", content: acc,
+                  ...(reasoningAcc ? { reasoning: reasoningAcc.slice(0, 20000) } : {}),
+                  at: new Date().toISOString(),
+                }],
               } : current));
               setChatStream("");
+              setChatReasoning("");
               if (data.type === "error" && data.message) notify(data.message, "err");
             }
           };
@@ -4200,9 +4558,17 @@ body.ps-resizing *{cursor:inherit!important}
             if (finished) return;
             finish();
             if (acc) {
-              setChat((current) => (current ? { ...current, messages: [...(current.messages || []), { role: "assistant", content: acc, at: new Date().toISOString() }] } : current));
+              setChat((current) => (current ? {
+                ...current,
+                messages: [...(current.messages || []), {
+                  role: "assistant", content: acc,
+                  ...(reasoningAcc ? { reasoning: reasoningAcc.slice(0, 20000) } : {}),
+                  at: new Date().toISOString(),
+                }],
+              } : current));
             }
             setChatStream("");
+            setChatReasoning("");
           };
         } catch (error) {
           setChatBusy(false);
@@ -5065,6 +5431,10 @@ body.ps-resizing *{cursor:inherit!important}
             h("span", { className: "ps-agent-pick-desc" },
               `${chat.messages || 0} · ${chat.updatedAt ? new Date(chat.updatedAt).toLocaleString() : ""}`)),
             h("button", {
+              className: "ps-btn icon ps-chat-prompt", type: "button", title: t("viewPrompt"),
+              onClick: () => { void openPrompt(chat.agentId, chat.id, chat.agentName, chat.title); },
+            }, "ℹ"),
+            h("button", {
               className: "ps-btn icon ps-chat-delete", type: "button", title: t("deleteChat"),
               onClick: () => { void deleteChatFromPicker({ id: chat.agentId, name: chat.agentName, scope: chat.agentScope }, chat.id); },
             }, "🗑"));
@@ -5090,6 +5460,43 @@ body.ps-resizing *{cursor:inherit!important}
           ];
           actions = h(React.Fragment, null,
             h("button", { className: "ps-btn", type: "button", onClick: () => setDialog(null) }, t("cancel")));
+        } else if (dialog.kind === "memory") {
+          title = t("memoryTitle");
+          body = [
+            h("div", { className: "ps-hint", key: "hint" }, `${dialog.agentName || ""} · ${t("memoryHint")}`),
+            h("textarea", {
+              className: "ps-memory-area", key: "area", spellCheck: false,
+              value: dialog.draft,
+              onChange: (event) => setDialog({ ...dialog, draft: event.target.value }),
+            }),
+          ];
+          actions = h(React.Fragment, null,
+            h("button", {
+              className: "ps-btn primary", type: "button",
+              onClick: async () => {
+                try {
+                  await request("chat/memory", { method: "POST", body: {
+                    project: projectIdRef.current, agentId: dialog.agentId, chatId: dialog.chatId, markdown: dialog.draft,
+                  } });
+                  setChat((current) => (current && current.id === dialog.chatId ? { ...current, memory: dialog.draft.trim() } : current));
+                  notify(t("memorySaved"));
+                  setDialog(null);
+                } catch (error) {
+                  notify(error.message, "err");
+                }
+              },
+            }, t("save")),
+            h("button", { className: "ps-btn", type: "button", onClick: () => setDialog(null) }, t("cancel")));
+        } else if (dialog.kind === "prompt") {
+          title = t("promptTitle");
+          body = [
+            h("div", { className: "ps-hint", key: "meta" }, `${dialog.agentName || ""} · ${dialog.title || ""}`),
+            dialog.prompt
+              ? h("pre", { className: "ps-prompt-body", key: "body" }, dialog.prompt)
+              : h("div", { className: "ps-hint", key: "empty" }, t("promptEmpty")),
+          ];
+          actions = h(React.Fragment, null,
+            h("button", { className: "ps-btn", type: "button", onClick: () => setDialog(null) }, t("close")));
         } else if (dialog.kind === "chatPick") {
           title = dialog.agent ? dialog.agent.name : t("chatTab");
           const chats = dialog.chats;
@@ -5177,6 +5584,15 @@ body.ps-resizing *{cursor:inherit!important}
                   [500, "0.5 s"], [1000, "1 s"], [2000, "2 s"], [5000, "5 s"], [10000, "10 s"],
                 ].map(([value, label]) => h("option", { key: value, value: String(value) }, label)))),
               toggle(t("compileOnSave"), "compileOnSave"),
+              h("label", { className: "ps-field-row", key: "thinking" },
+                h("span", null, t("thinkingMode")),
+                h("select", {
+                  className: "ps-select", value: draft.thinking || "last",
+                  onChange: (event) => updateDraft({ thinking: event.target.value }),
+                },
+                h("option", { value: "off" }, t("thinkingOff")),
+                h("option", { value: "last" }, t("thinkingLast")),
+                h("option", { value: "full" }, t("thinkingFull")))),
               toggle(t("autoCompile"), "autoCompile"),
               toggle(t("diagnostics"), "diagnostics")),
           ];
@@ -5278,6 +5694,12 @@ body.ps-resizing *{cursor:inherit!important}
                   className: "ps-btn icon", type: "button", title: t("agentNewGlobal"),
                   onClick: () => setAgentEdit({ id: "", scope: "global", markdown: agentMarkdownTemplate() }),
                 }, h(Icon.plus))),
+              h("button", {
+                className: "ps-agents-item", type: "button",
+                onClick: () => { void openCommonAgent(); },
+              },
+              h("span", { className: "ps-agents-name" }, t("commonPrompt")),
+              h("span", { className: "ps-agents-scope builtin" }, t("scopeCommon"))),
               agents === null
                 ? h("div", { className: "ps-hint" }, t("loading"))
                 : (agents || []).filter((agent) => agent.scope !== "project").map((agent) => h("button", {
@@ -5313,12 +5735,20 @@ body.ps-resizing *{cursor:inherit!important}
             h("div", { className: "ps-agents-edit" },
               h("div", { className: "ps-agents-path" },
                 h("div", null, `${t("scopeGlobal")}: ~/.dsh/paper-studio/agents/`),
-                project ? h("div", null, `${t("scopeProject")}: ${project.path}/.paper-studio/agents/`) : null),
+                project ? h("div", null, `${t("scopeProject")}: ${project.path}/agents/`) : null),
+              h("div", { className: "ps-agents-tools" },
+                h("button", { className: "ps-btn", type: "button", onClick: () => { void exportAgentsToFile(); } }, t("exportAgents")),
+                h("button", { className: "ps-btn", type: "button", onClick: () => { if (agentFileRef.current) agentFileRef.current.click(); } }, t("importAgents")),
+                h("input", {
+                  type: "file", accept: ".json,application/json", ref: agentFileRef,
+                  style: { display: "none" },
+                  onChange: (event) => { void importAgentsFromFile(event); },
+                })),
               !agentEdit
                 ? h("div", { className: "ps-hint" }, t("agentSelectHint"))
                 : h(React.Fragment, null,
                   h("div", { className: "ps-agents-meta" },
-                    `${agentEdit.scope === "project" ? t("scopeProject") : t("scopeGlobal")}${agentEdit.id ? ` · ${agentEdit.id}` : ""}`),
+                    `${agentEdit.scope === "common" ? t("scopeCommon") : agentEdit.scope === "project" ? t("scopeProject") : t("scopeGlobal")}${agentEdit.id ? ` · ${agentEdit.id}` : ""}`),
                   !agentEdit.id ? h("div", { className: "ps-agents-bases" },
                     h("div", { className: "ps-agents-bases-head" }, t("agentBaseHint")),
                     (agents || []).filter((agent) => agent.scope !== "builtin").map((agent) => h("label", { className: "ps-check-row", key: `${agent.scope}:${agent.id}` },
@@ -5343,7 +5773,10 @@ body.ps-resizing *{cursor:inherit!important}
                   }),
                   h("div", { className: "ps-agents-actions" },
                     h("button", { className: "ps-btn primary", type: "button", disabled: agentBusy, onClick: () => { void saveAgent(); } }, t("agentSave")),
-                    agentEdit.id && agentEdit.scope !== "builtin"
+                    agentEdit.id && agentEdit.scope !== "builtin" && agentEdit.scope !== "common"
+                      ? h("button", { className: "ps-btn", type: "button", disabled: agentBusy, onClick: () => { void renameAgent(); } }, t("agentRename"))
+                      : null,
+                    agentEdit.id && agentEdit.scope !== "builtin" && agentEdit.scope !== "common"
                       ? h("button", { className: "ps-btn danger", type: "button", disabled: agentBusy, onClick: () => { void removeAgent(); } }, t("agentDelete"))
                       : null,
                     h("button", {
@@ -5709,6 +6142,10 @@ body.ps-resizing *{cursor:inherit!important}
                 resolvedChoices,
                 onChoose: chooseOption,
                 onDeleteChat: () => { void deleteCurrentChat(); },
+                onShowPrompt: () => { void openPrompt(chatAgent.id, chat.id, chatAgent.name, chat.title); },
+                onShowMemory: openChatMemory,
+                streamReasoning: chatReasoning,
+                thinkingMode: syntax.thinking || "last",
               })
               : pdf.mode === "pages"
               ? h("div", { className: "ps-pdf-scroll" },
@@ -5788,7 +6225,7 @@ body.ps-resizing *{cursor:inherit!important}
     return {
       inject: ["slots", "locale", "layout"],
       /** Pure helpers exercised by test/client.test.mjs (no browser needed). */
-      __internals: { Studio, EditorPane, Dock, FolderPicker, PdfPage, GitView, Explosion, ChatPane, parseDiffSuggestions, applySuggestion, stripDiffBlocks, collectChanges, diffChangeKey, parseChoiceBlocks, stripChoiceBlocks, highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject, shouldCompileAfterSave },
+      __internals: { Studio, EditorPane, Dock, FolderPicker, PdfPage, GitView, Explosion, ChatPane, parseDiffSuggestions, applySuggestion, stripDiffBlocks, collectChanges, diffChangeKey, parseChoiceBlocks, stripChoiceBlocks, splitMath, highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject, shouldCompileAfterSave },
       apply(ctx) {
         ctx.effect(() => {
           const style = document.createElement("style");

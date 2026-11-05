@@ -98,6 +98,62 @@ A persistent Overleaf-style LaTeX workspace for the DeepSeek Harness Web GUI.
   to git through a temporary `GIT_ASKPASS` helper, never written to
   `.git/config`.
 
+## Shared prompt and look-around
+
+- **Common prompt:** `~/.dsh/paper-studio/agents/_common.md` is prepended to every
+  agent's own prompt. Edit it in Settings → Agents → **Common prompt (all agents)**.
+  Files starting with `_` are not listed as agents.
+- **Context:** each chat request includes the selected passage, the current file
+  (up to 12k chars) and the main file's structure (`\input`, `\include`,
+  `\section` lines).
+- **On-demand reads:** the agent can reply with a fenced `read` block containing
+  one relative path; the host resolves it inside the project (no traversal,
+  capped at 10k chars), appends the contents and streams another round (max 2
+  files per turn, 3 rounds). The chat shows `📄 path` instead of dumping the file.
+  `readFiles: deny` in the agent frontmatter disables this; `ask` currently
+  allows reads without a blocking prompt.
+
+- **Math:** chat messages render LaTeX math with KaTeX in MathML mode (no font/CSS
+  assets): inline `$...$` / `\(...\)` and display `$$...$$` / `\[...\]`. The
+  renderer is loaded lazily from `vendor/katex.js` through the asset route.
+
+- **Thinking:** model reasoning is streamed separately and stored on each
+  assistant turn. Chat shows a collapsible block — Settings → Editor → Editing →
+  **Model thinking** chooses Off / Last step (default, shows the tail) / Full.
+- **Budgeting:** chat requests keep the last 8 messages and, when the estimated
+  request exceeds `PAPER_STUDIO_CHAT_BUDGET` (default 60k chars), older turns are
+  summarized into `chat.summary` with a separate model call (`summaryCount` marks
+  the compacted prefix). The summary is sent as leading context; the full
+  transcript stays on disk. A toast reports when it happens.
+- **Web:** agents can search or fetch through the Harness web service (`ctx.web`)
+  with a fenced `web` block — `search: <query>` or `fetch: https://...` — up to two
+  per turn. Results are framed as untrusted evidence with URLs to cite; `web: deny`
+  in the agent frontmatter disables it. A missing provider surfaces as an error
+  message in the transcript.
+- **Literature:** the main file's `\bibliography{...}` / `\addbibresource{...}`
+  declarations are resolved to `.bib` files; every chat request carries a compact
+  index (key, year, title; first 80 entries) and the file paths, so agents know
+  the paper's literature. Full `.bib` files can be fetched with a `read` block.
+
+- - **Memory:** memory belongs to **one conversation**, not to the agent. It is stored
+  in that chat's JSON (`memory`), starts empty for every new chat, and is never
+  inherited across chats. The agent adds a note when you ask it to remember
+  something or when it learns a durable preference, decision, definition or style
+  rule, by replying with a fenced `memory` block. Memory is injected as a separate
+  leading user message, is never summarized, and never rewrites the frozen system
+  prompt. The 🧠 button in the chat header opens it for editing.
+
+**Prompt snapshots:** the first message of a conversation stores the complete
+  system prompt it received (common prompt + agent prompt + protocol + attached
+  context). Later turns reuse that snapshot, so editing, renaming or deleting the
+  agent affects only new conversations. An ℹ icon beside the trash bin (and in the
+  chat header) shows the frozen prompt.
+
+On startup the host folds a legacy `assistant.md` (Paper assistant) into
+`research-partner.md` once — both prompts are preserved under a `## Merged from
+Paper assistant` heading, `assistant.md` is backed up in `agents/.backup/`, and
+its chats move to Research partner. There is no merge button.
+
 ## Agent files
 
 Agents are plain markdown and live outside the paper repositories:
@@ -105,7 +161,7 @@ Agents are plain markdown and live outside the paper repositories:
 | Scope | Path |
 | --- | --- |
 | Global (all papers) | `~/.dsh/paper-studio/agents/<id>.md` |
-| Local project only | `<project>/.paper-studio/agents/<id>.md` |
+| Local project only | `<project>/agents/<id>.md` (travels with the paper; legacy `.paper-studio/agents/` is still read) |
 
 Each file starts with YAML frontmatter and then the prompt body:
 
@@ -121,7 +177,7 @@ web: ask          # ask | allow
 You are a careful proofreader...
 ```
 
-Settings → Agents shows both paths and lists both scopes. A new agent can start
+The plugin ships five default agents in its own `agents/` directory (Research partner, Explainer, Scientific editor, Referee, LaTeX assistant) plus `_common.md`. Research partner absorbs literature search/BibTeX; Scientific editor absorbs proofreading of the selected paragraphs. `agents-optional/response-to-reviewers.md` is not seeded but can be copied or imported., seeded into the global folder on start without overwriting anything. Settings → Agents shows both paths, lists both scopes, and can **Export/Import** agents as a JSON file. A new agent can start
 from the template or be **merged from one or more existing agents** (their bodies
 are appended under `## From <name>` before your own prompt).
 

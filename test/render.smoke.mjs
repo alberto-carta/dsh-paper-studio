@@ -293,3 +293,42 @@ assert.match(chatWithChoice, /Concise/u);
 assert.match(chatWithChoice, /Detailed/u);
 assert.doesNotMatch(chatWithChoice, /```choices/u);
 console.log("choice card smoke passed");
+
+const chatWithThinking = renderToStaticMarkup(h(ChatPane, {
+  t, agent: { id: "a", name: "Proof", scope: "global" },
+  chat: { id: "c3", title: "T", messages: [{ role: "assistant", content: "Answer", reasoning: "First thought. Last thought." }] },
+  chats: [], input: "", onInput() {}, onSend() {}, onStop() {}, busy: false, stream: "",
+  onSelectChat() {}, onNewChat() {}, onClose() {}, changes: [],
+  onKeepChange() {}, onDiscardChange() {}, onKeepAll() {}, onDiscardAll() {},
+  resolvedChoices: new Set(), onChoose() {}, thinkingMode: "last", streamReasoning: "",
+}));
+assert.match(chatWithThinking, /ps-chat-think/u);
+assert.match(chatWithThinking, /Last thought/u);
+console.log("thinking block smoke passed");
+
+const chatWithMath = renderToStaticMarkup(h(ChatPane, {
+  t, agent: { id: "a", name: "Proof", scope: "global" },
+  chat: { id: "c4", title: "T", messages: [{ role: "assistant", content: "Energy $E=mc^2$." }] },
+  chats: [], input: "", onInput() {}, onSend() {}, onStop() {}, busy: false, stream: "",
+  onSelectChat() {}, onNewChat() {}, onClose() {}, changes: [],
+  onKeepChange() {}, onDiscardChange() {}, onKeepAll() {}, onDiscardAll() {},
+  resolvedChoices: new Set(), onChoose() {}, thinkingMode: "last", streamReasoning: "",
+}));
+assert.match(chatWithMath, /ps-math/u);
+assert.match(chatWithMath, /\$E=mc\^2\$/u);
+console.log("math smoke passed");
+
+const chatWithMarkdown = renderToStaticMarkup(h(ChatPane, {
+  t, agent: { id: "a", name: "Proof", scope: "global" },
+  chat: { id: "c5", title: "T", messages: [{ role: "assistant", content: "# Title\n\nThis is **bold** and `code`.\n\n- one\n- two\n\n> quote" }] },
+  chats: [], input: "", onInput() {}, onSend() {}, onStop() {}, busy: false, stream: "",
+  onSelectChat() {}, onNewChat() {}, onClose() {}, changes: [],
+  onKeepChange() {}, onDiscardChange() {}, onKeepAll() {}, onDiscardAll() {},
+  resolvedChoices: new Set(), onChoose() {}, thinkingMode: "last", streamReasoning: "",
+}));
+assert.match(chatWithMarkdown, /<h1 class="ps-md-h1">Title<\/h1>/u);
+assert.match(chatWithMarkdown, /<strong>bold<\/strong>/u);
+assert.match(chatWithMarkdown, /<code class="ps-md-code">code<\/code>/u);
+assert.match(chatWithMarkdown, /<li>one<\/li>/u);
+assert.match(chatWithMarkdown, /<blockquote class="ps-md-quote">quote<\/blockquote>/u);
+console.log("markdown smoke passed");

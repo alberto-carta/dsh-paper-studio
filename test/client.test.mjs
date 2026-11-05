@@ -26,7 +26,7 @@ const plugin = definition.factory((id) => {
   if (id === "react") return React;
   throw new Error(`unexpected require: ${id}`);
 });
-const { highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject, shouldCompileAfterSave, parseDiffSuggestions, applySuggestion, collectChanges, diffChangeKey, parseChoiceBlocks, stripChoiceBlocks } = plugin.__internals;
+const { highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject, shouldCompileAfterSave, parseDiffSuggestions, applySuggestion, collectChanges, diffChangeKey, parseChoiceBlocks, stripChoiceBlocks, splitMath } = plugin.__internals;
 
 test("highlighter marks commands, braces and comments and escapes HTML", () => {
   const html = highlightLatex("\\section{Intro} % note <b>\nText $x^2$ here");
@@ -233,4 +233,15 @@ test("choice blocks parse into options and are stripped from the prose", () => {
   assert.equal(blocks[0].options[0].label, "Concise");
   assert.equal(blocks[0].options[0].description, "short and direct");
   assert.equal(stripChoiceBlocks(text).trim(), "Which version?");
+});
+
+test("math is split into inline and display segments", () => {
+  const parts = splitMath("Inline $x^2$ and display $$y = mc^2$$.");
+  assert.equal(parts.filter((part) => part.math).length, 2);
+  assert.equal(parts[0].text, "Inline ");
+  assert.equal(parts[1].text, "x^2");
+  assert.equal(parts[1].display, false);
+  assert.equal(parts[3].text, "y = mc^2");
+  assert.equal(parts[3].display, true);
+  assert.deepEqual(splitMath("no math"), [{ math: false, text: "no math" }]);
 });
