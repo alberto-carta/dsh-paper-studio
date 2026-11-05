@@ -1348,6 +1348,18 @@ body.ps-resizing *{cursor:inherit!important}
               .catch((error) => fail(error.message));
           };
         } catch (error) {
+          // A page that reloaded before the host restart sees a host without the
+          // streaming route; fall back to the synchronous compile instead of failing.
+          if (error && (error.status === 404 || error.status === 405)) {
+            try {
+              const result = await request("compile", { method: "POST", body: { project: id } });
+              appendTerminal({ kind: "stage", text: "host does not stream compiles; used the synchronous route" });
+              applyCompileResult(result);
+              return;
+            } catch (fallbackError) {
+              error = fallbackError;
+            }
+          }
           compilingRef.current = false;
           setCompiling(false);
           setStatus({ kind: "error", message: error.message });
