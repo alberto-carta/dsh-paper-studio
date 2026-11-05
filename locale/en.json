@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Paper Studio",
+    "description": "An Overleaf-style LaTeX workspace in the Harness: project registry, file explorer, editor, live PDF preview, pdflatex/bibtex compilation and Overleaf git sync."
+  }
+}
