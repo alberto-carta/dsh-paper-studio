@@ -8,7 +8,7 @@ window.__ModuleLoader__.load({
 
     const PANEL_ID = "paper-studio";
     /** Shown in Settings so the loaded client can be matched to the source file. */
-    const CLIENT_BUILD = "2026-11-05T09:20";
+    const CLIENT_BUILD = "2026-11-05T16:00";
     const NS = "paperStudio";
     const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
 
@@ -104,6 +104,63 @@ window.__ModuleLoader__.load({
         lines: "{count} lines",
         autoCompile: "Auto-compile on save",
         compileOnSave: "Compile on manual save",
+        agentsTab: "Agents",
+        agentsGeneral: "Agents (general)",
+        agentsProject: "Agents (local project)",
+        chatTab: "Chat",
+        discussWithAgent: "Discuss with agent",
+        discussHint: "Pick an agent; the current selection becomes the chat context.",
+        back: "Back",
+        noPreviousChats: "No previous chats with this agent.",
+        chatPickHint: "Start a new chat with this agent, or continue one below.",
+        deleteChat: "Delete chat",
+        chatDeleteConfirm: "Delete this chat and its transcript?",
+        chatDeleted: "Chat deleted",
+        recentChats: "Recent chats",
+        noChats: "No old conversations yet.",
+        newChatWith: "New chat",
+        startNewChat: "Start new chat",
+        oldChats: "Old conversations",
+        agentPaths: "Global agents: ~/.dsh/paper-studio/agents/ · Project agents: <project>/.paper-studio/agents/",
+        agentBaseHint: "Optionally start from existing agents, then edit the merged prompt.",
+        agentBaseMerge: "Merge selected",
+        addToChat: "Add selection to current chat",
+        contextAdded: "Selection added to the chat",
+        suggestedEdit: "Suggested edit",
+        keep: "Keep",
+        discard: "Discard",
+        reviewInEditor: "Review in editor",
+        chooseOption: "Choose an option",
+        otherOption: "Other…",
+        choose: "Choose",
+        keepAll: "Keep all",
+        discardAll: "Discard all",
+        suggestionApplied: "Suggestion applied to the buffer",
+        suggestionMismatch: "This diff no longer matches the file; it may have changed.",
+        suggestionNoFile: "Open the target file first.",
+        chatHistory: "Chats",
+        newChat: "New chat",
+        send: "Send",
+        stop: "Stop",
+        thinking: "Thinking…",
+        you: "You",
+        chatPlaceholder: "Ask this agent about the paper…  (Enter sends, Shift+Enter newline)",
+        chatStartHint: "Send a message to start this chat. The selected passage is attached as context.",
+        cancel: "Cancel",
+        agentNew: "New",
+        agentNewGlobal: "New global agent",
+        agentNewProject: "New project agent",
+        agentSave: "Save agent",
+        agentDelete: "Delete",
+        agentSelectHint: "Select an agent, or create one from a template.",
+        agentNone: "No agents yet.",
+        agentSaved: "Agent saved",
+        agentDeleted: "Agent deleted",
+        agentDeleteConfirm: "Delete this agent file?",
+        agentNoProject: "Open a project to use local agents.",
+        scopeGlobal: "global",
+        scopeProject: "project",
+        scopeBuiltin: "built-in",
         autosave: "Autosave",
         autosaveDelay: "Save changes after",
         save: "Save",
@@ -451,6 +508,88 @@ window.__ModuleLoader__.load({
 .ps-error{font-size:11.5px;color:var(--dsw-alias-state-error-primary);white-space:pre-wrap}
 .ps-output{margin:0;max-height:180px;overflow:auto;padding:8px 10px;border:.5px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-base);font:11px/16px ${MONO};white-space:pre-wrap;overflow-wrap:anywhere;color:var(--dsw-alias-label-secondary)}
 .ps-git{flex:1;min-height:0;overflow:auto;padding:6px 8px 18px;display:flex;flex-direction:column;gap:7px}
+.ps-agents-sep{border:0;border-top:.5px solid var(--dsw-alias-border-l1);margin:6px 0}
+.ps-agent-pick-list{display:flex;flex-direction:column;gap:2px;max-height:46vh;overflow:auto}
+.ps-agent-pick-head{font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--dsw-alias-label-secondary);margin:4px 0 2px}
+.ps-agent-pick{display:flex;flex-direction:column;align-items:flex-start;gap:1px;border:0;background:transparent;border-radius:6px;padding:6px 8px;color:var(--dsw-alias-label-primary);text-align:left;cursor:pointer}
+.ps-agent-pick:hover{background:var(--dsw-alias-bg-layer-1)}
+.ps-agent-pick-name{font-size:12px}
+.ps-agent-pick-desc{font-size:10.5px;color:var(--dsw-alias-label-secondary)}
+.ps-agent-sep{border:0;border-top:.5px solid var(--dsw-alias-border-l1);margin:6px 0;width:100%}
+.ps-diff-pop{position:absolute;z-index:8;min-width:280px;min-height:140px;max-width:80%;max-height:80%;display:flex;flex-direction:column;background:var(--dsw-alias-bg-layer-2);border:.5px solid var(--dsw-alias-border-l1);border-radius:9px;box-shadow:0 16px 40px rgba(0,0,0,.35);overflow:hidden}
+.ps-diff-pop-head{display:flex;align-items:center;gap:6px;padding:5px 7px;border-bottom:.5px solid var(--dsw-alias-border-l1);font-size:11px;cursor:move;user-select:none}
+.ps-diff-resize{position:absolute;right:2px;bottom:2px;width:13px;height:13px;cursor:nwse-resize;background:linear-gradient(135deg,transparent 45%,var(--dsw-alias-label-secondary) 45%,var(--dsw-alias-label-secondary) 55%,transparent 55%,transparent 70%,var(--dsw-alias-label-secondary) 70%,var(--dsw-alias-label-secondary) 80%,transparent 80%);opacity:.7}
+.ps-diff-pop-head span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ps-diff-pop-body{overflow:auto;padding:4px 6px 6px}
+.ps-diff-hunk{margin:4px 0}
+.ps-diff-hunk-head{display:flex;align-items:center;gap:4px;font:9.5px/1.3 ${MONO};color:var(--dsw-alias-label-secondary)}
+.ps-diff-hunk-head span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ps-diff-line{padding:0 4px;white-space:pre-wrap;overflow-wrap:anywhere;font:10.5px/1.45 ${MONO}}
+.ps-diff-line.add{background:color-mix(in srgb,#22c55e 24%,transparent)}
+.ps-diff-line.del{background:color-mix(in srgb,#ef4444 22%,transparent)}
+.ps-diff-line.ctx{color:var(--dsw-alias-label-secondary)}
+.ps-hl-line.ps-diff-target{background:color-mix(in srgb,#ef4444 16%,transparent);box-shadow:inset 2px 0 0 #ef4444}
+.ps-btn.keep{background:color-mix(in srgb,#22c55e 20%,transparent);color:#16a34a;border-color:color-mix(in srgb,#22c55e 40%,transparent)}
+.ps-btn.keep:hover:not(:disabled){background:color-mix(in srgb,#22c55e 30%,transparent);color:#15803d}
+.ps-chat-pick-row{display:flex;align-items:center;gap:4px}
+.ps-chat-pick-main{flex:1;min-width:0}
+.ps-chat-new{display:flex;align-items:center;gap:5px}
+.ps-chat-new .ps-select{flex:1;min-width:0}
+.ps-chat-pick-main .ps-agent-pick-name b{font-weight:700}
+.ps-chat-pick-row .ps-agent-pick{flex:1;min-width:0}
+.ps-chat-delete{color:var(--dsw-alias-state-error-primary)}
+.ps-chat-delete:hover:not(:disabled){background:color-mix(in srgb,var(--dsw-alias-state-error-primary) 14%,transparent);color:var(--dsw-alias-state-error-primary)}
+.ps-chat-choice{border:.5px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-layer-1);padding:6px 8px;margin-top:4px;display:flex;flex-direction:column;gap:4px}
+.ps-chat-choice-head{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--dsw-alias-label-secondary)}
+.ps-chat-choice-option{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--dsw-alias-label-primary)}
+.ps-chat-choice-text{display:flex;flex-direction:column;gap:1px}
+.ps-chat-choice-desc{font-size:10.5px;font-weight:400;color:var(--dsw-alias-label-secondary)}
+.ps-chat-choice-input{flex:1;min-width:0;font-size:11px;padding:3px 6px}
+.ps-chat-choice .ps-btn{align-self:flex-start;margin-top:2px}
+.ps-chat-changes{border-top:.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);padding:5px 8px;display:flex;flex-direction:column;gap:4px;max-height:32%;overflow:auto}
+.ps-chat-changes-head{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--dsw-alias-label-secondary)}
+.ps-chat-changes-list{display:flex;flex-direction:column;gap:2px}
+.ps-chat-change{display:flex;align-items:center;gap:5px}
+.ps-chat-change-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:10px/1.4 ${MONO};color:var(--dsw-alias-label-secondary)}
+.ps-chat-changes-actions{display:flex;gap:4px;justify-content:flex-end}
+.ps-chat-suggestion{border:.5px solid var(--dsw-alias-border-l1);border-radius:7px;padding:5px 7px;margin-top:4px;background:var(--dsw-alias-bg-layer-1)}
+.ps-chat-suggestion-head{font-size:10px;color:var(--dsw-alias-label-secondary);margin-bottom:3px}
+.ps-chat-suggestion-diff{font:10px/1.45 ${MONO};max-height:150px;overflow:auto;border-radius:4px}
+.ps-chat-suggestion-actions{display:flex;gap:4px;margin-top:5px}
+.ps-chat{display:flex;flex-direction:column;min-height:0;flex:1}
+.ps-chat-bar{display:flex;align-items:center;gap:4px;padding:4px 8px;border-bottom:.5px solid var(--dsw-alias-border-l1)}
+.ps-chat-agent{font-size:11.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:38%}
+.ps-chat-bar .ps-select{flex:1;min-width:0;font-size:11px}
+.ps-chat-log{flex:1;min-height:0;overflow:auto;padding:8px;display:flex;flex-direction:column;gap:8px}
+.ps-chat-context{border:.5px solid var(--dsw-alias-border-l1);border-radius:7px;background:var(--dsw-alias-bg-layer-1);padding:5px 7px}
+.ps-chat-context-head{font:9.5px/1.3 ${MONO};color:var(--dsw-alias-label-secondary)}
+.ps-chat-context-text{font-size:11px;color:var(--dsw-alias-label-secondary);white-space:pre-wrap;max-height:80px;overflow:hidden;margin-top:2px}
+.ps-chat-msg{display:flex;flex-direction:column;gap:2px}
+.ps-chat-who{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--dsw-alias-label-secondary)}
+.ps-chat-text{font-size:12px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--dsw-alias-label-primary)}
+.ps-chat-msg.user .ps-chat-text{background:var(--dsw-alias-bg-layer-2);border-radius:7px;padding:5px 7px}
+.ps-chat-thinking{opacity:.7;font-style:italic}
+.ps-chat-compose{display:flex;gap:4px;padding:6px 8px;border-top:.5px solid var(--dsw-alias-border-l1);align-items:flex-end}
+.ps-chat-input{flex:1;min-height:46px;max-height:140px;resize:vertical;font:12px/1.45 inherit;padding:6px 7px;border:.5px solid var(--dsw-alias-border-l1);border-radius:7px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary)}
+.ps-agents-path{font:9.5px/1.4 ${MONO};color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-layer-1);border:.5px solid var(--dsw-alias-border-l1);border-radius:6px;padding:4px 6px;user-select:text;overflow-wrap:anywhere}
+.ps-agents-bases{border:.5px solid var(--dsw-alias-border-l1);border-radius:7px;padding:5px 7px;display:flex;flex-direction:column;gap:2px;max-height:120px;overflow:auto}
+.ps-agents-bases-head{font-size:10px;color:var(--dsw-alias-label-secondary)}
+.ps-agents-bases .ps-check-row{font-size:11px;padding:1px 0}
+.ps-agents{display:grid;grid-template-columns:minmax(0,0.85fr) minmax(0,1.4fr);gap:8px;min-height:0;flex:1}
+.ps-agents-list{display:flex;flex-direction:column;gap:2px;min-height:0;overflow:auto;border-right:.5px solid var(--dsw-alias-border-l1);padding-right:6px}
+.ps-agents-head{display:flex;align-items:center;gap:4px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--dsw-alias-label-secondary);margin-bottom:4px}
+.ps-agents-head span{flex:1}
+.ps-agents-item{display:flex;align-items:center;gap:6px;border:0;background:transparent;border-radius:6px;padding:5px 6px;color:var(--dsw-alias-label-primary);text-align:left;cursor:pointer;font-size:11.5px}
+.ps-agents-item:hover{background:var(--dsw-alias-bg-layer-1)}
+.ps-agents-item.active{background:var(--dsw-alias-bg-layer-2)}
+.ps-agents-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ps-agents-scope{flex:none;font-size:9px;text-transform:uppercase;letter-spacing:.04em;padding:1px 4px;border-radius:6px;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary)}
+.ps-agents-scope.project{color:var(--dsw-alias-brand-primary)}
+.ps-agents-scope.builtin{color:var(--dsw-alias-state-warn-primary)}
+.ps-agents-edit{display:flex;flex-direction:column;gap:6px;min-height:0}
+.ps-agents-meta{font:10px/1.3 ${MONO};color:var(--dsw-alias-label-secondary)}
+.ps-agents-md{flex:1;min-height:220px;resize:vertical;font:11.5px/1.5 ${MONO};padding:8px;border:.5px solid var(--dsw-alias-border-l1);border-radius:7px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);tab-size:2}
+.ps-agents-actions{display:flex;gap:4px}
 .ps-git-card{background:var(--dsw-alias-bg-layer-1);border:.5px solid var(--dsw-alias-border-l1);border-radius:8px;padding:8px;display:flex;flex-direction:column;gap:6px}
 .ps-git-branchline{display:flex;align-items:center;gap:6px;font-size:12px}
 .ps-git-upstream{margin-left:auto;font:10.5px/1.2 ${MONO};color:var(--dsw-alias-label-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:55%}
@@ -749,6 +888,15 @@ body.ps-resizing *{cursor:inherit!important}
     /** Manual saves compile when enabled; autosaves use the autoCompile toggle. */
     function shouldCompileAfterSave({ manual, compileOnSave, autoCompile }) {
       return manual ? Boolean(compileOnSave) : Boolean(autoCompile);
+    }
+
+    function agentMarkdownTemplate() {
+      return "---\nname: New agent\ndescription: What this agent is for\nmodel: \nreadFiles: ask\nweb: ask\n---\n\nYou are a careful academic writing assistant. Be concise, quote the relevant text, and propose concrete rewrites.\n";
+    }
+
+    function slugifyAgent(name) {
+      return String(name ?? "").toLowerCase().normalize("NFKD")
+        .replace(/[^a-z0-9]+/gu, "-").replace(/^-+|-+$/gu, "").slice(0, 64) || "agent";
     }
 
     function readSyntax() {
@@ -1423,7 +1571,7 @@ body.ps-resizing *{cursor:inherit!important}
       const {
         t, tabs, activePath, tab, cursor, compile, status, onSelectTab, onCloseTab,
         onEdit, editorRef, gutterInnerRef, editorApiRef, onScroll, onCursor, onInsertText,
-        onReloadDisk, onKeepMine, symbols, syntax, misspelled, onSave, onUndo, onRedo, notify, onToggleWrap,
+        onReloadDisk, onKeepMine, symbols, syntax, misspelled, onSave, onUndo, onRedo, notify, onToggleWrap, onDiscuss, onAddChatContext, chatEnabled, changes, onKeepChange, onDiscardChange, onCloseReview,
       } = props;
       const theme = syntax || DEFAULT_SYNTAX;
       const keys = theme.keys || DEFAULT_SYNTAX.keys;
@@ -1440,11 +1588,24 @@ body.ps-resizing *{cursor:inherit!important}
         [tab ? tab.content : "", misspelled],
       );
       const currentLine = cursor && cursor.line ? cursor.line - 1 : -1;
+      const diffTargets = useMemo(() => {
+        const targets = new Set();
+        for (const change of changes || []) {
+          const match = /^@@ -(\d+)(?:,(\d+))?/u.exec(change.hunk.header || "");
+          if (!match) continue;
+          const start = Number(match[1]);
+          const count = match[2] === undefined ? 1 : Number(match[2]);
+          for (let line = 0; line < count; line += 1) targets.add(start + line);
+        }
+        return targets;
+      }, [changes]);
+
       const markup = useMemo(() => lines.map((line, index) => {
         const background = theme.backgrounds && line.bg ? ` data-bg="${line.bg}"` : "";
         const current = theme.currentLine && index === currentLine ? " current" : "";
-        return `<div class="ps-hl-line${current}"${background} data-line="${index + 1}">${line.html}</div>`;
-      }).join(""), [lines, currentLine, theme.backgrounds, theme.currentLine]);
+        const target = diffTargets.has(index + 1) ? " ps-diff-target" : "";
+        return `<div class="ps-hl-line${current}${target}"${background} data-line="${index + 1}">${line.html}</div>`;
+      }).join(""), [lines, currentLine, theme.backgrounds, theme.currentLine, diffTargets]);
       const styleVars = useMemo(() => syntaxVariables(theme), [theme]);
 
       const closeCompletion = useCallback(() => setCompletion(null), []);
@@ -1551,6 +1712,16 @@ body.ps-resizing *{cursor:inherit!important}
       const [caretBox, setCaretBox] = useState(null);
       const [diagnostics, setDiagnostics] = useState("");
       const [matches, setMatches] = useState([]);
+      const [diffPop, setDiffPop] = useState(null);
+      const [diffSize, setDiffSize] = useState(() => {
+        try {
+          const saved = JSON.parse(window.localStorage.getItem("ps-diff-size") || "null");
+          if (saved && Number.isFinite(saved.width) && Number.isFinite(saved.height)) return saved;
+        } catch { /* storage disabled */ }
+        return { width: 440, height: 240 };
+      });
+      const diffPopRef = useRef(null);
+      const diffMovedRef = useRef(false);
       const blockRef = useRef(null);
       const vimAnchor = useRef(0);
       const vimCursor = useRef(0);
@@ -2091,9 +2262,32 @@ body.ps-resizing *{cursor:inherit!important}
         };
       }, [editorApiRef, revealLine, tab ? tab.path : ""]);
 
+      const placeDiffPopup = useCallback(() => {
+        const textarea = editorRef.current;
+        if (!textarea || !changes || changes.length === 0) { setDiffPop(null); return; }
+        if (diffMovedRef.current) return;
+        const hunk = changes[0].hunk;
+        const match = hunk ? /^@@ -(\d+)/u.exec(hunk.header || "") : null;
+        const line = match ? Number(match[1]) : 1;
+        const rows = textarea.value.split("\n");
+        let offset = 0;
+        for (let index = 0; index < Math.min(line - 1, rows.length); index += 1) offset += rows[index].length + 1;
+        const point = caretCoordinates(textarea, Math.min(offset, textarea.value.length), theme.wrap);
+        const wrap = wrapRef.current;
+        const height = wrap ? wrap.clientHeight : 400;
+        setDiffPop({
+          top: Math.max(6, Math.min(point.top - textarea.scrollTop, height - 140)),
+          left: 52,
+        });
+      }, [changes, editorRef, theme.wrap]);
+
+      useEffect(() => { diffPopRef.current = placeDiffPopup; }, [placeDiffPopup]);
+      useLayoutEffectSafe(() => { placeDiffPopup(); }, [placeDiffPopup, markup, activePath]);
+
       const handleScroll = useCallback((event) => {
         onScroll(event);
         syncHighlight();
+        if (diffPopRef.current) diffPopRef.current();
         setCompletion(null);
       }, [onScroll, syncHighlight]);
 
@@ -2374,6 +2568,77 @@ body.ps-resizing *{cursor:inherit!important}
             },
             onBlur: closeCompletion,
           }),
+          changes && changes.length > 0 ? h("div", {
+            className: "ps-diff-pop",
+            style: {
+              top: `${diffPop ? diffPop.top : 8}px`,
+              left: `${diffPop ? diffPop.left : 52}px`,
+              width: `${diffSize.width}px`,
+              height: `${diffSize.height}px`,
+            },
+          },
+            h("div", {
+              className: "ps-diff-pop-head",
+              onPointerDown: (event) => {
+                if (event.target.closest("button")) return;
+                event.preventDefault();
+                const startX = event.clientX;
+                const startY = event.clientY;
+                diffMovedRef.current = true;
+                const startTop = diffPop ? diffPop.top : 8;
+                const startLeft = diffPop ? diffPop.left : 52;
+                const move = (moveEvent) => setDiffPop({
+                  top: Math.max(0, startTop + moveEvent.clientY - startY),
+                  left: Math.max(0, startLeft + moveEvent.clientX - startX),
+                });
+                const stop = () => {
+                  window.removeEventListener("pointermove", move);
+                  window.removeEventListener("pointerup", stop);
+                };
+                window.addEventListener("pointermove", move);
+                window.addEventListener("pointerup", stop);
+              },
+            },
+              h("span", null, `${changes.length} ${t("suggestedEdit")}`),
+              h("button", {
+                className: "ps-btn icon", type: "button", title: t("close"),
+                onClick: () => { diffMovedRef.current = false; if (onCloseReview) onCloseReview(); },
+              }, h(Icon.close))),
+            h("div", { className: "ps-diff-pop-body" },
+              changes.map((change) => h("div", { className: "ps-diff-hunk", key: change.id },
+                h("div", { className: "ps-diff-hunk-head" },
+                  h("span", null, `${change.file ? `${change.file} · ` : ""}${change.hunk.header || ""}`),
+                  h("button", { className: "ps-btn keep", type: "button", onClick: () => onKeepChange && onKeepChange(change) }, t("keep")),
+                  h("button", { className: "ps-btn danger", type: "button", onClick: () => onDiscardChange && onDiscardChange(change.id) }, t("discard"))),
+                change.hunk.lines.slice(0, 120).map((line, lineIndex) => h("div", {
+                  key: lineIndex,
+                  className: `ps-diff-line ${line.type === "+" ? "add" : line.type === "-" ? "del" : "ctx"}`,
+                }, line.text || " "))))),
+            h("div", {
+              className: "ps-diff-resize",
+              title: "Resize",
+              onPointerDown: (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                const startX = event.clientX;
+                const startY = event.clientY;
+                let latest = diffSize;
+                const move = (moveEvent) => {
+                  latest = {
+                    width: Math.max(280, Math.min(900, diffSize.width + moveEvent.clientX - startX)),
+                    height: Math.max(140, Math.min(700, diffSize.height + moveEvent.clientY - startY)),
+                  };
+                  setDiffSize(latest);
+                };
+                const stop = () => {
+                  window.removeEventListener("pointermove", move);
+                  window.removeEventListener("pointerup", stop);
+                  try { window.localStorage.setItem("ps-diff-size", JSON.stringify(latest)); } catch { /* storage disabled */ }
+                };
+                window.addEventListener("pointermove", move);
+                window.addEventListener("pointerup", stop);
+              },
+            })) : null,
           theme.vim && vimMode !== "insert" && caretBox
             ? h("div", {
               className: "ps-block-caret",
@@ -2446,7 +2711,42 @@ body.ps-resizing *{cursor:inherit!important}
         h("button", { className: "ps-ctx-item", type: "button", onClick: () => { wrapSelection("\\textit{", "}"); setMenu(null); } },
           t("italic"), h("kbd", null, keys.italic)),
         h("button", { className: "ps-ctx-item", type: "button", onClick: () => { wrapSelection("\\underline{", "}"); setMenu(null); } },
-          t("underline"), h("kbd", null, keys.underline))) : null);
+          t("underline"), h("kbd", null, keys.underline)),
+        h("div", { className: "ps-ctx-sep", key: "sep2" }),
+        h("button", {
+          className: "ps-ctx-item", type: "button", disabled: !chatEnabled,
+          onClick: () => {
+            setMenu(null);
+            const textarea = editorRef.current;
+            const value = textarea ? textarea.value : "";
+            const start = textarea ? textarea.selectionStart : 0;
+            const end = textarea ? textarea.selectionEnd : 0;
+            const before = value.slice(0, start);
+            if (onAddChatContext) onAddChatContext({
+              file: tab ? tab.path : "",
+              text: value.slice(start, end),
+              startLine: before.split("\n").length,
+              endLine: value.slice(0, end).split("\n").length,
+            });
+          },
+        }, t("addToChat")),
+        h("button", {
+          className: "ps-ctx-item", type: "button",
+          onClick: () => {
+            setMenu(null);
+            const textarea = editorRef.current;
+            const value = textarea ? textarea.value : "";
+            const start = textarea ? textarea.selectionStart : 0;
+            const end = textarea ? textarea.selectionEnd : 0;
+            const before = value.slice(0, start);
+            if (onDiscuss) onDiscuss({
+              file: tab ? tab.path : "",
+              text: value.slice(start, end),
+              startLine: before.split("\n").length,
+              endLine: value.slice(0, end).split("\n").length,
+            });
+          },
+        }, t("discussWithAgent"))) : null);
     }
 
     function Dock(props) {
@@ -2983,6 +3283,236 @@ body.ps-resizing *{cursor:inherit!important}
     }
 
     // -- main component ----------------------------------------------------
+    function parseDiffSuggestions(text) {
+      const suggestions = [];
+      const blocks = /```(?:diff|patch)\s*\n([\s\S]*?)```/giu;
+      let match;
+      while ((match = blocks.exec(String(text || "")))) {
+        const body = match[1].endsWith("\n") ? match[1].slice(0, -1) : match[1];
+        const lines = body.split("\n");
+        let file = "";
+        const hunks = [];
+        let hunk = null;
+        for (const line of lines) {
+          if (line.startsWith("+++ ") || line.startsWith("--- ")) {
+            const candidate = line.slice(4).replace(/^[ab]\//u, "").trim();
+            if (line.startsWith("+++ ") && candidate && candidate !== "/dev/null") file = candidate;
+            continue;
+          }
+          if (line.startsWith("@@")) {
+            hunk = { header: line, lines: [] };
+            hunks.push(hunk);
+            continue;
+          }
+          if (!hunk) continue;
+          if (line.startsWith("+")) hunk.lines.push({ type: "+", text: line.slice(1) });
+          else if (line.startsWith("-")) hunk.lines.push({ type: "-", text: line.slice(1) });
+          else hunk.lines.push({ type: " ", text: line.slice(1) });
+        }
+        if (hunks.length > 0) suggestions.push({ file, hunks });
+      }
+      return suggestions;
+    }
+
+    function stripDiffBlocks(text) {
+      return String(text || "").replace(/```(?:diff|patch)\s*\n[\s\S]*?```/giu, "").trim();
+    }
+
+    function diffChangeKey(file, hunk) {
+      const text = `${file || ""}|${hunk.header || ""}|${hunk.lines.map((line) => `${line.type}${line.text}`).join("\n")}`;
+      let hash = 5381;
+      for (let index = 0; index < text.length; index += 1) hash = ((hash * 33) ^ text.charCodeAt(index)) >>> 0;
+      return `c${hash.toString(36)}`;
+    }
+
+    function collectChanges(messages) {
+      const changes = [];
+      (Array.isArray(messages) ? messages : []).forEach((message, messageIndex) => {
+        if (message.role !== "assistant") return;
+        parseDiffSuggestions(message.content).forEach((suggestion, suggestionIndex) => {
+          suggestion.hunks.forEach((hunk, hunkIndex) => {
+            changes.push({
+              id: diffChangeKey(suggestion.file, hunk),
+              file: suggestion.file || "",
+              hunk,
+            });
+          });
+        });
+      });
+      return changes;
+    }
+
+    function applySuggestion(content, suggestion) {
+      const lines = String(content || "").split("\n");
+      const hunks = [...suggestion.hunks].sort((left, right) => {
+        const startOf = (hunk) => {
+          const match = /^@@ -(\d+)/u.exec(hunk.header || "");
+          return match ? Number(match[1]) : 0;
+        };
+        return startOf(right) - startOf(left);
+      });
+      for (const hunk of hunks) {
+        const oldLines = hunk.lines.filter((line) => line.type !== "+").map((line) => line.text);
+        const newLines = hunk.lines.filter((line) => line.type !== "-").map((line) => line.text);
+        const match = /^@@ -(\d+)(?:,(\d+))?/u.exec(hunk.header || "");
+        const declared = match ? Number(match[1]) - 1 : -1;
+        const count = match && match[2] !== undefined ? Number(match[2]) : oldLines.length;
+        const same = (index) => lines.slice(index, index + count)
+          .every((line, offset) => String(line ?? "").trimEnd() === String(oldLines[offset] ?? "").trimEnd());
+        let at = -1;
+        if (declared >= 0 && declared + count <= lines.length && same(declared)) at = declared;
+        if (at < 0 && declared >= 0) {
+          for (let delta = 1; delta <= 8 && at < 0; delta += 1) {
+            for (const candidate of [declared - delta, declared + delta]) {
+              if (candidate >= 0 && candidate + count <= lines.length && same(candidate)) { at = candidate; break; }
+            }
+          }
+        }
+        if (at < 0) {
+          // Last resort: locate the removed/context block by text.
+          const before = oldLines.join("\n");
+          if (before) {
+            const index = lines.join("\n").indexOf(before);
+            if (index >= 0) {
+              const prefix = lines.join("\n").slice(0, index);
+              at = prefix.split("\n").length - 1;
+            }
+          }
+        }
+        if (at < 0) return null;
+        lines.splice(at, count, ...newLines);
+      }
+      return lines.join("\n");
+    }
+
+    function parseChoiceBlocks(text) {
+      const blocks = [];
+      const pattern = /```choices?\s*\n([\s\S]*?)```/giu;
+      let match;
+      let index = 0;
+      while ((match = pattern.exec(String(text || "")))) {
+        const body = match[1].endsWith("\n") ? match[1].slice(0, -1) : match[1];
+        const options = body.split("\n")
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .map((line) => {
+            const clean = line.replace(/^(?:\d+[.)]|[-*])\s*/u, "");
+            const [label, ...rest] = clean.split(/\s+[—–]\s+/u);
+            return { label: label.trim(), description: rest.join(" — ").trim() };
+          })
+          .filter((option) => option.label.length > 0);
+        if (options.length > 0) blocks.push({ id: index, options });
+        index += 1;
+      }
+      return blocks;
+    }
+
+    function stripChoiceBlocks(text) {
+      return String(text || "").replace(/```choices?\s*\n[\s\S]*?```/giu, "");
+    }
+
+    function ChoiceCard({ t, options, onChoose }) {
+      const [selected, setSelected] = useState(0);
+      const [custom, setCustom] = useState("");
+      const hasCustom = custom.trim().length > 0;
+      const value = hasCustom ? custom.trim() : (options[selected] ? options[selected].label : "");
+      return h("div", { className: "ps-chat-choice" },
+        h("div", { className: "ps-chat-choice-head" }, t("chooseOption")),
+        options.map((option, index) => h("label", { className: "ps-chat-choice-option", key: index },
+          h("input", {
+            type: "radio", checked: selected === index && !hasCustom,
+            onChange: () => { setSelected(index); setCustom(""); },
+          }),
+          h("span", { className: "ps-chat-choice-text" },
+            h("b", null, option.label),
+            option.description ? h("span", { className: "ps-chat-choice-desc" }, option.description) : null))),
+        h("label", { className: "ps-chat-choice-option" },
+          h("input", { type: "radio", checked: hasCustom, onChange: () => {} }),
+          h("input", {
+            className: "ps-input ps-chat-choice-input", value: custom,
+            placeholder: t("otherOption"),
+            onChange: (event) => setCustom(event.target.value),
+          })),
+        h("button", {
+          className: "ps-btn primary", type: "button", disabled: !value,
+          onClick: () => onChoose(value),
+        }, t("choose")));
+    }
+
+    function ChatPane(props) {
+      const {
+        t, agent, chat, chats, input, onInput, onSend, onStop, busy, stream,
+        onSelectChat, onNewChat, onClose, changes, onKeepChange, onDiscardChange, onKeepAll, onDiscardAll,
+        resolvedChoices, onChoose, onDeleteChat,
+      } = props;
+      const logRef = useRef(null);
+      useEffect(() => {
+        if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
+      }, [chat && chat.messages ? chat.messages.length : 0, stream, busy]);
+      const messages = chat && Array.isArray(chat.messages) ? chat.messages : [];
+      return h("div", { className: "ps-chat" },
+        h("div", { className: "ps-chat-bar" },
+          h("span", { className: "ps-chat-agent", title: agent.name }, agent.name),
+          h("select", {
+            className: "ps-select", value: chat ? chat.id : "", title: t("chatHistory"),
+            onChange: (event) => onSelectChat(event.target.value),
+          }, chats.map((item) => h("option", { key: item.id, value: item.id }, `${item.title || t("newChat")}${item.messages ? ` · ${item.messages}` : ""}`))),
+          h("button", { className: "ps-btn icon", type: "button", title: t("newChat"), onClick: onNewChat }, h(Icon.plus)),
+          h("button", { className: "ps-btn icon ps-chat-delete", type: "button", title: t("deleteChat"), onClick: () => onDeleteChat && onDeleteChat() }, "🗑"),
+          h("button", { className: "ps-btn icon", type: "button", title: t("close"), onClick: onClose }, h(Icon.close))),
+        h("div", { className: "ps-chat-log", ref: logRef },
+          chat && chat.context && chat.context.text ? h("div", { className: "ps-chat-context" },
+            h("div", { className: "ps-chat-context-head" },
+              `${chat.context.file || ""}${chat.context.startLine ? `:${chat.context.startLine}${chat.context.endLine && chat.context.endLine !== chat.context.startLine ? `-${chat.context.endLine}` : ""}` : ""}`),
+            h("div", { className: "ps-chat-context-text" }, chat.context.text.slice(0, 500))) : null,
+          messages.map((message, index) => {
+            const choices = message.role === "assistant" ? parseChoiceBlocks(message.content) : [];
+            const text = message.role === "assistant"
+              ? stripChoiceBlocks(stripDiffBlocks(message.content))
+              : message.content;
+            return h("div", { key: index, className: `ps-chat-msg ${message.role === "user" ? "user" : "assistant"}` },
+              h("div", { className: "ps-chat-who" }, message.role === "user" ? t("you") : agent.name),
+              text ? h("div", { className: "ps-chat-text" }, text) : null,
+              choices
+                .filter((block) => !(resolvedChoices || new Set()).has(`${index}:${block.id}`))
+                .map((block) => h(ChoiceCard, {
+                  key: block.id, t, options: block.options,
+                  onChoose: (value) => onChoose && onChoose(`${index}:${block.id}`, value),
+                })));
+          }),
+          stream ? h("div", { className: "ps-chat-msg assistant" },
+            h("div", { className: "ps-chat-who" }, agent.name),
+            h("div", { className: "ps-chat-text" }, stream)) : null,
+          busy && !stream ? h("div", { className: "ps-chat-msg assistant" },
+            h("div", { className: "ps-chat-who" }, agent.name),
+            h("div", { className: "ps-chat-text ps-chat-thinking" }, t("thinking"))) : null,
+          messages.length === 0 && !stream && !busy
+            ? h("div", { className: "ps-hint", style: { padding: "10px 8px" } }, t("chatStartHint"))
+            : null),
+        changes && changes.length > 0 ? h("div", { className: "ps-chat-changes" },
+          h("div", { className: "ps-chat-changes-head" }, `${changes.length} pending`),
+          h("div", { className: "ps-chat-changes-list" },
+            changes.map((change) => h("div", { className: "ps-chat-change", key: change.id },
+              h("span", { className: "ps-chat-change-label", title: change.hunk.header || "" },
+                `${change.file ? `${change.file} · ` : ""}${change.hunk.header || ""}`),
+              h("button", { className: "ps-btn keep", type: "button", onClick: () => onKeepChange && onKeepChange(change) }, t("keep")),
+              h("button", { className: "ps-btn danger", type: "button", onClick: () => onDiscardChange && onDiscardChange(change.id) }, t("discard"))))),
+          h("div", { className: "ps-chat-changes-actions" },
+            h("button", { className: "ps-btn keep", type: "button", onClick: () => onKeepAll && onKeepAll() }, t("keepAll")),
+            h("button", { className: "ps-btn danger", type: "button", onClick: () => onDiscardAll && onDiscardAll() }, t("discardAll")))) : null,
+        h("div", { className: "ps-chat-compose" },
+          h("textarea", {
+            className: "ps-chat-input", value: input, placeholder: t("chatPlaceholder"),
+            onChange: (event) => onInput(event.target.value),
+            onKeyDown: (event) => {
+              if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); onSend(); }
+            },
+          }),
+          busy
+            ? h("button", { className: "ps-btn danger", type: "button", onClick: onStop }, t("stop"))
+            : h("button", { className: "ps-btn primary", type: "button", disabled: !String(input).trim(), onClick: onSend }, t("send"))));
+    }
+
     function Studio(props) {
       const t = props.t || ((key) => key);
       const panelInfo = props.panelInfo;
@@ -3030,6 +3560,27 @@ body.ps-resizing *{cursor:inherit!important}
       const [gitBusy, setGitBusy] = useState("");
       const [boom, setBoom] = useState(0);
       const [syntax, setSyntax] = useState(() => readSyntax());
+      const [agents, setAgents] = useState(null);
+      const [agentEdit, setAgentEdit] = useState(null);
+      const [agentBusy, setAgentBusy] = useState(false);
+      const [agentBases, setAgentBases] = useState(new Set());
+      const [rightTab, setRightTab] = useState("pdf");
+      const [chatAgent, setChatAgent] = useState(null);
+      const [chat, setChat] = useState(null);
+      const [chatList, setChatList] = useState([]);
+      const [chatInput, setChatInput] = useState("");
+      const [chatBusy, setChatBusy] = useState(false);
+      const [chatStream, setChatStream] = useState("");
+      const [changes, setChanges] = useState([]);
+      const [reviewHidden, setReviewHidden] = useState(false);
+      const [resolvedChoices, setResolvedChoices] = useState(new Set());
+      const [allChats, setAllChats] = useState(null);
+      const resolvedRef = useRef(new Set());
+      const resolvedKey = useCallback((chatId) => `ps-chat-resolved:${projectIdRef.current || ""}:${chat && chat.agentId ? chat.agentId : ""}:${chatId || ""}`, [chat]);
+      const chatSourceRef = useRef(null);
+      const chatJobRef = useRef("");
+      const onEditRef = useRef(null);
+      const scheduleAutosaveRef = useRef(null);
       const [status, setStatus] = useState({ kind: "idle" });
       const [dialog, setDialog] = useState(null);
       const [busy, setBusy] = useState(false);
@@ -3272,6 +3823,463 @@ body.ps-resizing *{cursor:inherit!important}
         }
       }, []);
 
+      const refreshAgents = useCallback(async () => {
+        const id = projectIdRef.current;
+        try {
+          const result = await request("agents", { query: id ? { project: id } : {} });
+          setAgents(Array.isArray(result.agents) ? result.agents : []);
+        } catch (error) {
+          setAgents([]);
+          notify(error.message, "err");
+        }
+      }, [notify]);
+
+      const openAgent = useCallback(async (agent) => {
+        const id = projectIdRef.current;
+        try {
+          const data = await request("agent", { query: { ...(id ? { project: id } : {}), id: agent.id, scope: agent.scope } });
+          setAgentEdit({ id: agent.id, scope: agent.scope, markdown: data.markdown });
+        } catch (error) {
+          notify(error.message, "err");
+        }
+      }, [notify]);
+
+      const mergeAgentBases = useCallback(async () => {
+        if (!agentEdit || agentEdit.id || agentBases.size === 0) return;
+        setAgentBusy(true);
+        try {
+          const id = projectIdRef.current;
+          const parts = [];
+          for (const agent of agents || []) {
+            if (!agentBases.has(`${agent.scope}:${agent.id}`)) continue;
+            const data = await request("agent", { query: { ...(id ? { project: id } : {}), id: agent.id, scope: agent.scope } });
+            const body = String(data.markdown || "").replace(/^---[\s\S]*?---\r?\n?/u, "").trim();
+            parts.push(`\n\n## From ${agent.name}\n\n${body}`);
+          }
+          const front = /^---[\s\S]*?---\r?\n?/u.exec(agentEdit.markdown)?.[0] || "";
+          const own = agentEdit.markdown.replace(/^---[\s\S]*?---\r?\n?/u, "").trim();
+          setAgentEdit({ ...agentEdit, markdown: `${front}\n${parts.join("")}\n\n${own}\n` });
+          setAgentBases(new Set());
+        } catch (error) {
+          notify(error.message, "err");
+        } finally {
+          setAgentBusy(false);
+        }
+      }, [agentBases, agentEdit, agents, notify]);
+
+      const saveAgent = useCallback(async () => {
+        if (!agentEdit) return;
+        setAgentBusy(true);
+        try {
+          const id = projectIdRef.current;
+          const name = /^\s*name:\s*(.+)$/mu.exec(agentEdit.markdown);
+          let agentId = agentEdit.id;
+          if (!agentId) {
+            const base = slugifyAgent(name ? name[1].trim() : "agent");
+            agentId = base;
+            let suffix = 2;
+            while ((agents || []).some((agent) => agent.scope === agentEdit.scope && agent.id === agentId)) {
+              agentId = `${base}-${suffix}`;
+              suffix += 1;
+            }
+          }
+          const result = await request("agent/save", { method: "POST", body: {
+            ...(id ? { project: id } : {}), id: agentId, scope: agentEdit.scope, markdown: agentEdit.markdown,
+          } });
+          setAgentEdit({ id: result.id, scope: result.scope, markdown: agentEdit.markdown });
+          await refreshAgents();
+          notify(t("agentSaved"));
+        } catch (error) {
+          notify(error.message, "err");
+        } finally {
+          setAgentBusy(false);
+        }
+      }, [agentEdit, agents, notify, refreshAgents, t]);
+
+      const removeAgent = useCallback(async () => {
+        if (!agentEdit || !agentEdit.id || agentEdit.scope === "builtin") return;
+        if (!window.confirm(t("agentDeleteConfirm"))) return;
+        setAgentBusy(true);
+        try {
+          const id = projectIdRef.current;
+          await request("agent/delete", { method: "POST", body: { ...(id ? { project: id } : {}), id: agentEdit.id, scope: agentEdit.scope } });
+          setAgentEdit(null);
+          await refreshAgents();
+          notify(t("agentDeleted"));
+        } catch (error) {
+          notify(error.message, "err");
+        } finally {
+          setAgentBusy(false);
+        }
+      }, [agentEdit, notify, refreshAgents, t]);
+
+      const refreshAllChats = useCallback(async () => {
+        const id = projectIdRef.current;
+        if (!id) { setAllChats([]); return; }
+        try {
+          const result = await request("chats/all", { query: { project: id } });
+          setAllChats(Array.isArray(result.chats) ? result.chats : []);
+          return;
+        } catch {
+          // Fall through: an older host may not have chats/all yet.
+        }
+        try {
+          const agentList = (await request("agents", { query: { project: id } })).agents || [];
+          const lists = await Promise.all(agentList.map((agent) => request("chats", { query: { project: id, agent: agent.id } })
+            .then((result) => (result.chats || []).map((chat) => ({
+              ...chat, agentId: agent.id, agentName: agent.name, agentScope: agent.scope,
+            })))
+            .catch(() => [])));
+          const merged = lists.flat().sort((left, right) => String(right.updatedAt).localeCompare(String(left.updatedAt)));
+          setAllChats(merged);
+        } catch {
+          setAllChats([]);
+        }
+      }, []);
+
+      const refreshChats = useCallback(async (agent) => {
+        const id = projectIdRef.current;
+        if (!id || !agent) return;
+        try {
+          const result = await request("chats", { query: { project: id, agent: agent.id } });
+          setChatList(Array.isArray(result.chats) ? result.chats : []);
+        } catch (error) {
+          setChatList([]);
+        }
+      }, []);
+
+      const startChat = useCallback(async (agent, context) => {
+        const id = projectIdRef.current;
+        if (!id || !agent) return;
+        try {
+          const result = await request("chat/create", { method: "POST", body: {
+            project: id, agentId: agent.id, agentScope: agent.scope, context: context || null,
+          } });
+          setChatAgent(agent);
+          resolvedRef.current = new Set();
+          setResolvedChoices(new Set());
+          setChanges([]);
+          setChat({ id: result.chat.id, title: result.chat.title, updatedAt: result.chat.updatedAt, context: context || null, messages: [] });
+          setChatInput("");
+          setChatStream("");
+          setChatBusy(false);
+          setRightTab("chat");
+          setPdfOpen(true);
+          setDialog(null);
+          await refreshChats(agent);
+        } catch (error) {
+          notify(error.message, "err");
+        }
+      }, [notify, refreshChats]);
+
+      const addChatContext = useCallback(async (context) => {
+        const id = projectIdRef.current;
+        if (!id || !chat || !chatAgent || !context || !context.text) return;
+        try {
+          const result = await request("chat/context", { method: "POST", body: {
+            project: id, agentId: chatAgent.id, chatId: chat.id, context,
+          } });
+          setChat(result.chat);
+          notify(t("contextAdded"));
+        } catch (error) {
+          notify(error.message, "err");
+        }
+      }, [chat, chatAgent, notify, t]);
+
+      const reviewSuggestion = useCallback((value) => {
+        setSuggestion(value);
+        if (value && value.file) void openFile(value.file);
+      }, [openFile]);
+
+      const discardSuggestion = useCallback(() => setSuggestion(null), []);
+
+      const applyChanges = useCallback((list, tag) => {
+        const byFile = new Map();
+        for (const change of list) {
+          if (!change || !change.hunk) continue;
+          const file = change.file || "";
+          if (!byFile.has(file)) byFile.set(file, []);
+          byFile.get(file).push(change.hunk);
+        }
+        let applied = 0;
+        for (const [file, hunks] of byFile) {
+          const tab = file
+            ? tabsRef.current.find((item) => item.path === file)
+            : tabsRef.current.find((item) => item.path === activeRef.current);
+          if (!tab) {
+            if (file) void openFile(file);
+            notify(t("suggestionNoFile"), "err");
+            continue;
+          }
+          let content = tab.content;
+          let local = 0;
+          for (const hunk of hunks) {
+            const next = applySuggestion(content, { hunks: [hunk] });
+            if (next !== null) { content = next; local += 1; }
+          }
+          if (local === 0) {
+            notify(t("suggestionMismatch"), "err");
+            continue;
+          }
+          if (tag) {
+            const history = historyRef.current.get(tab.path) || { past: [], future: [], at: 0, word: false };
+            history.past.push({ content: tab.content, caret: 0, ...tag });
+            if (history.past.length > 200) history.past.shift();
+            history.future = [];
+            history.at = 0;
+            history.word = false;
+            setTabs((items) => items.map((item) => (item.path === tab.path ? { ...item, content, dirty: content !== item.saved } : item)));
+            if (scheduleAutosaveRef.current) scheduleAutosaveRef.current(tab.path);
+          } else if (onEditRef.current) {
+            onEditRef.current(tab.path, content, 0);
+          }
+          applied += local;
+        }
+        return applied;
+      }, [notify, openFile, t]);
+
+      const resolveChange = useCallback((change) => {
+        resolvedRef.current.add(change.id);
+        try { if (chat) localStorage.setItem(resolvedKey(chat.id), JSON.stringify([...resolvedRef.current])); } catch { /* storage disabled */ }
+        setChanges((list) => list.filter((entry) => entry.id !== change.id));
+      }, [chat, resolvedKey]);
+
+      const keepChange = useCallback((change) => {
+        if (applyChanges([change], { keep: change }) === 0) return;
+        resolveChange(change);
+        notify(t("suggestionApplied"));
+      }, [applyChanges, notify, resolveChange, t]);
+
+      const discardChange = useCallback((id) => {
+        const change = changes.find((entry) => entry.id === id);
+        if (change) resolveChange(change);
+        else setChanges((list) => list.filter((entry) => entry.id !== id));
+      }, [changes, resolveChange]);
+
+      const keepAllChanges = useCallback(() => {
+        const applied = [];
+        for (const change of changes) {
+          if (applyChanges([change], { keep: change }) > 0) applied.push(change.id);
+        }
+        if (applied.length === 0) return;
+        for (const id of applied) resolvedRef.current.add(id);
+        try { if (chat) localStorage.setItem(resolvedKey(chat.id), JSON.stringify([...resolvedRef.current])); } catch { /* storage disabled */ }
+        setChanges((list) => list.filter((change) => !applied.includes(change.id)));
+      }, [applyChanges, changes, chat, resolvedKey]);
+
+      const discardAllChanges = useCallback(() => {
+        for (const change of changes) resolvedRef.current.add(change.id);
+        try { if (chat) localStorage.setItem(resolvedKey(chat.id), JSON.stringify([...resolvedRef.current])); } catch { /* storage disabled */ }
+        setChanges([]);
+      }, [changes, chat, resolvedKey]);
+
+      const loadResolved = useCallback((chatId) => {
+        try {
+          return new Set(JSON.parse(localStorage.getItem(resolvedKey(chatId)) || "[]"));
+        } catch {
+          return new Set();
+        }
+      }, [resolvedKey]);
+
+      const openChatPicker = useCallback(async (agent, context) => {
+        setDialog({ kind: "chatPick", agent, context, chats: null });
+        const id = projectIdRef.current;
+        if (!id) {
+          setDialog({ kind: "chatPick", agent, context, chats: [] });
+          return;
+        }
+        try {
+          const result = await request("chats", { query: { project: id, agent: agent.id } });
+          setDialog((current) => (current && current.kind === "chatPick" && current.agent && current.agent.id === agent.id
+            ? { ...current, chats: Array.isArray(result.chats) ? result.chats : [] }
+            : current));
+        } catch {
+          setDialog((current) => (current && current.kind === "chatPick" ? { ...current, chats: [] } : current));
+        }
+      }, []);
+
+      const openExistingChat = useCallback(async (agent, chatId) => {
+        const id = projectIdRef.current;
+        if (!id || !agent) return;
+        try {
+          const data = await request("chat", { query: { project: id, agent: agent.id, chat: chatId } });
+          setChatAgent(agent);
+          setChat(data);
+          setChatInput("");
+          setChatStream("");
+          setChatBusy(false);
+          setRightTab("chat");
+          setPdfOpen(true);
+          setDialog(null);
+          await refreshChats(agent);
+        } catch (error) {
+          notify(error.message, "err");
+        }
+      }, [loadResolved, notify, refreshChats]);
+
+      const selectChat = useCallback(async (chatId) => {
+        const id = projectIdRef.current;
+        if (!id || !chatAgent || !chatId) return;
+        try {
+          const data = await request("chat", { query: { project: id, agent: chatAgent.id, chat: chatId } });
+          resolvedRef.current = loadResolved(data.id);
+          setResolvedChoices(loadResolvedChoices(data.id));
+          setChanges(collectChanges(data.messages).filter((change) => !resolvedRef.current.has(change.id)));
+          setReviewHidden(false);
+          setChat(data);
+          setChatStream("");
+          setChatBusy(false);
+        } catch (error) {
+          notify(error.message, "err");
+        }
+      }, [chatAgent, notify]);
+
+      const stopChat = useCallback(async () => {
+        const id = projectIdRef.current;
+        if (!id || !chatJobRef.current) return;
+        try {
+          await request("chat/stop", { method: "POST", body: { project: id, job: chatJobRef.current } });
+        } catch {
+          // The stream may already be gone.
+        }
+      }, []);
+
+      const sendChat = useCallback(async (override) => {
+        const id = projectIdRef.current;
+        const message = String(typeof override === "string" ? override : chatInput).trim();
+        if (!id || !chat || !chatAgent || !message || chatBusy) return;
+        if (typeof override !== "string") setChatInput("");
+        setChatBusy(true);
+        setChatStream("");
+        setChat((current) => (current ? { ...current, messages: [...(current.messages || []), { role: "user", content: message, at: new Date().toISOString() }] } : current));
+        try {
+          const started = await request("chat/send", { method: "POST", body: {
+            project: id, agentId: chatAgent.id, agentScope: chatAgent.scope, chatId: chat.id, message,
+          } });
+          chatJobRef.current = started.jobId;
+          if (chatSourceRef.current) chatSourceRef.current.close();
+          const source = new EventSource(apiUrl("chat/events", { job: started.jobId }));
+          chatSourceRef.current = source;
+          let acc = "";
+          let finished = false;
+          const finish = () => { finished = true; source.close(); chatSourceRef.current = null; chatJobRef.current = ""; setChatBusy(false); };
+          source.onmessage = (event) => {
+            let data;
+            try { data = JSON.parse(event.data); } catch { return; }
+            if (data.type === "delta") {
+              acc += data.text;
+              setChatStream(acc);
+            } else if (data.type === "done") {
+              finish();
+              setChat((current) => (current ? {
+                ...current,
+                title: data.chat ? data.chat.title : current.title,
+                updatedAt: data.chat ? data.chat.updatedAt : current.updatedAt,
+                messages: acc ? [...(current.messages || []), { role: "assistant", content: acc, at: new Date().toISOString() }] : current.messages,
+              } : current));
+              setChatStream("");
+              void refreshChats(chatAgent);
+              const fresh = collectChanges([{ role: "assistant", content: acc }])
+                .filter((change) => !resolvedRef.current.has(change.id));
+              if (fresh.length > 0) {
+                setChanges((list) => [...list, ...fresh]);
+                setReviewHidden(false);
+                if (fresh[0].file) void openFile(fresh[0].file);
+              }
+            } else if (data.type === "error" || data.type === "aborted") {
+              finish();
+              setChat((current) => (current && acc ? {
+                ...current,
+                messages: [...(current.messages || []), { role: "assistant", content: acc, at: new Date().toISOString() }],
+              } : current));
+              setChatStream("");
+              if (data.type === "error" && data.message) notify(data.message, "err");
+            }
+          };
+          source.onerror = () => {
+            if (finished) return;
+            finish();
+            if (acc) {
+              setChat((current) => (current ? { ...current, messages: [...(current.messages || []), { role: "assistant", content: acc, at: new Date().toISOString() }] } : current));
+            }
+            setChatStream("");
+          };
+        } catch (error) {
+          setChatBusy(false);
+          notify(error.message, "err");
+        }
+      }, [chat, chatAgent, chatBusy, chatInput, notify, openFile, refreshChats]);
+
+      const resolvedChoiceKey = useCallback((chatId) => `ps-chat-choices:${projectIdRef.current || ""}:${chat && chat.agentId ? chat.agentId : ""}:${chatId || ""}`, [chat]);
+
+      const loadResolvedChoices = useCallback((chatId) => {
+        try {
+          return new Set(JSON.parse(localStorage.getItem(resolvedChoiceKey(chatId)) || "[]"));
+        } catch {
+          return new Set();
+        }
+      }, [resolvedChoiceKey]);
+
+      const chooseOption = useCallback((choiceId, text) => {
+        if (!text) return;
+        setResolvedChoices((current) => {
+          const next = new Set(current);
+          next.add(choiceId);
+          try { if (chat) localStorage.setItem(resolvedChoiceKey(chat.id), JSON.stringify([...next])); } catch { /* storage disabled */ }
+          return next;
+        });
+        void sendChat(`Option chosen: ${text}`);
+      }, [chat, resolvedChoiceKey, sendChat]);
+
+      const deleteChatFromPicker = useCallback(async (agent, chatId) => {
+        const id = projectIdRef.current;
+        if (!id || !agent || !chatId) return;
+        if (!window.confirm(t("chatDeleteConfirm"))) return;
+        try {
+          await request("chat/delete", { method: "POST", body: { project: id, agentId: agent.id, chatId } });
+          setAllChats((list) => (Array.isArray(list) ? list.filter((entry) => entry.id !== chatId) : list));
+          setDialog((current) => (current && current.kind === "chatPick"
+            ? { ...current, chats: (current.chats || []).filter((entry) => entry.id !== chatId) }
+            : current));
+          if (chat && chat.id === chatId) {
+            setChat(null);
+            setChatAgent(null);
+            setChanges([]);
+            setResolvedChoices(new Set());
+            setChatStream("");
+            setChatBusy(false);
+            setRightTab("pdf");
+          }
+          notify(t("chatDeleted"));
+        } catch (error) {
+          notify(error.message, "err");
+        }
+      }, [chat, notify, t]);
+
+      const deleteCurrentChat = useCallback(async () => {
+        const id = projectIdRef.current;
+        if (!id || !chat || !chatAgent) return;
+        if (!window.confirm(t("chatDeleteConfirm"))) return;
+        try {
+          await request("chat/delete", { method: "POST", body: { project: id, agentId: chatAgent.id, chatId: chat.id } });
+          const result = await request("chats", { query: { project: id, agent: chatAgent.id } });
+          const list = Array.isArray(result.chats) ? result.chats : [];
+          setChatList(list);
+          if (list.length > 0) {
+            void selectChat(list[0].id);
+          } else {
+            const context = chat.context || null;
+            setChat(null);
+            setChanges([]);
+            setResolvedChoices(new Set());
+            void startChat(chatAgent, context);
+          }
+          notify(t("chatDeleted"));
+        } catch (error) {
+          notify(error.message, "err");
+        }
+      }, [chat, chatAgent, notify, selectChat, startChat, t]);
+
       const runGitAction = useCallback(async (action, extra) => {
         const id = projectIdRef.current;
         if (!id) return;
@@ -3303,6 +4311,16 @@ body.ps-resizing *{cursor:inherit!important}
         if (explorerTab !== "git" || !project) return;
         void refreshGit({ diff: gitDiffOpen });
       }, [explorerTab, project, gitDiffOpen, refreshGit]);
+
+      useEffect(() => {
+        if (!dialog) return;
+        if (dialog.kind === "agents") {
+          void refreshAgents();
+          void refreshAllChats();
+        } else if (dialog.kind === "prefs" && dialog.tab === "agents") {
+          void refreshAgents();
+        }
+      }, [dialog && dialog.kind, dialog && dialog.tab, refreshAgents, refreshAllChats]);
 
       // Load the registry and restore the last project.
       useEffect(() => {
@@ -3413,6 +4431,8 @@ body.ps-resizing *{cursor:inherit!important}
           void saveTab(path);
         }, autosave.delay));
       }, [saveTab]);
+
+      scheduleAutosaveRef.current = scheduleAutosave;
 
       const refreshSymbols = useCallback(async () => {
         const id = projectIdRef.current;
@@ -3602,6 +4622,10 @@ body.ps-resizing *{cursor:inherit!important}
       }, [dialog]);
 
       useEffect(() => () => {
+        if (chatSourceRef.current) chatSourceRef.current.close();
+      }, []);
+
+      useEffect(() => () => {
         clearTimeout(toastTimer.current);
         clearTimeout(compileTimer.current);
         for (const timer of saveTimers.current.values()) clearTimeout(timer);
@@ -3635,6 +4659,8 @@ body.ps-resizing *{cursor:inherit!important}
         scheduleAutosave(path);
       }, [saveTab, scheduleAutosave]);
 
+      useEffect(() => { onEditRef.current = onEdit; }, [onEdit]);
+
       const restoreCaret = useCallback((path, caret) => {
         requestAnimationFrame(() => {
           const textarea = editorRef.current;
@@ -3655,13 +4681,20 @@ body.ps-resizing *{cursor:inherit!important}
         const tab = tabsRef.current.find((item) => item.path === path);
         if (!history || !tab || history.past.length === 0) return;
         const snapshot = history.past.pop();
-        history.future.push({ content: tab.content, caret: 0 });
+        history.future.push({ content: tab.content, caret: 0, ...(snapshot.keep ? { keep: snapshot.keep } : {}) });
         history.at = 0;
         history.word = false;
         setTabs((list) => list.map((item) => (item.path === path ? { ...item, content: snapshot.content, dirty: snapshot.content !== item.saved } : item)));
         scheduleAutosave(path);
+        if (snapshot.keep) {
+          const change = snapshot.keep;
+          resolvedRef.current.delete(change.id);
+          try { if (chat) localStorage.setItem(resolvedKey(chat.id), JSON.stringify([...resolvedRef.current])); } catch { /* storage disabled */ }
+          setChanges((list) => (list.some((entry) => entry.id === change.id) ? list : [change, ...list]));
+          setReviewHidden(false);
+        }
         restoreCaret(path, snapshot.caret);
-      }, [restoreCaret, saveTab, scheduleAutosave]);
+      }, [chat, resolvedKey, restoreCaret, saveTab, scheduleAutosave]);
 
       const redo = useCallback((path) => {
         const history = historyRef.current.get(path);
@@ -3673,8 +4706,14 @@ body.ps-resizing *{cursor:inherit!important}
         history.word = false;
         setTabs((list) => list.map((item) => (item.path === path ? { ...item, content: snapshot.content, dirty: snapshot.content !== item.saved } : item)));
         scheduleAutosave(path);
+        if (snapshot.keep) {
+          const change = snapshot.keep;
+          resolvedRef.current.add(change.id);
+          try { if (chat) localStorage.setItem(resolvedKey(chat.id), JSON.stringify([...resolvedRef.current])); } catch { /* storage disabled */ }
+          setChanges((list) => list.filter((entry) => entry.id !== change.id));
+        }
         restoreCaret(path, snapshot.caret);
-      }, [restoreCaret, saveTab, scheduleAutosave]);
+      }, [chat, resolvedKey, restoreCaret, saveTab, scheduleAutosave]);
 
       const closeTab = useCallback((path) => {
         const tab = tabsRef.current.find((item) => item.path === path);
@@ -4008,9 +5047,86 @@ body.ps-resizing *{cursor:inherit!important}
             h("span", { className: "ps-hint", key: "clone-hint" }, t("cloneHint")),
           ];
           actions = footer(t("clone"));
+        } else if (dialog.kind === "agents") {
+          title = t("discussWithAgent");
+          const general = (agents || []).filter((agent) => agent.scope !== "project");
+          const local = (agents || []).filter((agent) => agent.scope === "project");
+          const agentOptions = agents || [];
+          const selectedKey = dialog.agentKey || (agentOptions[0] ? `${agentOptions[0].scope}:${agentOptions[0].id}` : "");
+          const selectedAgent = agentOptions.find((agent) => `${agent.scope}:${agent.id}` === selectedKey) || null;
+          const chatRow = (chat) => h("div", { className: "ps-chat-pick-row", key: chat.id },
+            h("button", {
+              className: "ps-agent-pick ps-chat-pick-main", type: "button",
+              onClick: () => { void openExistingChat({ id: chat.agentId, name: chat.agentName || chat.agentId, scope: chat.agentScope }, chat.id); },
+            },
+            h("span", { className: "ps-agent-pick-name" },
+              h("b", null, chat.agentName || chat.agentId),
+              ` · ${chat.title || t("newChat")}`),
+            h("span", { className: "ps-agent-pick-desc" },
+              `${chat.messages || 0} · ${chat.updatedAt ? new Date(chat.updatedAt).toLocaleString() : ""}`)),
+            h("button", {
+              className: "ps-btn icon ps-chat-delete", type: "button", title: t("deleteChat"),
+              onClick: () => { void deleteChatFromPicker({ id: chat.agentId, name: chat.agentName, scope: chat.agentScope }, chat.id); },
+            }, "🗑"));
+          body = [
+            h("div", { className: "ps-chat-new", key: "new" },
+              h("select", {
+                className: "ps-select", value: selectedKey, disabled: !agents || agentOptions.length === 0,
+                onChange: (event) => setDialog({ ...dialog, agentKey: event.target.value }),
+              },
+              general.length > 0 ? h("optgroup", { label: t("agentsGeneral") }, general.map((agent) => h("option", { key: `${agent.scope}:${agent.id}`, value: `${agent.scope}:${agent.id}` }, agent.name))) : null,
+              local.length > 0 ? h("optgroup", { label: t("agentsProject") }, local.map((agent) => h("option", { key: `${agent.scope}:${agent.id}`, value: `${agent.scope}:${agent.id}` }, agent.name))) : null),
+              h("button", {
+                className: "ps-btn primary", type: "button", disabled: !selectedAgent,
+                onClick: () => { if (selectedAgent) void startChat(selectedAgent, dialog.context); },
+              }, t("startNewChat"))),
+            h("div", { className: "ps-agent-pick-head", key: "old" }, t("oldChats")),
+            allChats === null
+              ? h("div", { className: "ps-hint", key: "loading" }, t("loading"))
+              : allChats.length === 0
+                ? h("div", { className: "ps-hint", key: "none" }, t("noChats"))
+                : h("div", { className: "ps-agent-pick-list", key: "chats" }, allChats.map(chatRow)),
+            h("div", { className: "ps-hint", key: "hint" }, t("discussHint")),
+          ];
+          actions = h(React.Fragment, null,
+            h("button", { className: "ps-btn", type: "button", onClick: () => setDialog(null) }, t("cancel")));
+        } else if (dialog.kind === "chatPick") {
+          title = dialog.agent ? dialog.agent.name : t("chatTab");
+          const chats = dialog.chats;
+          body = [
+            h("div", { className: "ps-hint", key: "hint" }, t("chatPickHint")),
+            h("button", {
+              className: "ps-btn primary", type: "button", key: "new",
+              onClick: () => { void startChat(dialog.agent, dialog.context); },
+            }, h(Icon.plus), t("newChat")),
+            chats === null
+              ? h("div", { className: "ps-hint", key: "loading" }, t("loading"))
+              : chats.length === 0
+                ? h("div", { className: "ps-hint", key: "none" }, t("noPreviousChats"))
+                : h("div", { className: "ps-agent-pick-list", key: "list" },
+                  chats.map((entry) => h("div", { className: "ps-chat-pick-row", key: entry.id },
+                    h("button", {
+                      className: "ps-agent-pick", type: "button",
+                      onClick: () => { void openExistingChat(dialog.agent, entry.id); },
+                    },
+                    h("span", { className: "ps-agent-pick-name" }, entry.title || t("newChat")),
+                    h("span", { className: "ps-agent-pick-desc" },
+                      `${entry.messages || 0} · ${entry.updatedAt ? new Date(entry.updatedAt).toLocaleString() : ""}`)),
+                    h("button", {
+                      className: "ps-btn icon ps-chat-delete", type: "button",
+                      title: t("deleteChat"),
+                      onClick: () => { void deleteChatFromPicker(dialog.agent, entry.id); },
+                    }, "🗑")))),
+            h("button", {
+              className: "ps-btn", type: "button", key: "back",
+              onClick: () => setDialog({ kind: "agents", context: dialog.context }),
+            }, t("back")),
+          ];
+          actions = h(React.Fragment, null,
+            h("button", { className: "ps-btn", type: "button", onClick: () => setDialog(null) }, t("cancel")));
         } else if (dialog.kind === "prefs") {
           title = t("settingsTitle");
-          const tab = dialog.tab === "project" ? "project" : "editor";
+          const tab = dialog.tab === "project" ? "project" : dialog.tab === "agents" ? "agents" : "editor";
           const current = catalog.projects.find((item) => item.id === dialog.projectId) || project || {};
           const draft = dialog.draft || syntax;
           const updateDraft = (patch) => {
@@ -4041,7 +5157,11 @@ body.ps-resizing *{cursor:inherit!important}
             dialog.projectId ? h("button", {
               className: `ps-drawer-tab${tab === "project" ? " active" : ""}`,
               type: "button", onClick: () => setDialog({ ...dialog, tab: "project" }),
-            }, t("projectSettings")) : null);
+            }, t("projectSettings")) : null,
+            h("button", {
+              className: `ps-drawer-tab${tab === "agents" ? " active" : ""}`,
+              type: "button", onClick: () => setDialog({ ...dialog, tab: "agents" }),
+            }, t("agentsTab")));
           const section = dialog.section || "appearance";
           const editingBody = [
             h("div", { className: "ps-color-group", key: "layout" },
@@ -4150,7 +5270,87 @@ body.ps-resizing *{cursor:inherit!important}
               : section === "editing"
                 ? editingBody
                 : appearanceBody;
-          body = [tabs, ...(tab === "project" ? projectBody : [sections, ...activeBody]),
+          const agentsBody = h("div", { className: "ps-agents", key: "agents" },
+            h("div", { className: "ps-agents-list" },
+              h("div", { className: "ps-agents-head" },
+                h("span", null, t("agentsGeneral")),
+                h("button", {
+                  className: "ps-btn icon", type: "button", title: t("agentNewGlobal"),
+                  onClick: () => setAgentEdit({ id: "", scope: "global", markdown: agentMarkdownTemplate() }),
+                }, h(Icon.plus))),
+              agents === null
+                ? h("div", { className: "ps-hint" }, t("loading"))
+                : (agents || []).filter((agent) => agent.scope !== "project").map((agent) => h("button", {
+                  key: `${agent.scope}:${agent.id}`,
+                  className: `ps-agents-item${agentEdit && agentEdit.id === agent.id && agentEdit.scope === agent.scope ? " active" : ""}`,
+                  type: "button",
+                  title: agent.description || agent.name,
+                  onClick: () => { void openAgent(agent); },
+                },
+                h("span", { className: "ps-agents-name" }, agent.name),
+                h("span", { className: `ps-agents-scope ${agent.scope}` },
+                  agent.scope === "builtin" ? t("scopeBuiltin") : t("scopeGlobal")))),
+              h("hr", { className: "ps-agents-sep" }),
+              h("div", { className: "ps-agents-head" },
+                h("span", null, t("agentsProject")),
+                project ? h("button", {
+                  className: "ps-btn icon", type: "button", title: t("agentNewProject"),
+                  onClick: () => setAgentEdit({ id: "", scope: "project", markdown: agentMarkdownTemplate() }),
+                }, h(Icon.plus)) : null),
+              !project
+                ? h("div", { className: "ps-hint" }, t("agentNoProject"))
+                : (agents || []).filter((agent) => agent.scope === "project").length === 0
+                  ? h("div", { className: "ps-hint" }, t("agentNone"))
+                  : (agents || []).filter((agent) => agent.scope === "project").map((agent) => h("button", {
+                    key: `${agent.scope}:${agent.id}`,
+                    className: `ps-agents-item${agentEdit && agentEdit.id === agent.id && agentEdit.scope === agent.scope ? " active" : ""}`,
+                    type: "button",
+                    title: agent.description || agent.name,
+                    onClick: () => { void openAgent(agent); },
+                  },
+                  h("span", { className: "ps-agents-name" }, agent.name),
+                  h("span", { className: "ps-agents-scope project" }, t("scopeProject"))))),
+            h("div", { className: "ps-agents-edit" },
+              h("div", { className: "ps-agents-path" },
+                h("div", null, `${t("scopeGlobal")}: ~/.dsh/paper-studio/agents/`),
+                project ? h("div", null, `${t("scopeProject")}: ${project.path}/.paper-studio/agents/`) : null),
+              !agentEdit
+                ? h("div", { className: "ps-hint" }, t("agentSelectHint"))
+                : h(React.Fragment, null,
+                  h("div", { className: "ps-agents-meta" },
+                    `${agentEdit.scope === "project" ? t("scopeProject") : t("scopeGlobal")}${agentEdit.id ? ` · ${agentEdit.id}` : ""}`),
+                  !agentEdit.id ? h("div", { className: "ps-agents-bases" },
+                    h("div", { className: "ps-agents-bases-head" }, t("agentBaseHint")),
+                    (agents || []).filter((agent) => agent.scope !== "builtin").map((agent) => h("label", { className: "ps-check-row", key: `${agent.scope}:${agent.id}` },
+                      h("input", {
+                        type: "checkbox",
+                        checked: agentBases.has(`${agent.scope}:${agent.id}`),
+                        onChange: (event) => {
+                          setAgentBases((current) => {
+                            const next = new Set(current);
+                            const key = `${agent.scope}:${agent.id}`;
+                            if (event.target.checked) next.add(key); else next.delete(key);
+                            return next;
+                          });
+                        },
+                      }),
+                      h("span", null, `${agent.name} (${agent.scope})`))),
+                    h("button", { className: "ps-btn", type: "button", disabled: agentBases.size === 0 || agentBusy, onClick: () => { void mergeAgentBases(); } }, t("agentBaseMerge"))) : null,
+                  h("textarea", {
+                    className: "ps-agents-md", spellCheck: false,
+                    value: agentEdit.markdown,
+                    onChange: (event) => setAgentEdit({ ...agentEdit, markdown: event.target.value }),
+                  }),
+                  h("div", { className: "ps-agents-actions" },
+                    h("button", { className: "ps-btn primary", type: "button", disabled: agentBusy, onClick: () => { void saveAgent(); } }, t("agentSave")),
+                    agentEdit.id && agentEdit.scope !== "builtin"
+                      ? h("button", { className: "ps-btn danger", type: "button", disabled: agentBusy, onClick: () => { void removeAgent(); } }, t("agentDelete"))
+                      : null,
+                    h("button", {
+                      className: "ps-btn", type: "button",
+                      onClick: () => setAgentEdit({ id: "", scope: project ? "project" : "global", markdown: agentMarkdownTemplate() }),
+                    }, t("agentNew"))))));
+          body = [tabs, ...(tab === "project" ? projectBody : tab === "agents" ? [agentsBody] : [sections, ...activeBody]),
             h("div", { className: "ps-build", key: "build" }, `build ${CLIENT_BUILD}`)];
           actions = tab === "project"
             ? footer(t("apply"))
@@ -4450,6 +5650,13 @@ body.ps-resizing *{cursor:inherit!important}
             syntax,
             misspelled,
             onSave: (path) => { void saveTab(path, { manual: true }); },
+            onDiscuss: (context) => setDialog({ kind: "agents", context }),
+            onAddChatContext: (context) => { void addChatContext(context); },
+            chatEnabled: Boolean(chat && chatAgent),
+            changes: reviewHidden ? [] : changes,
+            onKeepChange: keepChange,
+            onDiscardChange: discardChange,
+            onCloseReview: () => setReviewHidden(true),
             onUndo: undo,
             onRedo: redo,
             notify,
@@ -4467,11 +5674,43 @@ body.ps-resizing *{cursor:inherit!important}
 
           showPdf ? h("section", { className: "ps-pane ps-pdf", "aria-label": t("pdf") },
             h("div", { className: "ps-pane-head" },
-              h("span", { className: "ps-pane-title" }, t("pdf")),
-              h("button", { className: "ps-btn icon", type: "button", title: t("pdfReload"), "aria-label": t("pdfReload"), onClick: () => { void refreshPdf(); } }, h(Icon.refresh)),
+              h("button", {
+                className: `ps-drawer-tab${rightTab === "pdf" ? " active" : ""}`, type: "button",
+                onClick: () => setRightTab("pdf"),
+              }, t("pdf")),
+              chatAgent ? h("button", {
+                className: `ps-drawer-tab${rightTab === "chat" ? " active" : ""}`, type: "button",
+                onClick: () => setRightTab("chat"),
+              }, t("chatTab")) : null,
+              h("div", { className: "ps-spacer" }),
+              h("button", { className: "ps-btn icon", type: "button", title: t("pdfReload"), "aria-label": t("pdfReload"), onClick: () => { void refreshPdf(); }, disabled: rightTab === "chat" }, h(Icon.refresh)),
               h("button", { className: "ps-btn icon", type: "button", title: t("openInNewTab"), "aria-label": t("openInNewTab"), disabled: !pdf.rev, onClick: () => window.open(pdfUrl(), "_blank", "noopener") }, h(Icon.external)),
               h("button", { className: "ps-btn icon", type: "button", title: t("close"), "aria-label": t("close"), onClick: () => setPdfOpen(false) }, h(Icon.close))),
-            pdf.mode === "pages"
+            rightTab === "chat" && chatAgent
+              ? h(ChatPane, {
+                t,
+                agent: chatAgent,
+                chat,
+                chats: chatList,
+                input: chatInput,
+                onInput: setChatInput,
+                onSend: () => { void sendChat(); },
+                onStop: () => { void stopChat(); },
+                busy: chatBusy,
+                stream: chatStream,
+                onSelectChat: (chatId) => { void selectChat(chatId); },
+                onNewChat: () => { void startChat(chatAgent, chat && chat.context ? chat.context : null); },
+                onClose: () => { setChatAgent(null); setChat(null); setRightTab("pdf"); },
+                changes,
+                onKeepChange: keepChange,
+                onDiscardChange: discardChange,
+                onKeepAll: keepAllChanges,
+                onDiscardAll: discardAllChanges,
+                resolvedChoices,
+                onChoose: chooseOption,
+                onDeleteChat: () => { void deleteCurrentChat(); },
+              })
+              : pdf.mode === "pages"
               ? h("div", { className: "ps-pdf-scroll" },
                 h("div", { className: "ps-pages", style: { "--ps-zoom": `${zoom}%` } },
                   Array.from({ length: pdf.pages }, (unused, index) => h(PdfPage, {
@@ -4501,7 +5740,7 @@ body.ps-resizing *{cursor:inherit!important}
                   body: catalog.tooling && catalog.tooling.pdflatex === false ? t("noPdfTooling") : t("noPdfBody"),
                   children: h("button", { className: "ps-btn primary", type: "button", disabled: compiling || !project, onClick: () => { void runCompile(); } }, h(Icon.play), t("compile")),
                 }),
-            h("div", { className: "ps-pdf-foot" },
+            rightTab === "chat" && chatAgent ? null : h("div", { className: "ps-pdf-foot" },
               h("span", null, pdf.pages > 0 ? `${pdf.pages} p.` : ""),
               h("div", { className: "ps-spacer" }),
               h("label", { className: "ps-zoom" }, t("zoom"),
@@ -4549,7 +5788,7 @@ body.ps-resizing *{cursor:inherit!important}
     return {
       inject: ["slots", "locale", "layout"],
       /** Pure helpers exercised by test/client.test.mjs (no browser needed). */
-      __internals: { Studio, EditorPane, Dock, FolderPicker, PdfPage, GitView, Explosion, highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject, shouldCompileAfterSave },
+      __internals: { Studio, EditorPane, Dock, FolderPicker, PdfPage, GitView, Explosion, ChatPane, parseDiffSuggestions, applySuggestion, stripDiffBlocks, collectChanges, diffChangeKey, parseChoiceBlocks, stripChoiceBlocks, highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject, shouldCompileAfterSave },
       apply(ctx) {
         ctx.effect(() => {
           const style = document.createElement("style");

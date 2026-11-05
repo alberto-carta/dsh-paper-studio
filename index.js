@@ -26,6 +26,12 @@ export const name = "paper-studio";
 
 /** Path prefix owned by this plugin on the Web carrier (no trailing slash: prefix routes match on segments). */
 const ROUTE = "/paper-studio/api";
+const DATA_ROOT = process.env.PAPER_STUDIO_DATA_DIR
+  ? resolve(process.env.PAPER_STUDIO_DATA_DIR)
+  : join(homedir(), ".dsh", "paper-studio");
+const AGENTS_ROOT = join(DATA_ROOT, "agents");
+const CHATS_ROOT = join(DATA_ROOT, "chats");
+let serviceContext = null;
 /** Sidebar entry id and `main` slot key; they must match. */
 export const PANEL_ID = "paper-studio";
 
@@ -1272,6 +1278,280 @@ async function findInSources(project, needle, preferred) {
  * has nothing (or the point is outside the .synctex map), fall back to the word
  * nearest the click and its first occurrence in the .tex sources.
  */
+const BUILTIN_AGENT = {
+  id: "assistant",
+  name: "Paper assistant",
+  description: "General academic writing and LaTeX help",
+  scope: "builtin",
+  model: "",
+  readFiles: "ask",
+  web: "ask",
+  readOnly: true,
+};
+
+const BUILTIN_PROMPT = `You are a careful academic writing assistant embedded in a LaTeX editor.
+Help with structure, clarity, notation and correctness. Be concise, quote the relevant
+sentence when useful, and prefer concrete rewrites over general advice. Never claim to
+have edited the document; propose changes in prose or a diff. When a request needs a file
+or a literature search, say exactly what you need.`;
+
+function agentSlug(value) {
+  return String(value ?? "")
+    .normalize("NFKD")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/gu, "-")
+    .replace(/^-+|-+$/gu, "")
+    .slice(0, 64) || "agent";
+}
+
+/** Minimal YAML frontmatter: keys map to trimmed strings. */
+function parseAgentMarkdown(text) {
+  const source = String(text ?? "");
+  const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/u.exec(source);
+  const meta = {};
+  if (match) {
+    for (const line of match[1].split("\n")) {
+      const pair = /^([A-Za-z][\w-]*):\s*(.*)$/u.exec(line.trim());
+      if (pair) meta[pair[1]] = pair[2].replace(/^["']|["']$/gu, "").trim();
+    }
+  }
+  return { meta, body: match ? source.slice(match[0].length) : source, hasFrontmatter: Boolean(match) };
+}
+
+function agentMarkdown(input) {
+  const markdown = String(input.markdown ?? "");
+  const parsed = parseAgentMarkdown(markdown);
+  if (!parsed.hasFrontmatter || !parsed.meta.name) {
+    throw new HttpError(400, "Agent markdown needs YAML frontmatter with at least `name`.");
+  }
+  return markdown.endsWith("\n") ? markdown : `${markdown}\n`;
+}
+
+async function agentFiles(project) {
+  const dirs = [{ scope: "global", dir: AGENTS_ROOT }];
+  if (project) dirs.unshift({ scope: "project", dir: join(project.path, ".paper-studio", "agents") });
+  const found = [];
+  for (const entry of dirs) {
+    const names = await readdir(entry.dir).catch(() => []);
+    for (const name of names) {
+      if (!name.endsWith(".md")) continue;
+      const text = await readFile(join(entry.dir, name), "utf8").catch(() => null);
+      if (text === null) continue;
+      const parsed = parseAgentMarkdown(text);
+      found.push({
+        id: name.slice(0, -3),
+        name: parsed.meta.name || name.slice(0, -3),
+        description: parsed.meta.description || "",
+        model: parsed.meta.model || "",
+        readFiles: parsed.meta.readFiles || "ask",
+        web: parsed.meta.web || "ask",
+        scope: entry.scope,
+      });
+    }
+  }
+  const filtered = found.filter((agent, index) => found.findIndex((other) => other.id === agent.id) === index);
+  return filtered.length > 0 ? filtered : [BUILTIN_AGENT];
+}
+
+async function readAgentFile(project, id, scope) {
+  if (scope === "builtin") {
+    if (id !== BUILTIN_AGENT.id) throw new HttpError(404, "Agent not found.");
+    return { ...BUILTIN_AGENT, markdown: `---\nname: ${BUILTIN_AGENT.name}\ndescription: ${BUILTIN_AGENT.description}\n---\n\n${BUILTIN_PROMPT}\n` };
+  }
+  const dir = scope === "project"
+    ? (project ? join(project.path, ".paper-studio", "agents") : null)
+    : AGENTS_ROOT;
+  if (!dir) throw new HttpError(400, "Project scope needs a project.");
+  const file = join(dir, `${agentSlug(id)}.md`);
+  const text = await readFile(file, "utf8").catch(() => null);
+  if (text === null) throw new HttpError(404, "Agent not found.");
+  return { id: agentSlug(id), scope, markdown: text };
+}
+
+async function saveAgentFile(project, input) {
+  const scope = input.scope === "project" ? "project" : "global";
+  const dir = scope === "project"
+    ? (project ? join(project.path, ".paper-studio", "agents") : null)
+    : AGENTS_ROOT;
+  if (!dir) throw new HttpError(400, "Project scope needs a project.");
+  const markdown = agentMarkdown(input);
+  const parsed = parseAgentMarkdown(markdown);
+  const id = agentSlug(input.id || parsed.meta.name || "agent");
+  await mkdir(dir, { recursive: true });
+  await writeFile(join(dir, `${id}.md`), markdown, "utf8");
+  return { id, scope, ok: true };
+}
+
+async function deleteAgentFile(project, id, scope) {
+  if (scope === "builtin") throw new HttpError(400, "The built-in assistant cannot be deleted.");
+  const dir = scope === "project"
+    ? (project ? join(project.path, ".paper-studio", "agents") : null)
+    : AGENTS_ROOT;
+  if (!dir) throw new HttpError(400, "Project scope needs a project.");
+  await rm(join(dir, `${agentSlug(id)}.md`), { force: true });
+  return { ok: true };
+}
+
+function chatSummary(chat) {
+  return { id: chat.id, title: chat.title, updatedAt: chat.updatedAt, messages: (chat.messages || []).length };
+}
+
+function newChat(project, agent, context) {
+  const at = new Date().toISOString();
+  return {
+    id: `c_${randomBytes(6).toString("hex")}`,
+    agentId: agent.id,
+    agentScope: agent.scope,
+    title: context && context.text ? String(context.text).replace(/\s+/gu, " ").slice(0, 70) : "New chat",
+    createdAt: at,
+    updatedAt: at,
+    context: context || null,
+    messages: [],
+  };
+}
+
+async function resolveAgent(project, agentId, scope) {
+  const data = await readAgentFile(project, agentId, scope || "global");
+  const parsed = parseAgentMarkdown(data.markdown);
+  return {
+    id: data.id,
+    scope: data.scope,
+    name: parsed.meta.name || data.id,
+    model: parsed.meta.model || "",
+    prompt: parsed.body.trim() || BUILTIN_PROMPT,
+    readFiles: parsed.meta.readFiles || "ask",
+    web: parsed.meta.web || "ask",
+  };
+}
+
+async function listChats(project, agentId) {
+  const dir = join(CHATS_ROOT, agentSlug(project.id), agentSlug(agentId));
+  const names = await readdir(dir).catch(() => []);
+  const chats = [];
+  for (const name of names) {
+    if (!name.endsWith(".json")) continue;
+    const data = await readFile(join(dir, name), "utf8").then((text) => JSON.parse(text)).catch(() => null);
+    if (data) chats.push(chatSummary(data));
+  }
+  return chats.sort((left, right) => String(right.updatedAt).localeCompare(String(left.updatedAt)));
+}
+
+async function listAllChats(project) {
+  const root = join(CHATS_ROOT, agentSlug(project.id));
+  const entries = await readdir(root, { withFileTypes: true }).catch(() => []);
+  const agents = await agentFiles(project);
+  const byId = new Map(agents.map((agent) => [agent.id, agent]));
+  const chats = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const agentId = entry.name;
+    const agent = byId.get(agentId) || { id: agentId, name: agentId, scope: "global" };
+    const files = await readdir(join(root, agentId)).catch(() => []);
+    for (const file of files) {
+      if (!file.endsWith(".json")) continue;
+      const data = await readFile(join(root, agentId, file), "utf8").then((text) => JSON.parse(text)).catch(() => null);
+      if (!data) continue;
+      chats.push({ ...chatSummary(data), agentId, agentName: agent.name, agentScope: agent.scope });
+    }
+  }
+  return chats.sort((left, right) => String(right.updatedAt).localeCompare(String(left.updatedAt))).slice(0, 100);
+}
+
+async function readChat(project, agentId, chatId) {
+  const safe = String(chatId || "").replace(/[^a-zA-Z0-9_-]/gu, "");
+  if (!safe) throw new HttpError(400, "Invalid chat id.");
+  const file = join(CHATS_ROOT, agentSlug(project.id), agentSlug(agentId), `${safe}.json`);
+  const text = await readFile(file, "utf8").catch(() => null);
+  if (text === null) throw new HttpError(404, "Chat not found.");
+  return JSON.parse(text);
+}
+
+async function writeChat(project, agentId, chat) {
+  const dir = join(CHATS_ROOT, agentSlug(project.id), agentSlug(agentId));
+  await mkdir(dir, { recursive: true });
+  await writeFile(join(dir, `${chat.id}.json`), JSON.stringify(chat, null, 2), "utf8");
+  return chat;
+}
+
+function contextMessage(context) {
+  if (!context || !context.text) return "";
+  const where = context.file ? `${context.file}${context.startLine ? `:${context.startLine}${context.endLine && context.endLine !== context.startLine ? `-${context.endLine}` : ""}` : ""}` : "the document";
+  return `\n\nThe reader selected this passage from ${where}:\n"""\n${String(context.text).slice(0, 6000)}\n"""\nAnswer about this passage unless asked otherwise.`;
+}
+
+/** Build request messages; assistant history needs a model source for adapter filtering. */
+function chatRequestMessages(chat, provider, model) {
+  return (chat.messages || []).slice(-40).map((entry) => (entry.role === "assistant"
+    ? {
+      role: "assistant",
+      source: { kind: "model", provider, model },
+      content: [{ type: "text", text: String(entry.content || "") }],
+    }
+    : {
+      role: "user",
+      content: [{ type: "text", text: String(entry.content || "") }],
+    }));
+}
+
+function startChatJob(project, options) {
+  const job = createJob(project);
+  job.controller = new AbortController();
+  job.emit({ type: "start" });
+  let assistant = "";
+  void (async () => {
+    const agent = await resolveAgent(project, options.agentId, options.agentScope);
+    let chat = options.chatId ? await readChat(project, agent.id, options.chatId) : null;
+    if (!chat) chat = newChat(project, agent, options.context);
+    else if (options.context) chat.context = options.context;
+    const message = String(options.message || "").trim();
+    if (message) chat.messages.push({ role: "user", content: message, at: new Date().toISOString() });
+    if (chat.messages.length === 0) {
+      await writeChat(project, agent.id, chat);
+      job.done = true;
+      job.finishedAt = Date.now();
+      job.emit({ type: "done", chat: chatSummary(chat) });
+      return;
+    }
+    chat.updatedAt = new Date().toISOString();
+    if (chat.messages.length === 1) chat.title = (message || chat.context?.text || "New chat").replace(/\s+/gu, " ").slice(0, 70);
+    await writeChat(project, agent.id, chat);
+    job.emit({ type: "chat", chat: chatSummary(chat) });
+
+    const llm = serviceContext && serviceContext.get ? serviceContext.get("llm") : null;
+    if (!llm) throw new Error("The Harness has no LLM service.");
+    const fallback = serviceContext.get("agentDefaultModel")?.currentSelection?.() || null;
+    const override = String(agent.model || "");
+    const [provider, model] = override.includes("/")
+      ? override.split("/", 2)
+      : [fallback?.provider, override || fallback?.model];
+    if (!provider || !model) throw new Error("No model configured: set a default model in the Harness or a `model:` in the agent file.");
+
+    const system = `${agent.prompt}${contextMessage(chat.context)}\n\nWhen you propose a concrete edit, put it in a fenced \`\`\`diff block using unified-diff hunk headers (--- a/file, +++ b/file, @@ ... @@) and enough unchanged context lines for an exact match; the editor will show it with Keep/Discard buttons. When the user must choose between alternatives, first present 2-4 options in a fenced \`\`\`choices block, one per line as \`Label — short description\`, then stop. Do not include a diff until the user chooses; after the choice, propose the edit as a fenced diff.`;
+    const messages = chatRequestMessages(chat, provider, model);
+    const stream = llm.stream({ provider, model, system, messages, temperature: 0.3, signal: job.controller.signal });
+    for await (const chunk of stream) {
+      if (chunk.type === "text-delta") {
+        assistant += chunk.text;
+        job.emit({ type: "delta", text: chunk.text });
+      } else if (chunk.type === "finish" && (chunk.reason.kind === "error" || chunk.reason.kind === "aborted")) {
+        throw new Error(chunk.reason.failure?.message || "The model stream ended unexpectedly.");
+      }
+    }
+    chat.messages.push({ role: "assistant", content: assistant, at: new Date().toISOString() });
+    chat.updatedAt = new Date().toISOString();
+    await writeChat(project, agent.id, chat);
+    job.done = true;
+    job.finishedAt = Date.now();
+    job.emit({ type: "done", chat: chatSummary(chat) });
+  })().catch((error) => {
+    job.done = true;
+    job.finishedAt = Date.now();
+    if (job.controller.signal.aborted) job.emit({ type: "aborted" });
+    else job.emit({ type: "error", message: error?.message ?? String(error) });
+  });
+  return job;
+}
+
 async function locateInPdf(project, options) {
   const { page, x, y, current } = options || {};
   const cache = await ensureCompiled(project);
@@ -1564,6 +1844,74 @@ const ops = {
     await rename(source, destination);
     symbolsCache.delete(project.id);
     return { ok: true, from, to };
+  },
+
+  async chats({ project: reference, agentId }) {
+    const project = projectRef(reference);
+    return { chats: await listChats(project, agentId) };
+  },
+
+  async allChats({ project: reference }) {
+    const project = projectRef(reference);
+    return { chats: await listAllChats(project) };
+  },
+
+  async chat({ project: reference, agentId, chatId }) {
+    const project = projectRef(reference);
+    return readChat(project, agentId, chatId);
+  },
+
+  async createChat({ project: reference, agentId, agentScope, context }) {
+    const project = projectRef(reference);
+    const agent = await resolveAgent(project, agentId, agentScope);
+    const chat = newChat(project, agent, context);
+    await writeChat(project, agent.id, chat);
+    return { chat: { ...chatSummary(chat), agent: { id: agent.id, name: agent.name, scope: agent.scope } } };
+  },
+
+  async addChatContext({ project: reference, agentId, chatId, context }) {
+    const project = projectRef(reference);
+    const chat = await readChat(project, agentId, chatId);
+    const where = context && context.file
+      ? `${context.file}${context.startLine ? `:${context.startLine}${context.endLine && context.endLine !== context.startLine ? `-${context.endLine}` : ""}` : ""}`
+      : "the document";
+    chat.messages = Array.isArray(chat.messages) ? chat.messages : [];
+    chat.messages.push({
+      role: "user",
+      kind: "context",
+      content: `Added context from ${where}:\n"""\n${String(context?.text || "").slice(0, 8000)}\n"""`,
+      at: new Date().toISOString(),
+    });
+    chat.updatedAt = new Date().toISOString();
+    await writeChat(project, agentId, chat);
+    return { chat };
+  },
+
+  async deleteChat({ project: reference, agentId, chatId }) {
+    const project = projectRef(reference);
+    const safe = String(chatId || "").replace(/[^a-zA-Z0-9_-]/gu, "");
+    await rm(join(CHATS_ROOT, agentSlug(project.id), agentSlug(agentId), `${safe}.json`), { force: true });
+    return { ok: true };
+  },
+
+  async agents({ project: reference }) {
+    const project = reference ? projectRef(reference) : null;
+    return { agents: await agentFiles(project) };
+  },
+
+  async agent({ project: reference, id, scope }) {
+    const project = reference ? projectRef(reference) : null;
+    return readAgentFile(project, id, scope || "global");
+  },
+
+  async saveAgent({ project: reference, id, scope, markdown }) {
+    const project = reference ? projectRef(reference) : null;
+    return saveAgentFile(project, { id, scope, markdown });
+  },
+
+  async deleteAgent({ project: reference, id, scope }) {
+    const project = reference ? projectRef(reference) : null;
+    return deleteAgentFile(project, id, scope);
   },
 
   async locate({ project: reference, page, x, y, current }) {
@@ -2071,6 +2419,16 @@ function createHandler(token) {
       const url = new URL(request.url ?? "/", "http://127.0.0.1");
       const action = decodeURIComponent(url.pathname.slice(ROUTE.length)).replace(/^\/+|\/+$/gu, "");
       if (request.method === "GET" && action === "asset") return sendAsset(response, url.searchParams.get("name"));
+      if (request.method === "GET" && action === "agents") return sendJson(response, 200, await ops.agents({ project: url.searchParams.get("project") }));
+      if (request.method === "GET" && action === "agent") return sendJson(response, 200, await ops.agent({ project: url.searchParams.get("project"), id: url.searchParams.get("id"), scope: url.searchParams.get("scope") }));
+      if (request.method === "GET" && action === "chats/all") return sendJson(response, 200, await ops.allChats({ project: url.searchParams.get("project") }));
+      if (request.method === "GET" && action === "chats") return sendJson(response, 200, await ops.chats({ project: url.searchParams.get("project"), agentId: url.searchParams.get("agent") }));
+      if (request.method === "GET" && action === "chat") return sendJson(response, 200, await ops.chat({ project: url.searchParams.get("project"), agentId: url.searchParams.get("agent"), chatId: url.searchParams.get("chat") }));
+      if (request.method === "GET" && action === "chat/events") {
+        const job = jobs.get(url.searchParams.get("job"));
+        if (!job) return sendJson(response, 404, { error: "Unknown chat job" });
+        return streamJob(request, response, job);
+      }
       if (request.method === "GET" && action === "info") return sendJson(response, 200, await ops.info());
       if (request.method === "GET" && action === "tree") return sendJson(response, 200, await ops.tree({ project: url.searchParams.get("project") }));
       if (request.method === "GET" && action === "file") {
@@ -2175,6 +2533,21 @@ function createHandler(token) {
           return sendJson(response, 200, { jobId: job.id, projectId: project.id, startedAt: job.startedAt });
         }
         case "git": return sendJson(response, 200, await ops.git(body));
+        case "agent/save": return sendJson(response, 200, await ops.saveAgent(body));
+        case "agent/delete": return sendJson(response, 200, await ops.deleteAgent(body));
+        case "chat/create": return sendJson(response, 200, await ops.createChat(body));
+        case "chat/delete": return sendJson(response, 200, await ops.deleteChat(body));
+        case "chat/send": {
+          const project = projectRef(body.project);
+          const job = startChatJob(project, body);
+          return sendJson(response, 200, { jobId: job.id, startedAt: job.startedAt });
+        }
+        case "chat/context": return sendJson(response, 200, await ops.addChatContext({ ...body, agentId: body.agentId, chatId: body.chatId }));
+        case "chat/stop": {
+          const job = jobs.get(body.job);
+          if (job && job.controller) job.controller.abort();
+          return sendJson(response, 200, { ok: true });
+        }
         default: return sendJson(response, 404, { error: `Unknown action: ${action}` });
       }
     } catch (error) {
@@ -2249,6 +2622,7 @@ function registerTool(ctx, tools) {
 // ---------------------------------------------------------------------------
 
 export function apply(ctx) {
+  serviceContext = ctx;
   readyStore().catch((error) => {
     console.error("[paper-studio] registry initialization failed:", error);
   });
@@ -2269,6 +2643,19 @@ export function apply(ctx) {
 export const __test = {
   createHandler,
   ops,
+  agentFiles,
+  readAgentFile,
+  listChats,
+  listAllChats,
+  readChat,
+  writeChat,
+  resolveAgent,
+  startChatJob,
+  chatRequestMessages,
+  CHATS_ROOT,
+  setServiceContext: (ctx) => { serviceContext = ctx; },
+  saveAgentFile,
+  deleteAgentFile,
   compileProject,
   collectSymbols,
   locateInPdf,

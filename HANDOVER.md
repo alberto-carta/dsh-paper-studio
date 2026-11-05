@@ -117,6 +117,74 @@ alignment confirmed against the diagnostics readout (`cw` == `pw`).
 - Host additions: `GET symbols`, `POST compile/start`, `GET compile/events`,
   on-demand `GET page`, structured `warningsList` on compile results.
 
+## Agents (2026-11-05, phase 1)
+
+Agents are plain markdown files:
+
+- global: `~/.dsh/paper-studio/agents/<id>.md`
+- project-only: `<project>/.paper-studio/agents/<id>.md`
+
+Frontmatter keys: `name` (required), `description`, `model` (optional override),
+`readFiles` and `web` (`ask` default). The body is the system prompt. A built-in
+read-only `assistant` is shown when none exist. Settings → Agents lists them with
+scope badges and edits the raw markdown; Save derives the id from `name`.
+Routes: `GET agents`, `GET agent`, `POST agent/save`, `POST agent/delete`.
+
+Next phase: the right-pane PDF | Chat view, chat transcripts per project + agent,
+selection context, and streaming through `ctx.llm`.
+
+## In-editor chat (2026-11-05, phase 2)
+
+- Right-click in the editor → **Discuss with agent…** opens with a **Start new
+  chat** row (agent dropdown + button); directly below it, **Old conversations**
+  lists every chat across agents (agent name in bold, title, count, time, red
+  delete bin). Picking an old chat opens it; Start new chat uses the selected
+  agent with the selection as context. Choosing an agent then offers **New chat** or a previous
+  conversation (title, message count, time); a new chat attaches the current
+  selection (file, line range, text) as context and switches the right pane to
+  **Chat** (tabs: PDF | Chat).
+- Chats stream through `ctx.llm.stream` from the host, using the Harness default
+  model (`ctx.get("agentDefaultModel").currentSelection()`) or the agent's
+  `model:` override (`provider/model` or a bare model id).
+- Transcripts: `~/.dsh/paper-studio/chats/<project-id>/<agent-id>/<chat>.json`;
+  the chat header offers history, new chat, and stop.
+- The test suite uses `PAPER_STUDIO_DATA_DIR=.test-data` so agent/chat writes
+  never touch the real home directory.
+- Ctrl+Z after Keep restores both the buffer and the pending change (the keep is a
+  tagged history entry); repeated keeps undo one at a time.
+- Diffs: assistant replies containing fenced `diff` blocks are parsed and applied
+  by **line numbers from the hunk headers** (with a ±8-line fuzzy check and a text
+  fallback), so trailing whitespace or a shifted hunk no longer aborts; a genuinely
+  changed file still reports a mismatch.
+- Choices: agents are prompted to ask 2–4 options in a fenced `choices` block
+  before proposing a diff; the chat renders radio options + Other… + Choose, sends
+  `Option chosen: …`, and hides the card (resolved ids persist per chat).
+- The diff card can be dragged by its header and resized; the size persists in
+  localStorage (`ps-diff-size`), and a dragged card no longer snaps back on scroll.
+- Chat header has a delete action; deleting the last chat of an agent starts a
+  fresh one with the same selection context.
+- Presentation: a floating diff card anchored to the first changed line, inside the
+  editor (no separate strip); a single shared `changes` list feeds both chat and
+  editor, so per-change Keep/Discard stays in sync and chat has one Keep all. Target lines are tinted red; the card shows green/red
+  lines with per-hunk Keep/Discard. Chat cards only offer Keep all / Discard all.
+  Keep applies through the normal edit path (undo + autosave).
+- Context menu also has **Add selection to current chat** (enabled only while a
+  chat is open), which appends the selection as a chat message.
+- Not yet: file-reading tool and web search. The diff editor is exact-match only;
+  a changed file reports a mismatch instead of guessing.
+
+## Agent files (paths)
+
+| Scope | Path |
+| --- | --- |
+| Global | `~/.dsh/paper-studio/agents/<id>.md` |
+| Project | `<project>/.paper-studio/agents/<id>.md` |
+
+Frontmatter: `name` (required), `description`, `model`, `readFiles`, `web`.
+Settings → Agents shows both paths, deletes chats, and composes a new agent from
+selected existing ones (bodies merged under `## From <name>` before the typed
+prompt).
+
 ## CodeMirror groundwork (2026-11-05)
 
 The long-term editor migration to CodeMirror 6 (for complete Vim via the MIT

@@ -52,6 +52,29 @@ A persistent Overleaf-style LaTeX workspace for the DeepSeek Harness Web GUI.
   figure/table/itemize/equation/align/theorem/…
 - **PDF text layer**: drag to select text like a real PDF, double-click a word,
   then *Go to editor*; two-column pages are read column by column.
+- **Diff review window** can be dragged by its header and resized from the
+  bottom-right corner (size remembered); **Delete chat** sits in the chat header.
+- **Agent questions:** agents can present 2–4 options in a fenced `choices` block
+  (`Label — description`); the chat shows radio options plus an **Other…** field and
+  a **Choose** button. The choice is sent back as a message and the agent then
+  proposes the diff — Keep/Discard only appears after you decide.
+- **Chat suggestions:** when an agent proposes an edit as a fenced `diff` block, a
+  floating card opens **in the editor over the changed lines** (tinted red), showing
+  green/red lines with **Keep / Discard per hunk**; the chat card offers **Keep all /
+  Discard all**. Keeping applies through the normal edit path, so it is undoable and
+  autosaved.
+  Right-click → **Add selection to current chat** appends context to the open chat.
+- **Chat**: right-click → **Discuss with agent…** shows a **Start new chat** row
+  (agent dropdown + button) and, directly below it, **Old conversations** across
+  all agents (agent name in bold, title, count, time, red delete bin). The selection is
+  attached as context and the right pane switches to **PDF | Chat**.
+  (grouped general/local) and chat in the right pane’s **PDF | Chat** tabs. Answers
+  stream, the selection is attached as context, and chats are saved per project +
+  agent with a history dropdown. The built-in assistant is always available.
+- **Agents**: Settings → Agents edits markdown-defined agents (YAML frontmatter
+  with `name`, `description`, optional `model`, `readFiles`, `web` + prompt body),
+  stored globally or per project (`.paper-studio/agents/`). They are the basis for
+  the in-editor chat.
 - **Settings**: one gear dialog with Editor (Appearance / Editing / Spelling /
   Shortcuts) and Project tabs, plus an optional diagnostics readout.
 - **Resizable panes**: drag the dividers between explorer, editor, PDF and the
@@ -74,6 +97,33 @@ A persistent Overleaf-style LaTeX workspace for the DeepSeek Harness Web GUI.
   project settings. The token is stored in the registry file only and is passed
   to git through a temporary `GIT_ASKPASS` helper, never written to
   `.git/config`.
+
+## Agent files
+
+Agents are plain markdown and live outside the paper repositories:
+
+| Scope | Path |
+| --- | --- |
+| Global (all papers) | `~/.dsh/paper-studio/agents/<id>.md` |
+| Local project only | `<project>/.paper-studio/agents/<id>.md` |
+
+Each file starts with YAML frontmatter and then the prompt body:
+
+```md
+---
+name: Condensed matter proofreader
+description: Reviews condensed-matter prose
+model:            # optional provider/model override
+readFiles: ask    # ask | allow
+web: ask          # ask | allow
+---
+
+You are a careful proofreader...
+```
+
+Settings → Agents shows both paths and lists both scopes. A new agent can start
+from the template or be **merged from one or more existing agents** (their bodies
+are appended under `## From <name>` before your own prompt).
 
 ## Shortcuts
 

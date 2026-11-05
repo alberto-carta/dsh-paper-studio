@@ -26,7 +26,7 @@ const plugin = definition.factory((id) => {
   if (id === "react") return React;
   throw new Error(`unexpected require: ${id}`);
 });
-const { highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject, shouldCompileAfterSave } = plugin.__internals;
+const { highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject, shouldCompileAfterSave, parseDiffSuggestions, applySuggestion, collectChanges, diffChangeKey, parseChoiceBlocks, stripChoiceBlocks } = plugin.__internals;
 
 test("highlighter marks commands, braces and comments and escapes HTML", () => {
   const html = highlightLatex("\\section{Intro} % note <b>\nText $x^2$ here");
@@ -191,4 +191,46 @@ test("manual saves compile by default; autosaves follow the auto option", () => 
   assert.equal(shouldCompileAfterSave({ manual: true, compileOnSave: false, autoCompile: true }), false);
   assert.equal(shouldCompileAfterSave({ manual: false, compileOnSave: true, autoCompile: false }), false);
   assert.equal(shouldCompileAfterSave({ manual: false, compileOnSave: false, autoCompile: true }), true);
+});
+
+test("diff suggestions parse and apply to the source", () => {
+  const message = "Proposed change:\n```diff\n--- a/main.tex\n+++ b/main.tex\n@@ -1,3 +1,3 @@\n a\n-old\n+new\n b\n```\n";
+  const suggestions = parseDiffSuggestions(message);
+  assert.equal(suggestions.length, 1);
+  assert.equal(suggestions[0].file, "main.tex");
+  assert.equal(applySuggestion("a\nold\nb\n", suggestions[0]), "a\nnew\nb\n");
+  assert.equal(applySuggestion("a\nchanged\nb\n", suggestions[0]), null);
+});
+
+test("collectChanges flattens every hunk into a stable list", () => {
+  const first = "```diff\n--- a/main.tex\n+++ b/main.tex\n@@ -2,2 +2,2 @@\n-old\n+new\n```";
+  const second = "```diff\n--- a/sections/x.tex\n+++ b/sections/x.tex\n@@ -5,1 +5,1 @@\n-a\n+b\n```";
+  const changes = collectChanges([
+    { role: "user", content: "hi" },
+    { role: "assistant", content: first },
+    { role: "assistant", content: second },
+  ]);
+  assert.equal(changes.length, 2);
+  assert.equal(changes[0].file, "main.tex");
+  assert.equal(changes[1].file, "sections/x.tex");
+  assert.equal(new Set(changes.map((change) => change.id)).size, 2);
+});
+
+test("change ids are stable across identical hunks, so resolutions persist", () => {
+  const hunk = { header: "@@ -2,2 +2,2 @@", lines: [{ type: " ", text: "a" }, { type: "-", text: "old" }, { type: "+", text: "new" }] };
+  const again = JSON.parse(JSON.stringify(hunk));
+  assert.equal(diffChangeKey("main.tex", hunk), diffChangeKey("main.tex", again));
+  assert.notEqual(diffChangeKey("main.tex", hunk), diffChangeKey("other.tex", hunk));
+  const messages = [{ role: "assistant", content: "```diff\n--- a/main.tex\n+++ b/main.tex\n@@ -2,2 +2,2 @@\n a\n-old\n+new\n```" }];
+  assert.equal(collectChanges(messages)[0].id, collectChanges(JSON.parse(JSON.stringify(messages)))[0].id);
+});
+
+test("choice blocks parse into options and are stripped from the prose", () => {
+  const text = "Which version?\n```choices\n1. Concise — short and direct\n2. Detailed — with examples\n3. Middle — a compromise\n```";
+  const blocks = parseChoiceBlocks(text);
+  assert.equal(blocks.length, 1);
+  assert.equal(blocks[0].options.length, 3);
+  assert.equal(blocks[0].options[0].label, "Concise");
+  assert.equal(blocks[0].options[0].description, "short and direct");
+  assert.equal(stripChoiceBlocks(text).trim(), "Which version?");
 });

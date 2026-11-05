@@ -35,6 +35,137 @@ test("routes reject callers without the page token", async () => {
   assert.equal(response.status, 403);
 });
 
+test("a chat job streams the model answer and persists the transcript", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "ps-chat-"));
+  const project = { id: `chat-test-${Date.now()}`, name: "Chat test", path: dir };
+  try {
+    await __test.saveAgentFile(project, { scope: "project", markdown: "---\nname: Tester\n---\n\nBe brief.\n" });
+    let lastOptions = null;
+    __test.setServiceContext({
+      get(name) {
+        if (name === "llm") {
+          return {
+            stream: async function* stream(options) {
+              lastOptions = options;
+              yield { type: "text-delta", text: "Hello" };
+              yield { type: "text-delta", text: " there" };
+              yield { type: "finish", reason: { kind: "stop" } };
+            },
+          };
+        }
+        if (name === "agentDefaultModel") return { currentSelection: () => ({ provider: "fake", model: "fake" }) };
+        return undefined;
+      },
+    });
+    const job = __test.startChatJob(project, { agentId: "tester", agentScope: "project", message: "hi" });
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("chat job timed out")), 2000);
+      const check = () => {
+        if (job.events.some((event) => event.type === "done" || event.type === "error")) {
+          clearTimeout(timer);
+          resolve();
+        } else {
+          setTimeout(check, 10);
+        }
+      };
+      check();
+    });
+    const deltas = job.events.filter((event) => event.type === "delta").map((event) => event.text).join("");
+    assert.equal(deltas, "Hello there");
+    assert.equal(job.done, true);
+    const chats = await __test.listChats(project, "tester");
+    assert.equal(chats.length, 1);
+    const chat = await __test.readChat(project, "tester", chats[0].id);
+    assert.deepEqual(chat.messages.map((message) => message.content), ["hi", "Hello there"]);
+
+    // A second turn sends the assistant history; it must carry source.provider/model.
+    const followUp = __test.startChatJob(project, { agentId: "tester", agentScope: "project", chatId: chat.id, message: "again" });
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("follow-up chat timed out")), 2000);
+      const check = () => {
+        if (followUp.events.some((event) => event.type === "done" || event.type === "error")) { clearTimeout(timer); resolve(); }
+        else setTimeout(check, 10);
+      };
+      check();
+    });
+    const assistant = lastOptions.messages.filter((message) => message.role === "assistant");
+    assert.ok(assistant.length >= 1, "history keeps assistant turns");
+    assert.deepEqual(assistant[0].source, { kind: "model", provider: "fake", model: "fake" });
+  } finally {
+    __test.setServiceContext(null);
+    await rm(join(__test.CHATS_ROOT, project.id), { recursive: true, force: true });
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("agents are markdown files in global or project scope", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "ps-agents-"));
+  const project = { path: dir };
+  try {
+    assert.equal((await __test.agentFiles(project)).some((agent) => agent.id === "proofreader"), false);
+    const markdown = "---\nname: Proofreader\ndescription: prose review\nreadFiles: ask\n---\n\nBe strict.\n";
+    const saved = await __test.saveAgentFile(project, { scope: "project", markdown });
+    assert.equal(saved.id, "proofreader");
+    const listed = await __test.agentFiles(project);
+    const entry = listed.find((agent) => agent.id === "proofreader");
+    assert.equal(entry.name, "Proofreader");
+    assert.equal(entry.scope, "project");
+    assert.equal(entry.readFiles, "ask");
+    const read = await __test.readAgentFile(project, "proofreader", "project");
+    assert.match(read.markdown, /Be strict/u);
+    await __test.deleteAgentFile(project, "proofreader", "project");
+    assert.equal((await __test.agentFiles(project)).some((agent) => agent.id === "proofreader"), false);
+    await assert.rejects(() => __test.saveAgentFile(project, { scope: "project", markdown: "no frontmatter" }), /frontmatter/u);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("chat history gives assistant turns a model source", () => {
+  const messages = __test.chatRequestMessages({ messages: [
+    { role: "user", content: "hi" },
+    { role: "assistant", content: "yo" },
+  ] }, "deepseek", "chat");
+  assert.deepEqual(messages[0], { role: "user", content: [{ type: "text", text: "hi" }] });
+  assert.equal(messages[1].role, "assistant");
+  assert.deepEqual(messages[1].source, { kind: "model", provider: "deepseek", model: "chat" });
+});
+
+test("agent and chat POST routes work through the HTTP handler", async () => {
+  const post = async (action, payload) => {
+    const response = await fetch(api(action), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    return { status: response.status, body: await response.json() };
+  };
+  const info = await json(api("info"));
+  const project = info.body.projects[0].id;
+  let chatId = null;
+  try {
+    const saved = await post("agent/save", { scope: "global", markdown: "---\nname: Route Test\n---\n\nhi\n" });
+    assert.equal(saved.status, 200);
+    assert.equal(saved.body.id, "route-test");
+    const created = await post("chat/create", {
+      project, agentId: "route-test", agentScope: "global",
+      context: { file: "main.tex", text: "ctx", startLine: 1, endLine: 1 },
+    });
+    assert.equal(created.status, 200, JSON.stringify(created.body));
+    chatId = created.body.chat.id;
+    const list = await json(api("chats", { project, agent: "route-test" }));
+    assert.ok(list.body.chats.some((chat) => chat.id === chatId));
+    const all = await json(api("chats/all", { project }));
+    const entry = all.body.chats.find((chat) => chat.id === chatId);
+    assert.ok(entry, "cross-agent list contains the chat");
+    assert.equal(entry.agentId, "route-test");
+    assert.equal(entry.agentName, "Route Test");
+  } finally {
+    if (chatId) await post("chat/delete", { project, agentId: "route-test", chatId });
+    await post("agent/delete", { scope: "global", id: "route-test" });
+  }
+});
+
 test("the bundled editor asset is served, and only by name", async () => {
   const response = await fetch(api("asset", { name: "codemirror.js" }));
   assert.equal(response.status, 200);

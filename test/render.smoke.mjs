@@ -47,7 +47,7 @@ const plugin = definition.factory((id) => {
   if (id === "react") return React;
   throw new Error(`unexpected require: ${id}`);
 });
-const { Studio, EditorPane, Dock, FolderPicker, PdfPage, GitView, Explosion } = plugin.__internals;
+const { Studio, EditorPane, Dock, FolderPicker, PdfPage, GitView, Explosion, ChatPane } = plugin.__internals;
 
 const t = (key) => key;
 
@@ -222,3 +222,74 @@ assert.equal((boomHtml.match(/ps-boom-particle/gu) || []).length, 46);
 assert.match(boomHtml, /--dx:/u);
 
 console.log("render smoke test passed: empty state, editor, terminal, problems, picker, pdf page, git, explosion");
+
+const chatHtml = renderToStaticMarkup(h(ChatPane, {
+  t,
+  agent: { id: "proof", name: "Proofreader", scope: "global" },
+  chat: {
+    id: "c1", title: "Intro chat",
+    context: { file: "main.tex", startLine: 3, endLine: 4, text: "selected paragraph" },
+    messages: [
+      { role: "user", content: "Is this clear?" },
+      { role: "assistant", content: "Mostly, but the second sentence runs on." },
+    ],
+  },
+  chats: [{ id: "c1", title: "Intro chat", messages: 2 }],
+  input: "", onInput: () => {}, onSend: () => {}, onStop: () => {},
+  busy: true, stream: "Streaming answer",
+  onSelectChat: () => {}, onNewChat: () => {}, onClose: () => {},
+}));
+assert.match(chatHtml, /ps-chat-msg/u, "chat messages render");
+assert.match(chatHtml, /main\.tex:3-4/u, "selection context is shown");
+assert.match(chatHtml, /Streaming answer/u, "streaming text renders");
+assert.match(chatHtml, /Proofreader/u, "agent name is shown");
+console.log("chat pane smoke passed");
+
+// Diff suggestion review inside the editor and in chat.
+const diffSuggestion = {
+  file: "main.tex",
+  hunks: [{ header: "@@ -1,3 +1,3 @@", lines: [
+    { type: " ", text: "context" },
+    { type: "-", text: "old line" },
+    { type: "+", text: "new line" },
+  ] }],
+};
+const editorDiff = renderToStaticMarkup(h(EditorPane, {
+  t, tabs: [tab], activePath: "main.tex", tab, cursor: { line: 1, col: 1 },
+  compile: null, status: { kind: "idle" },
+  onSelectTab() {}, onCloseTab() {}, onEdit() {}, onScroll() {}, onCursor() {}, onInsertText() {},
+  onReloadDisk() {}, onKeepMine() {},
+  editorRef: { current: null }, gutterInnerRef: { current: null },
+  symbols: { labels: [], citations: [], files: [] }, syntax,
+  changes: [{ id: "1", file: "main.tex", hunk: diffSuggestion.hunks[0] }], onKeepChange() {}, onDiscardChange() {}, onCloseReview() {},
+}));
+assert.match(editorDiff, /ps-diff-pop/u);
+assert.match(editorDiff, /ps-diff-target/u);
+assert.match(editorDiff, /ps-diff-line add/u);
+assert.match(editorDiff, /ps-diff-line del/u);
+
+const chatWithDiff = renderToStaticMarkup(h(ChatPane, {
+  t, agent: { id: "a", name: "Proof", scope: "global" },
+  chat: { id: "c1", title: "T", messages: [{ role: "assistant", content: "Proposed:\n```diff\n--- a/main.tex\n+++ b/main.tex\n@@ -1,2 +1,2 @@\n-old\n+new\n```" }] },
+  chats: [], input: "", onInput() {}, onSend() {}, onStop() {}, busy: false, stream: "",
+  onSelectChat() {}, onNewChat() {}, onClose() {},
+  changes: [{ id: "1", file: "main.tex", hunk: diffSuggestion.hunks[0] }], onKeepChange() {}, onDiscardChange() {}, onKeepAll() {}, onDiscardAll() {}, resolvedChoices: new Set(), onChoose() {},
+}));
+assert.match(chatWithDiff, /ps-chat-changes/u);
+assert.match(chatWithDiff, /keepAll/u);
+assert.equal((chatWithDiff.match(/keepAll/gu) || []).length, 1, "one Keep all button");
+console.log("diff review smoke passed");
+
+const chatWithChoice = renderToStaticMarkup(h(ChatPane, {
+  t, agent: { id: "a", name: "Proof", scope: "global" },
+  chat: { id: "c2", title: "T", messages: [{ role: "assistant", content: "Which version?\n```choices\n1. Concise — short\n2. Detailed — long\n```" }] },
+  chats: [], input: "", onInput() {}, onSend() {}, onStop() {}, busy: false, stream: "",
+  onSelectChat() {}, onNewChat() {}, onClose() {}, changes: [],
+  onKeepChange() {}, onDiscardChange() {}, onKeepAll() {}, onDiscardAll() {},
+  resolvedChoices: new Set(), onChoose() {},
+}));
+assert.match(chatWithChoice, /ps-chat-choice/u);
+assert.match(chatWithChoice, /Concise/u);
+assert.match(chatWithChoice, /Detailed/u);
+assert.doesNotMatch(chatWithChoice, /```choices/u);
+console.log("choice card smoke passed");
