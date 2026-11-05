@@ -1,163 +1,104 @@
-# Paper Studio — handover and migration checklist
+# Paper Studio — handover
 
-Prepared 2026-11-04. This is the operator guide for the Paper Studio plugin and
-the checklist for moving to the papers workspace.
+Prepared 2026-11-04, for Paper Studio 1.1.0.
 
-## What it is
-
-An Overleaf-style LaTeX workspace inside the DeepSeek Harness Web GUI:
-
-- a **Paper Studio** icon in the sidebar's global panel list;
-- a full-window panel with a file explorer, a tabbed source editor, and the
-  compiled PDF on the right;
-- a **profile-wide project registry**, so papers stay registered across
-  sessions, workspaces, and restarts;
-- `pdflatex` + `bibtex` compilation with clickable errors, and PDF pages
-  rendered to PNG for the preview;
-- an agent tool, `paper_studio`, with `list`, `create`, `add`, `compile`;
-- Overleaf git-bridge clone/pull/push.
-
-## Where everything lives
+## Where it lives now
 
 | What | Path |
 | --- | --- |
-| Plugin source (authoritative) | `~/.local/share/dsh-plugins/paper-studio` |
+| Plugin source (authoritative, git repo) | `~/Documents/Papers/paper-studio` |
 | Profile dependency | `link:` entry in `~/.dsh/profiles/web/package.json` |
-| Profile selection | `@local/paper-studio` in `~/.dsh/profiles/web/package.json` → `dsh.profile.bundles` |
+| Profile selection | `@local/paper-studio` in `dsh.profile.bundles` |
 | Project registry | `~/.dsh/paper-studio/projects.json` (mode 600) |
 | Overleaf tokens | inside the registry, per project; never in `.git/config` |
-| Papers | `~/Documents/Papers/<slug>` (default for new projects) |
+| Papers | `~/Documents/Papers/<slug>` |
 | Demo paper | `~/Documents/Papers/paper-studio-demo` |
 | Build output | `<project>/.paper-studio/build/` (hidden, gitignored) |
-| Agent tool | `paper_studio` |
 
-The plugin is installed in the **web profile**, not in a workspace: it appears
-in every session regardless of the session's working directory.
+The source used to live in `~/.local/share/dsh-plugins/paper-studio`. That copy
+is now stale and unused; the profile link points at the repository above.
+Older references to the old path no longer apply.
 
-## Restart once (required after this migration)
+## Restart once after switching the install path
 
-The GUI currently runs as:
+The Host half of a plugin is cached for the life of the Node process. After
+reinstalling from the new path, restart the process that runs `dsh web`, then
+reload the page (the panel's API token is injected into the page HTML at load
+time). A page reload alone is enough for `client.js`-only changes; anything in
+`index.js` needs the restart.
 
-```sh
-npm exec @deepseek-ai/dsh web
-```
+## What is new in 1.1.0
 
-Stop it with `Ctrl-C` in that terminal and run the same command again. Then
-reopen the session with workspace `~/Documents/Papers` (or a single paper
-folder) and reload the page.
+- **Streamed compile terminal.** The panel starts a compile job and reads its
+  events over SSE (`POST compile/start`, `GET compile/events?job=…`). The
+  terminal shows `$ pdflatex …` / `$ bibtex …`, every command's live stdout and
+  stderr, stage markers and a timer. Header button or `Ctrl/⌘ + \`` toggles it.
+- **Problems list.** The header button opens a dock listing errors and warnings
+  with severity badges; a row opens the file at that line where one is known.
+  Warnings now include `LaTeX Warning`, `Package … Warning`, over/underfull
+  boxes and bibtex `Warning--` lines. Diagnostics are read from the **final**
+  pass, so a citation fixed by a rerun no longer shows as a problem.
+- **Faster compiles.** Input fingerprint (source mtimes/sizes) makes an
+  unchanged rebuild instant; bibtex and the second pdflatex pass are skipped
+  when the bibliography and aux are unchanged (typical prose edit: one pass);
+  pages render on demand per page instead of rasterizing the whole PDF; the
+  `-synctex=1` write (unused by the panel) was dropped.
+- **LaTeX syntax highlighting** behind the textarea (commands, math, comments,
+  braces), scroll-synced, with the caret and selection preserved.
+- **Completion** for commands, environments, packages, `\ref` labels, `\cite`
+  keys, `\includegraphics` images and `\input` files; `Ctrl/⌘ + Space` forces
+  it, `↑/↓` navigate, `Enter`/`Tab` accept, `Esc` dismisses.
+- **Resizable panes.** Explorer width, PDF width and dock height are draggable
+  and persisted in `localStorage` (`dsh.paper-studio.ui`).
+- Host additions: `GET symbols`, `POST compile/start`, `GET compile/events`,
+  on-demand `GET page`, structured `warningsList` on compile results.
 
-Why both steps:
+## Verification (2026-11-04)
 
-- the Host half of a plugin is cached for the life of the Node process, so the
-  two source fixes below activate only after a restart;
-- the panel's API token is injected into the page HTML when the page is loaded,
-  so a page loaded before installation has no token and the panel's requests
-  would be rejected with 403.
-
-### Post-restart checklist
-
-1. The sidebar shows the Paper Studio icon between **Plugins** and **Schedules**.
-2. The project dropdown lists **Paper Studio Demo**.
-3. Opening the demo shows page 1 in the PDF pane (restored from disk, even
-   before recompiling).
-4. **Compile** reports `Compiled 1 pages in …` and the citation renders as
-   `[1]`, not `??`.
-5. Asking the agent to compile returns JSON (not `invalid output`).
-
-## First steps
-
-- **New paper**: header → New paper. Creates `~/Documents/Papers/<slug>` from a
-  starter article (`main.tex`, `sections/`, `references.bib`, `.gitignore`) and
-  opens it.
-- **Add folder**: header → Add folder. Registers any existing LaTeX folder and
-  detects its main `.tex` by `\documentclass`.
-- **Edit**: click a file in the explorer. Autosave runs ~0.85 s after typing;
-  `Ctrl/⌘+S` saves immediately. Tabs with unsaved changes show a dot.
-- **Compile**: `Ctrl/⌘+Enter` or the header button. Errors appear in the bottom
-  drawer; clicking one opens the file at that line.
-- **PDF**: page images with zoom (75–200 %), or open the PDF in a browser tab.
-- **Removed from panel ≠ deleted**: project settings → Remove from Paper Studio
-  leaves all files on disk.
-
-## Overleaf
-
-Overleaf exposes a Git bridge with a personal token (Overleaf → Account
-Settings → Git integration).
-
-1. Header → **Clone from Overleaf**.
-2. Paste `https://www.overleaf.com/project/<id>` or
-   `https://git.overleaf.com/<id>`, paste the token, confirm the folder.
-3. The project is cloned, registered, and opened.
-4. Project settings → **Git sync**: Status / Pull / Push / Initialize git.
-
-The token is stored only in the 0600 registry file and passed to git through a
-temporary `GIT_ASKPASS` helper, so it is never written into `.git/config`.
-Pull before editing locally and push afterwards; the Overleaf web editor and
-git do not merge live.
-
-## What was verified
-
-- Bundle install applied live (`application: applied`); the bundle is selected
-  in the profile and the dependency is a link to the source directory.
-- Live slot registrations: `sidebar.panellist` occupant `paper-studio`, and
-  `main` key `paper-studio`, both active.
-- HTTP route registered: `/paper-studio/api/info` answers `403` without the
-  browser token, as designed.
-- Full compile pipeline on the demo paper: `pdflatex` → `bibtex` →
-  `pdflatex` ×2, 1-page A4 PDF, `main.bbl` 202 bytes, zero undefined citations,
-  `pages/page-1.png` rendered.
-- Agent tool `paper_studio` `list` returns the project and toolchain versions.
-
-**Not verified:** the rendered panel itself (layout, light/dark, PDF image
-display). This environment has no browser control, so the first visual check
-must be done by opening the panel. Report anything off and it can be fixed.
-
-## Fixes present in the source, pending the restart
-
-1. **bibtex search path** — the pipeline used to override `BSTINPUTS`, which hid
-   the system `plain.bst`; citations came out as `??`. The override was removed
-   and only `BIBINPUTS` is extended, keeping kpathsea defaults.
-2. **Agent tool result shape** — `compile` returned an `undefined` field, which
-   the tool validator rejects (`invalid output`). The compile itself succeeded;
-   the result is now valid JSON.
-3. **Client autosave timers** — debounced saves from the previous project are
-   now cleared when switching projects. (A page reload loads this fix.)
-
-Until the restart, panel and tool compiles still use the old bibtex path, so
-expect `??` citations; recompile after the restart to fix them.
-
-## Troubleshooting
-
-| Symptom | Cause / fix |
-| --- | --- |
-| Icon missing after install | Refresh the page. If still missing, check the profile link below. |
-| Panel loads but every action fails | Page was loaded before installation (no token). Reload the page. |
-| `pdflatex was not found` | Install TeX Live / MacTeX; the panel reports which tools it can see. |
-| `plain.bst` not found | Ensure `BSTINPUTS` is not set in the shell that launches the Harness (the plugin no longer overrides it). |
-| Plugin fails to load after moving folders | Reinstall from the new absolute path (Plugins page or `plugin_manager install_bundle`), then restart. |
-| `pnpm` missing during install | `corepack enable pnpm` (already done on this machine; pnpm 12.16.1). |
-| Build looks stale | Builds go to `<project>/.paper-studio/build`; delete it and compile again. |
-
-Check the profile registration with:
+Automated, all passing:
 
 ```sh
-readlink -f ~/.dsh/profiles/web/node_modules/@local/paper-studio
+cd ~/Documents/Papers/paper-studio
+npm test        # 12 tests: compile pipeline, HTTP/SSE routes, client pure logic
 ```
 
-It must print the plugin source directory.
+- Cold compile of the demo: 1 page, zero errors, `plain.bst` resolved, citation
+  `[1]`.
+- Unchanged recompile: 0 ms, `cached: true`, 0 passes.
+- Prose-only touch: 1 pdflatex pass, bibtex skipped (~2.1 s vs ~4.2 s before).
+- New citation + new `.bib` entry: bibtex reran, second pass ran, PDF text shows
+  `[2]` and the reference entry; no undefined-citation warning reported.
+- HTTP: 403 without the page token; `symbols` returns `einstein1905`; SSE stream
+  carries `start`/`command`/`out`/`finish` with `pdflatex` and `bibtex`; page 1
+  is served as `image/png`, page 99 is 404.
+- Headless React render of the panel, editor, terminal and problems dock passes
+  (`PS_REACT_DIR=… node test/render.smoke.mjs`, run against a scratch React 18
+  install).
 
-## Migration notes
+**Not verified:** the rendered panel in a real browser (this environment has no
+browser control). The first visual check must confirm: syntax colours and caret
+alignment, completion popup placement near the caret, drag handles, terminal
+scrolling, and light/dark contrast. Report anything off.
 
-- The source was moved out of the calculation workspace so that repository can
-  be archived safely. Nothing in the papers tree points at that repository.
-- The profile dependency is an absolute `link:`; moving the source again means
-  reinstalling from the new path and restarting.
-- Do not hand-edit `~/.dsh/profiles/web/package.json` or `cordis.patch.yml`;
-  use the Plugins page / `plugin_manager`.
-- Uninstalling the bundle does not touch the registry or any paper.
+## Moving it to another session or machine
 
-## Suggested next workspace
+```sh
+git clone <remote> ~/somewhere/paper-studio
+# then, in that Harness:
+#   Plugins page → Add → /home/<user>/somewhere/paper-studio
+#   or plugin_manager install_bundle with that absolute path
+# restart the Harness process
+```
 
-`~/Documents/Papers` — the agent can then read and edit every paper's `.tex`
-sources directly with its own tools, while the panel previews them. A single
-paper folder also works if you prefer a narrower sandbox.
+Nothing in a paper folder, the registry, or `~/.dsh` points back at the plugin
+source path, so moving the repository is safe; only the profile dependency must
+be reinstalled. Uninstalling the bundle never deletes papers or the registry.
+
+## Known limits
+
+- One compile runs at a time per project (concurrent runs would share a build
+  directory); the HTTP and agent paths serialize through the same queue.
+- Completion data is cached for 5 s per project and invalidated on save.
+- The terminal keeps the last ~3000 lines; the full log is in the Log tab.
+- The highlighter stops coloured output above 300 KB per file (plain text after
+  that) to keep typing responsive.

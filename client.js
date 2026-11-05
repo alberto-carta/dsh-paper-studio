@@ -117,6 +117,19 @@ window.__ModuleLoader__.load({
         savedToast: "Saved {name}",
         copyPath: "Copy path",
         emptyFolder: "This folder has no .tex file yet.",
+        terminal: "Terminal",
+        terminalHint: "Show the LaTeX/BibTeX commands and their live output",
+        terminalEmpty: "Press Compile to watch the LaTeX and BibTeX commands run here.",
+        clear: "Clear",
+        upToDate: "up to date",
+        problemsHint: "Errors and warnings from the last compile",
+        errBadge: "error",
+        warnBadge: "warning",
+        badboxBadge: "box",
+        bibBadge: "bibtex",
+        cachedBuild: "No source changes since the last build",
+        stageSaving: "saving files",
+        shortcutsHint: "Ctrl/⌘+Space: complete · Ctrl/⌘+`: terminal",
       },
     };
 
@@ -146,7 +159,8 @@ window.__ModuleLoader__.load({
 .ps-status .ps-dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
 .ps-toggle{display:inline-flex;align-items:center;gap:5px;color:var(--dsw-alias-label-secondary);font-size:12px;cursor:pointer;white-space:nowrap;padding:0 4px;user-select:none}
 .ps-toggle input{accent-color:var(--dsw-alias-brand-primary);margin:0}
-.ps-main{flex:1;min-height:0;display:grid;overflow:hidden}
+.ps-main{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.ps-body{flex:1;min-height:0;display:grid;overflow:hidden}
 .ps-pane{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;background:var(--dsw-alias-bg-base)}
 .ps-explorer{background:var(--dsw-alias-bg-layer-1);border-right:.5px solid var(--dsw-alias-border-l1)}
 .ps-pdf{border-left:.5px solid var(--dsw-alias-border-l1)}
@@ -186,9 +200,16 @@ window.__ModuleLoader__.load({
 .ps-tab .ps-tab-close:hover{background:var(--dsw-alias-bg-layer-2);opacity:1}
 .ps-tab-close svg{width:10px;height:10px}
 .ps-code-wrap{flex:1;display:flex;min-height:0;overflow:hidden;position:relative}
+.ps-code-area{flex:1;min-width:0;position:relative;display:flex;overflow:hidden}
 .ps-gutter{flex:none;min-width:44px;overflow:hidden;padding:8px 6px 8px 10px;text-align:right;font:13px/20px ${MONO};color:var(--dsw-alias-label-secondary);user-select:none;border-right:.5px solid var(--dsw-alias-border-l1);opacity:.75}
 .ps-gutter-inner{will-change:transform}
-.ps-code{flex:1;min-width:0;border:0;outline:0;resize:none;background:transparent;color:var(--dsw-alias-label-primary);font:13px/20px ${MONO};padding:8px 18px 8px 10px;tab-size:2;white-space:pre;overflow:auto}
+.ps-code{flex:1;min-width:0;border:0;outline:0;resize:none;background:transparent;color:transparent;-webkit-text-fill-color:transparent;caret-color:var(--dsw-alias-label-primary);font:13px/20px ${MONO};padding:8px 18px 8px 10px;tab-size:2;white-space:pre;overflow:auto;position:relative;z-index:1}
+.ps-highlight{position:absolute;inset:0;z-index:0;margin:0;padding:8px 18px 8px 10px;font:13px/20px ${MONO};tab-size:2;white-space:pre;overflow:hidden;pointer-events:none;color:var(--dsw-alias-label-primary);background:transparent}
+.ps-hl-cmd{color:var(--dsw-alias-brand-primary)}
+.ps-hl-math{color:var(--dsw-alias-state-success-primary)}
+.ps-hl-comment{color:var(--dsw-alias-label-secondary);font-style:italic;opacity:.8}
+.ps-hl-brace{color:var(--dsw-alias-label-secondary);opacity:.85}
+.ps-hl-arg{color:var(--dsw-alias-state-warn-primary)}
 .ps-code::selection{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 30%,transparent)}
 .ps-code-foot{flex:none;display:flex;align-items:center;gap:12px;height:26px;padding:0 10px;border-top:.5px solid var(--dsw-alias-border-l1);font-size:11px;color:var(--dsw-alias-label-secondary);white-space:nowrap;overflow:hidden}
 .ps-code-foot .ps-grow{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
@@ -238,6 +259,32 @@ window.__ModuleLoader__.load({
 .ps-toast.err{color:var(--dsw-alias-state-error-primary)}
 .ps-spin{animation:ps-spin .9s linear infinite;transform-origin:50% 50%}
 @keyframes ps-spin{to{transform:rotate(360deg)}}
+.ps-dock{flex:none;display:flex;flex-direction:column;border-top:.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);min-height:0}
+.ps-dock-head{flex:none;display:flex;align-items:center;gap:2px;height:30px;padding:0 6px;border-bottom:.5px solid var(--dsw-alias-border-l1)}
+.ps-dock-head .ps-stage{font-size:11px;color:var(--dsw-alias-label-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:44%}
+.ps-split{position:relative;cursor:col-resize;background:transparent;z-index:5;touch-action:none}
+.ps-split::after{content:"";position:absolute;inset:0 2px;background:transparent;transition:background .12s ease}
+.ps-split:hover::after,.ps-split.dragging::after{background:var(--dsw-alias-brand-primary)}
+.ps-split-h{flex:none;height:5px;cursor:row-resize;position:relative;z-index:6;touch-action:none}
+.ps-split-h::after{content:"";position:absolute;inset:1px 0;background:transparent;transition:background .12s ease}
+.ps-split-h:hover::after{background:var(--dsw-alias-brand-primary)}
+body.ps-resizing{cursor:col-resize;user-select:none}
+body.ps-resizing *{cursor:inherit!important}
+.ps-term{flex:1;min-height:0;overflow:auto;margin:0;padding:6px 10px 14px;font:11.5px/16.5px ${MONO};color:var(--dsw-alias-label-secondary);white-space:pre-wrap;overflow-wrap:anywhere}
+.ps-term-line{white-space:pre-wrap}
+.ps-term-line.cmd{color:var(--dsw-alias-brand-primary);font-weight:500}
+.ps-term-line.stage{color:var(--dsw-alias-label-primary);font-weight:600;margin-top:4px}
+.ps-term-line.err{color:var(--dsw-alias-state-error-primary)}
+.ps-term-empty{padding:14px 6px;font-size:11.5px;color:var(--dsw-alias-label-secondary)}
+.ps-problem .ps-sev{flex:none;font:600 9px/1 ${MONO};letter-spacing:.04em;text-transform:uppercase;padding:3px 5px;border-radius:4px;background:color-mix(in srgb,currentColor 14%,transparent);margin-top:1px}
+.ps-problem.warn{color:var(--dsw-alias-state-warn-primary)}
+.ps-problem.badbox{color:var(--dsw-alias-label-secondary)}
+.ps-drawer-tab .ps-count.warn{background:color-mix(in srgb,var(--dsw-alias-state-warn-primary) 16%,transparent);color:var(--dsw-alias-state-warn-primary)}
+.ps-ac{position:absolute;z-index:30;min-width:240px;max-width:min(440px,86%);max-height:212px;overflow:auto;background:var(--dsw-alias-bg-overlay);border:.5px solid var(--dsw-alias-border-l2);border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,.26);padding:4px}
+.ps-ac-item{display:flex;align-items:center;gap:8px;width:100%;padding:4px 7px;border:0;border-radius:5px;background:transparent;color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;text-align:left;cursor:pointer;white-space:nowrap}
+.ps-ac-item.active{background:var(--dsw-alias-bg-layer-2)}
+.ps-ac-item .ps-ac-label{font-family:${MONO};font-size:12px;overflow:hidden;text-overflow:ellipsis}
+.ps-ac-item .ps-ac-detail{margin-left:auto;font-size:10.5px;color:var(--dsw-alias-label-secondary);overflow:hidden;text-overflow:ellipsis;max-width:52%;padding-left:8px}
 .ps-git-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .ps-badge{display:inline-flex;align-items:center;gap:4px;padding:1px 6px;border-radius:9px;border:.5px solid var(--dsw-alias-border-l2);font-size:10.5px;color:var(--dsw-alias-label-secondary)}
 @media (max-width: 1080px){.ps-hide-narrow{display:none}}
@@ -309,6 +356,11 @@ window.__ModuleLoader__.load({
       filePdf: (extra) => svg([
         h("path", { key: 1, d: "M13.5 3.5H7a1 1 0 0 0-1 1v15a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V8z" }),
         h("path", { key: 2, d: "M13.5 3.5V8H18" }),
+      ], extra),
+      terminal: (extra) => svg([
+        h("rect", { key: 1, x: 3.5, y: 4.5, width: 17, height: 15, rx: 2 }),
+        h("path", { key: 2, d: "M7.5 9.5l2.5 2.5-2.5 2.5" }),
+        h("path", { key: 3, d: "M12.5 15h4" }),
       ], extra),
     };
 
@@ -441,18 +493,319 @@ window.__ModuleLoader__.load({
         props.children ? h("div", { className: "ps-empty-actions" }, props.children) : null);
     }
 
+    // -- editor helpers ----------------------------------------------------
+
+    const MAX_HIGHLIGHT_CHARS = 300_000;
+
+    function escapeHtml(text) {
+      return String(text).replace(/[&<>"]/gu, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[character]));
+    }
+
+    /**
+     * LaTeX tokenizer for the highlight layer behind the textarea. It is a single
+     * pass over the text and deliberately forgiving: unterminated math or
+     * comments simply colour to the end of the buffer.
+     */
+    function highlightLatex(source) {
+      if (source.length > MAX_HIGHLIGHT_CHARS) return escapeHtml(source);
+      let html = "";
+      let index = 0;
+      const length = source.length;
+      const emit = (text, cls) => {
+        if (!text) return;
+        html += cls ? `<span class="${cls}">${escapeHtml(text)}</span>` : escapeHtml(text);
+      };
+      while (index < length) {
+        const character = source[index];
+        if (character === "%") {
+          let stop = source.indexOf("\n", index);
+          if (stop === -1) stop = length;
+          emit(source.slice(index, stop), "ps-hl-comment");
+          index = stop;
+          continue;
+        }
+        if (character === "$") {
+          const double = source[index + 1] === "$";
+          const close = double ? "$$" : "$";
+          let stop = source.indexOf(close, index + close.length);
+          while (stop !== -1 && source[stop - 1] === "\\") stop = source.indexOf(close, stop + 1);
+          const trimmed = stop === -1 ? length : stop + close.length;
+          emit(source.slice(index, trimmed), "ps-hl-math");
+          index = trimmed;
+          continue;
+        }
+        if (character === "\\") {
+          const next = source[index + 1];
+          if (next === "[" || next === "(") {
+            const close = next === "[" ? "\\]" : "\\)";
+            const stop = source.indexOf(close, index + 2);
+            const trimmed = stop === -1 ? length : stop + close.length;
+            emit(source.slice(index, trimmed), "ps-hl-math");
+            index = trimmed;
+            continue;
+          }
+          const match = /^\\(?:[a-zA-Z@]+\*?|.)/u.exec(source.slice(index, index + 64));
+          const token = match ? match[0] : "\\";
+          emit(token, "ps-hl-cmd");
+          index += token.length;
+          continue;
+        }
+        if (character === "{" || character === "}" || character === "[" || character === "]") {
+          emit(character, "ps-hl-brace");
+          index += 1;
+          continue;
+        }
+        let stop = index + 1;
+        while (stop < length && "\\$%{}[]".indexOf(source[stop]) === -1) stop += 1;
+        emit(source.slice(index, stop));
+        index = stop;
+      }
+      return html;
+    }
+
+    const COMPLETION_COMMANDS = [
+      "documentclass", "usepackage", "RequirePackage", "begin", "end", "section", "subsection", "subsubsection",
+      "paragraph", "chapter", "part", "title", "author", "date", "thanks", "maketitle", "abstract", "tableofcontents",
+      "label", "ref", "eqref", "autoref", "cref", "Cref", "pageref", "nameref", "cite", "citep", "citet", "citealp",
+      "citeauthor", "citeyear", "parencite", "textcite", "autocite", "footnote", "emph", "textbf", "textit", "texttt",
+      "textsc", "textsuperscript", "textsubscript", "underline", "url", "href", "includegraphics", "caption", "item",
+      "centering", "raggedright", "noindent", "par", "newpage", "clearpage", "vspace", "hspace", "hfill", "vfill",
+      "quad", "qquad", "frac", "dfrac", "tfrac", "sqrt", "sum", "prod", "int", "partial", "nabla", "times", "cdot",
+      "leq", "geq", "neq", "approx", "infty", "alpha", "beta", "gamma", "delta", "epsilon", "theta", "lambda", "mu",
+      "pi", "sigma", "tau", "phi", "omega", "Gamma", "Delta", "Theta", "Lambda", "Sigma", "Phi", "Omega",
+      "hline", "toprule", "midrule", "bottomrule", "multicolumn", "multirow", "bibliography", "bibliographystyle",
+      "input", "include", "includeonly", "graphicspath", "setlength", "renewcommand", "newcommand", "def",
+      "textbf", "mathcal", "mathbb", "mathrm", "mathbf", "text", "operatorname", "left", "right", "nonumber",
+      "notag", "tag", "intertext", "shortintertext", "displaystyle", "limits", "overset", "underset",
+    ];
+    const COMPLETION_ENVIRONMENTS = [
+      "document", "abstract", "equation", "equation*", "align", "align*", "gather", "gather*", "multline",
+      "multline*", "split", "cases", "matrix", "pmatrix", "bmatrix", "vmatrix", "itemize", "enumerate",
+      "description", "figure", "figure*", "table", "table*", "tabular", "tabularx", "center", "flushleft",
+      "flushright", "verbatim", "quote", "quotation", "minipage", "theorem", "lemma", "proposition",
+      "corollary", "definition", "proof", "remark", "example", "algorithm", "algorithmic", "lstlisting",
+      "minted", "tikzpicture", "axis",
+    ];
+    const COMPLETION_PACKAGES = [
+      "amsmath", "amssymb", "amsthm", "mathtools", "graphicx", "booktabs", "geometry", "hyperref", "microtype",
+      "natbib", "biblatex", "cite", "xcolor", "tikz", "pgfplots", "siunitx", "cleveref", "subcaption",
+      "multirow", "longtable", "algorithm", "algorithmicx", "algpseudocode", "listings", "minted", "setspace",
+      "caption", "float", "enumitem", "fontenc", "inputenc", "babel", "csquotes", "url", "mathrsfs", "physics",
+      "parskip", "tocloft", "titlesec", "fancyhdr", "xspace", "lmodern", "textcomp", "array", "tabularx",
+    ];
+
+    const CITE_COMMANDS = /^(?:cite|citep|citet|citealp|citeauthor|citeyear|parencite|textcite|autocite|footcite|nocite)\*?$/u;
+    const REF_COMMANDS = /^(?:ref|eqref|autoref|cref|Cref|pageref|nameref|labelcref|vref)$/u;
+
+    let monoMetric = null;
+    function measureMono(font) {
+      if (monoMetric && monoMetric.font === font) return monoMetric.width;
+      let width = 7.8;
+      try {
+        const context = document.createElement("canvas").getContext("2d");
+        context.font = font;
+        const measured = context.measureText("MMMMMMMMMMMMMMMMMMMM").width / 20;
+        if (measured > 0) width = measured;
+      } catch {
+        // No canvas: the monospace fallback above is close enough for anchoring.
+      }
+      monoMetric = { font, width };
+      return width;
+    }
+
+    /** Popup anchor in the code wrapper's coordinates, from the caret's line/column. */
+    function caretPoint(textarea, position) {
+      const before = textarea.value.slice(0, position);
+      const line = before.split("\n").length - 1;
+      const column = position - before.lastIndexOf("\n") - 1;
+      const style = window.getComputedStyle(textarea);
+      const lineHeight = Number.parseFloat(style.lineHeight) || 20;
+      const padTop = Number.parseFloat(style.paddingTop) || 8;
+      const padLeft = Number.parseFloat(style.paddingLeft) || 10;
+      const font = style.font || `${style.fontSize} ${style.fontFamily}`;
+      return {
+        x: padLeft + column * measureMono(font) - textarea.scrollLeft,
+        y: padTop + (line + 1) * lineHeight - textarea.scrollTop,
+      };
+    }
+
+    /** What is being completed at `position`, if anything. */
+    function completionContext(text, position) {
+      const before = text.slice(0, position);
+      const brace = /\\([a-zA-Z@]+\*?)\s*(?:\[[^\]]*\]\s*)?\{([^{}]*)$/u.exec(before);
+      if (brace) {
+        const command = brace[1];
+        const query = brace[2];
+        const start = position - query.length;
+        if (CITE_COMMANDS.test(command)) return { kind: "citation", query, start, end: position };
+        if (REF_COMMANDS.test(command)) return { kind: "label", query, start, end: position };
+        if (command === "begin" || command === "end") return { kind: "environment", query, start, end: position };
+        if (command === "usepackage" || command === "documentclass" || command === "RequirePackage") return { kind: "package", query, start, end: position };
+        if (command === "includegraphics") return { kind: "image", query, start, end: position };
+        if (command === "input" || command === "include" || command === "subfile") return { kind: "file", query, start, end: position };
+        if (command === "bibliography") return { kind: "bibfile", query, start, end: position };
+        return null;
+      }
+      const command = /\\([a-zA-Z@]*)$/u.exec(before);
+      if (command) return { kind: "command", query: command[1], start: position - command[1].length, end: position };
+      return null;
+    }
+
+    function completionItems(kind, query, symbols) {
+      const needle = String(query).toLowerCase();
+      const rank = (value) => {
+        const lower = String(value).toLowerCase();
+        if (needle.length === 0) return 1;
+        if (lower.startsWith(needle)) return 0;
+        if (lower.includes(needle)) return 2;
+        return -1;
+      };
+      const pack = (entries, detailOf) => entries
+        .map((entry) => ({ entry, rank: rank(entry.key ?? entry) }))
+        .filter((item) => item.rank >= 0)
+        .sort((left, right) => left.rank - right.rank || String(left.entry.key ?? left.entry).localeCompare(String(right.entry.key ?? right.entry)))
+        .slice(0, 60)
+        .map(({ entry }) => (typeof entry === "string"
+          ? { label: entry, insert: entry, detail: detailOf ? detailOf(entry) : "" }
+          : { label: entry.key, insert: entry.key, detail: detailOf ? detailOf(entry) : "" }));
+      if (kind === "command") {
+        return pack(COMPLETION_COMMANDS, () => "command").map((item) => ({ ...item, label: `\\${item.label}` }));
+      }
+      if (kind === "environment") return pack(COMPLETION_ENVIRONMENTS, () => "environment");
+      if (kind === "package") return pack(COMPLETION_PACKAGES, () => "package");
+      if (kind === "label") return pack(symbols.labels || [], (entry) => `${entry.file}${entry.line ? `:${entry.line}` : ""}`);
+      if (kind === "citation") return pack(symbols.citations || [], (entry) => [entry.year, entry.title].filter(Boolean).join(" · ").slice(0, 70));
+      if (kind === "image") return pack((symbols.files || []).filter((file) => /\.(?:png|jpe?g|pdf|eps|svg)$/iu.test(file)), () => "image");
+      if (kind === "bibfile") return pack((symbols.files || []).filter((file) => /\.bib$/iu.test(file)), () => "bib");
+      if (kind === "file") return pack((symbols.files || []).filter((file) => /\.tex$/iu.test(file)), () => "tex");
+      return [];
+    }
+
     function EditorPane(props) {
       const {
-        t, tabs, activePath, tab, cursor, compile, autoCompile, status, onSelectTab, onCloseTab,
-        onEdit, onCompile, onSave, editorRef, gutterInnerRef, onScroll, onCursor, onInsertText,
-        onReloadDisk, onKeepMine, saving, showDrawer, drawerTab, onDrawerTab, onCloseDrawer,
+        t, tabs, activePath, tab, cursor, compile, status, onSelectTab, onCloseTab,
+        onEdit, editorRef, gutterInnerRef, onScroll, onCursor, onInsertText,
+        onReloadDisk, onKeepMine, symbols,
       } = props;
+      const wrapRef = useRef(null);
+      const areaRef = useRef(null);
+      const highlightRef = useRef(null);
+      const [completion, setCompletion] = useState(null);
       const lineCount = useMemo(() => (tab ? tab.content.split("\n").length : 0), [tab ? tab.content : ""]);
       const numbers = useMemo(() => {
         const list = new Array(lineCount);
         for (let index = 0; index < lineCount; index += 1) list[index] = index + 1;
         return list;
       }, [lineCount]);
+      const highlighted = useMemo(() => (tab ? highlightLatex(tab.content) : ""), [tab ? tab.content : ""]);
+
+      const closeCompletion = useCallback(() => setCompletion(null), []);
+
+      const openCompletion = useCallback((mode, valueOverride, positionOverride) => {
+        const textarea = editorRef.current;
+        if (!textarea) return;
+        const value = valueOverride === undefined ? textarea.value : valueOverride;
+        const position = positionOverride === undefined ? textarea.selectionStart : positionOverride;
+        const context = completionContext(value, position);
+        if (!context) {
+          setCompletion(null);
+          return;
+        }
+        if (mode !== "force" && context.kind === "command" && context.query.length === 0) {
+          setCompletion(null);
+          return;
+        }
+        const items = completionItems(context.kind, context.query, symbols || {});
+        if (items.length === 0) {
+          setCompletion(null);
+          return;
+        }
+        const point = caretPoint(textarea, context.start);
+        const area = areaRef.current;
+        const width = area ? area.clientWidth : 600;
+        const height = area ? area.clientHeight : 400;
+        const popupWidth = 280;
+        const left = Math.max(4, Math.min(point.x, width - popupWidth - 8));
+        const estimated = Math.min(212, 14 + items.length * 26);
+        const top = point.y + estimated + 8 > height ? Math.max(4, point.y - estimated - 4) : point.y + 18;
+        setCompletion({ context, items, index: 0, left, top });
+      }, [editorRef, symbols]);
+
+      const acceptCompletion = useCallback((item) => {
+        const textarea = editorRef.current;
+        if (!textarea || !completion || !tab) return;
+        const { context } = completion;
+        const needsBrace = ["citation", "label", "environment", "package", "image", "file", "bibfile"].includes(context.kind);
+        const insert = `${item.insert}${needsBrace && textarea.value[context.end] !== "}" ? "}" : ""}`;
+        const next = textarea.value.slice(0, context.start) + insert + textarea.value.slice(context.end);
+        onEdit(tab.path, next);
+        setCompletion(null);
+        const caret = context.start + insert.length;
+        requestAnimationFrame(() => {
+          textarea.focus();
+          textarea.setSelectionRange(caret, caret);
+          onCursor({ currentTarget: textarea });
+        });
+      }, [completion, editorRef, onCursor, onEdit, tab]);
+
+      const syncHighlight = useCallback(() => {
+        const textarea = editorRef.current;
+        const layer = highlightRef.current;
+        if (!textarea || !layer) return;
+        layer.scrollTop = textarea.scrollTop;
+        layer.scrollLeft = textarea.scrollLeft;
+      }, [editorRef]);
+
+      useEffect(() => { syncHighlight(); }, [highlighted, activePath, syncHighlight]);
+
+      const handleScroll = useCallback((event) => {
+        onScroll(event);
+        syncHighlight();
+        setCompletion(null);
+      }, [onScroll, syncHighlight]);
+
+      const handleChange = useCallback((event) => {
+        const value = event.target.value;
+        const position = event.target.selectionStart;
+        onEdit(tab.path, value);
+        requestAnimationFrame(() => openCompletion(undefined, value, position));
+      }, [onEdit, openCompletion, tab]);
+
+      const handleKeyDown = useCallback((event) => {
+        if (completion) {
+          if (event.key === "ArrowDown") {
+            event.preventDefault();
+            setCompletion((current) => (current ? { ...current, index: (current.index + 1) % current.items.length } : current));
+            return;
+          }
+          if (event.key === "ArrowUp") {
+            event.preventDefault();
+            setCompletion((current) => (current ? { ...current, index: (current.index - 1 + current.items.length) % current.items.length } : current));
+            return;
+          }
+          if ((event.key === "Enter" || event.key === "Tab") && !event.ctrlKey && !event.metaKey && !event.altKey) {
+            event.preventDefault();
+            acceptCompletion(completion.items[completion.index]);
+            return;
+          }
+          if (event.key === "Escape") {
+            event.preventDefault();
+            setCompletion(null);
+            return;
+          }
+        }
+        if ((event.ctrlKey || event.metaKey) && event.key === " ") {
+          event.preventDefault();
+          openCompletion("force");
+          return;
+        }
+        if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+          event.preventDefault();
+          onInsertText("  ");
+        }
+        if (event.key === "Escape") setCompletion(null);
+      }, [acceptCompletion, completion, onInsertText, openCompletion]);
+
       return h("section", { className: "ps-pane ps-editor", "aria-label": t("editor") },
         h("div", { className: "ps-tabs", role: "tablist" },
           tabs.length === 0 ? h("div", { className: "ps-status", style: { padding: "0 10px" } }, t("editor")) : null,
@@ -476,10 +829,17 @@ window.__ModuleLoader__.load({
           h("span", { className: "ps-banner-text" }, `${t("conflictTitle")} — ${t("conflictBody")}`),
           h("button", { className: "ps-btn", type: "button", onClick: () => onReloadDisk(tab.path) }, t("reloadDisk")),
           h("button", { className: "ps-btn", type: "button", onClick: () => onKeepMine(tab.path) }, t("keepMine"))) : null) : null,
-        tab ? h("div", { className: "ps-code-wrap" },
-          h("div", { className: "ps-gutter", ref: null },
+        tab ? h("div", { className: "ps-code-wrap", ref: wrapRef },
+          h("div", { className: "ps-gutter" },
             h("div", { className: "ps-gutter-inner", ref: gutterInnerRef },
               numbers.map((number) => h("div", { key: number }, number)))),
+          h("div", { className: "ps-code-area", ref: areaRef },
+          h("pre", {
+            className: "ps-highlight",
+            ref: highlightRef,
+            "aria-hidden": "true",
+            dangerouslySetInnerHTML: { __html: `${highlighted}\n` },
+          }),
           h("textarea", {
             ref: editorRef,
             className: "ps-code",
@@ -490,17 +850,29 @@ window.__ModuleLoader__.load({
             autoCorrect: "off",
             autoCapitalize: "off",
             "aria-label": tab.path,
-            onChange: (event) => onEdit(tab.path, event.target.value),
-            onScroll,
-            onSelect: onCursor,
-            onClick: onCursor,
-            onKeyDown: (event) => {
-              if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
-                event.preventDefault();
-                onInsertText("  ");
-              }
-            },
-          })) : h(EmptyState, {
+            onChange: handleChange,
+            onScroll: handleScroll,
+            onSelect: (event) => { onCursor(event); },
+            onClick: (event) => { onCursor(event); },
+            onKeyDown: handleKeyDown,
+            onBlur: closeCompletion,
+          }),
+          completion ? h("div", {
+            className: "ps-ac",
+            role: "listbox",
+            style: { left: completion.left, top: completion.top },
+            onMouseDown: (event) => event.preventDefault(),
+          }, completion.items.map((item, index) => h("button", {
+            key: `${item.insert}:${index}`,
+            type: "button",
+            role: "option",
+            "aria-selected": index === completion.index,
+            className: `ps-ac-item${index === completion.index ? " active" : ""}`,
+            onMouseEnter: () => setCompletion((current) => (current ? { ...current, index } : current)),
+            onClick: () => acceptCompletion(item),
+          },
+          h("span", { className: "ps-ac-label" }, item.label),
+          item.detail ? h("span", { className: "ps-ac-detail" }, item.detail) : null))) : null)) : h(EmptyState, {
           icon: Icon.file,
           title: t("noFileTitle"),
           body: t("noFileBody"),
@@ -510,30 +882,77 @@ window.__ModuleLoader__.load({
           h("span", null, fmt(t("lineCol"), cursor)),
           h("span", null, fmt(t("lines"), { count: lineCount })),
           h("span", { className: compile && !compile.ok ? "ps-status err" : "ps-status" },
-            status.kind === "saving" || tab.saving ? t("saving") : tab.dirty ? t("unsaved") : t("saved"))) : null,
-        showDrawer ? h("div", { className: "ps-drawer" },
-          h("div", { className: "ps-drawer-head" },
-            h("button", { className: `ps-drawer-tab${drawerTab === "problems" ? " active" : ""}`, type: "button", onClick: () => onDrawerTab("problems") },
-              t("problems"),
-              compile && compile.errors && compile.errors.length > 0 ? h("span", { className: "ps-count" }, compile.errors.length) : null),
-            h("button", { className: `ps-drawer-tab${drawerTab === "log" ? " active" : ""}`, type: "button", onClick: () => onDrawerTab("log") }, t("log")),
-            h("div", { className: "ps-spacer" }),
-            compile ? h("span", { className: "ps-status", style: { fontSize: 11 } }, compile.ok ? `${t("saved")} · ${formatDuration(compile.durationMs)}` : t("compileFailed")) : null,
-            h("button", { className: "ps-btn icon", type: "button", onClick: onCloseDrawer, "aria-label": t("close") }, h(Icon.close))),
-          drawerTab === "problems"
-            ? h("div", { className: "ps-problems" },
-              compile && compile.errors && compile.errors.length > 0
-                ? compile.errors.map((problem, index) => h("button", {
-                  key: `${problem.file}:${problem.line}:${index}`,
-                  className: "ps-problem err",
-                  type: "button",
-                  title: problem.message,
-                  onClick: () => props.onOpenProblem(problem),
-                },
-                h("span", { className: "ps-problem-loc" }, `${problem.file}${problem.line ? `:${problem.line}` : ""}`),
-                h("span", { className: "ps-problem-msg" }, problem.message)))
-                : h("div", { className: "ps-status", style: { padding: "10px 6px" } }, t("noProblems")))
-            : h("pre", { className: "ps-log" }, compile && compile.log ? compile.log : "")) : null);
+            status.kind === "saving" || tab.saving ? t("saving") : tab.dirty ? t("unsaved") : t("saved"))) : null);
+    }
+
+    function Dock(props) {
+      const {
+        t, tab, onTab, onClose, compile, terminal, stage, elapsed, compiling,
+        onClear, height, onResize, onOpenProblem,
+      } = props;
+      const termRef = useRef(null);
+      const lines = useMemo(() => {
+        const out = [];
+        for (const entry of terminal) {
+          const parts = String(entry.text).split(/\r?\n/u);
+          parts.forEach((part, index) => {
+            if (part.length === 0 && index === parts.length - 1) return;
+            out.push({ kind: entry.kind, text: part });
+          });
+        }
+        return out.slice(-4000);
+      }, [terminal]);
+      useEffect(() => {
+        const node = termRef.current;
+        if (node) node.scrollTop = node.scrollHeight;
+      }, [lines, tab]);
+
+      const errors = (compile && compile.errors) || [];
+      const warnings = (compile && compile.warningsList) || [];
+      const severity = (kind) => (kind === "error" ? ["err", t("errBadge")] : kind === "badbox" ? ["badbox", t("badboxBadge")] : kind === "bibtex" ? ["warn", t("bibBadge")] : ["warn", t("warnBadge")]);
+      const problems = [
+        ...errors.map((problem) => ({ ...problem, kind: "error" })),
+        ...warnings.map((problem) => ({ ...problem, kind: problem.kind || "warning" })),
+      ];
+
+      return h("div", { className: "ps-dock", style: { height } },
+        h("div", {
+          className: "ps-split-h", role: "separator", "aria-orientation": "horizontal",
+          title: t("terminalHint"), onPointerDown: onResize,
+        }),
+        h("div", { className: "ps-dock-head" },
+          h("button", { className: `ps-drawer-tab${tab === "problems" ? " active" : ""}`, type: "button", onClick: () => onTab("problems") },
+            t("problems"),
+            problems.length > 0 ? h("span", { className: `ps-count${errors.length === 0 ? " warn" : ""}` }, problems.length) : null),
+          h("button", { className: `ps-drawer-tab${tab === "terminal" ? " active" : ""}`, type: "button", onClick: () => onTab("terminal") }, t("terminal")),
+          h("div", { className: "ps-spacer" }),
+          compiling ? h("span", { className: "ps-stage" }, `${stage || t("compiling")}${elapsed ? ` · ${elapsed}s` : ""}`) : null,
+          !compiling && compile ? h("span", { className: "ps-status", style: { fontSize: 11 } }, compile.cached ? t("upToDate") : formatDuration(compile.durationMs)) : null,
+          tab === "terminal" ? h("button", { className: "ps-btn", type: "button", onClick: onClear }, t("clear")) : null,
+          h("button", { className: "ps-btn icon", type: "button", onClick: onClose, "aria-label": t("close") }, h(Icon.close))),
+        tab === "problems"
+          ? h("div", { className: "ps-problems" },
+            compile
+              ? (problems.length === 0
+                ? h("div", { className: "ps-status", style: { padding: "10px 6px" } }, t("noProblems"))
+                : problems.map((problem, index) => {
+                  const [cls, badge] = severity(problem.kind);
+                  return h("button", {
+                    key: `${problem.file}:${problem.line}:${index}`,
+                    className: `ps-problem ${cls}`,
+                    type: "button",
+                    title: problem.message,
+                    onClick: () => onOpenProblem(problem),
+                  },
+                  h("span", { className: "ps-sev" }, badge),
+                  h("span", { className: "ps-problem-loc" }, `${problem.file ? `${problem.file}${problem.line ? `:${problem.line}` : ""}` : "log"}`),
+                  h("span", { className: "ps-problem-msg" }, problem.message));
+                }))
+              : h("div", { className: "ps-status", style: { padding: "10px 6px" } }, t("problemsHint")))
+          : h("pre", { className: "ps-term", ref: termRef },
+            lines.length === 0
+              ? h("span", { className: "ps-term-empty" }, t("terminalEmpty"))
+              : lines.map((line, index) => h("div", { key: index, className: `ps-term-line${line.kind ? ` ${line.kind}` : ""}` }, line.text.length > 0 ? line.text : " "))));
     }
 
     // -- main component ----------------------------------------------------
@@ -563,8 +982,17 @@ window.__ModuleLoader__.load({
       const [pdf, setPdf] = useState({ rev: null, pages: 0, mode: "none" });
       const [compile, setCompile] = useState(null);
       const [compiling, setCompiling] = useState(false);
-      const [drawerOpen, setDrawerOpen] = useState(false);
-      const [drawerTab, setDrawerTab] = useState("problems");
+      const [dock, setDock] = useState(() => {
+        const value = readUi().dock;
+        return value === "terminal" || value === "problems" ? value : null;
+      });
+      const [dockHeight, setDockHeight] = useState(() => Number(readUi().dockHeight) || 196);
+      const [explorerWidth, setExplorerWidth] = useState(() => Number(readUi().explorerWidth) || 238);
+      const [pdfPct, setPdfPct] = useState(() => Number(readUi().pdfPct) || 44);
+      const [terminal, setTerminal] = useState([]);
+      const [stage, setStage] = useState("");
+      const [elapsed, setElapsed] = useState(0);
+      const [symbols, setSymbols] = useState({ labels: [], citations: [], files: [] });
       const [status, setStatus] = useState({ kind: "idle" });
       const [dialog, setDialog] = useState(null);
       const [busy, setBusy] = useState(false);
@@ -587,11 +1015,22 @@ window.__ModuleLoader__.load({
       const compileTimer = useRef(null);
       const toastTimer = useRef(null);
       const compilingRef = useRef(false);
+      const bodyRef = useRef(null);
+      const jobSourceRef = useRef(null);
+      const compileStartedRef = useRef(0);
 
       useEffect(() => { tabsRef.current = tabs; }, [tabs]);
       useEffect(() => { projectIdRef.current = project ? project.id : null; projectRef.current = project; }, [project]);
       useEffect(() => { activeRef.current = active; }, [active]);
       useEffect(() => { autoCompileRef.current = autoCompile; }, [autoCompile]);
+
+      useEffect(() => {
+        if (!compiling) return undefined;
+        const timer = window.setInterval(() => {
+          setElapsed(Math.round((Date.now() - compileStartedRef.current) / 1000));
+        }, 250);
+        return () => window.clearInterval(timer);
+      }, [compiling]);
 
       const notify = useCallback((message, kind) => {
         setToast({ message, kind: kind || "" });
@@ -668,7 +1107,7 @@ window.__ModuleLoader__.load({
           setActive(null);
           activeRef.current = null;
           setCompile(null);
-          setDrawerOpen(false);
+          setTerminal([]);
           setPdf({ rev: null, pages: 0, mode: "none" });
           setExpanded(new Set(["sections"]));
           const data = await request("tree", { query: { project: id } });
@@ -698,10 +1137,13 @@ window.__ModuleLoader__.load({
           activeRef.current = preferred;
           request("pdf-info", { query: { project: id } }).then((info) => {
             if (projectIdRef.current !== id) return;
-            if (info && info.exists) setPdf({ rev: info.rev, pages: info.renderedPages, mode: info.renderedPages > 0 ? "pages" : "iframe" });
+            if (info && info.exists) setPdf({ rev: info.rev, pages: info.pages, mode: info.pages > 0 ? "pages" : "iframe" });
+          }).catch(() => {});
+          request("symbols", { query: { project: id } }).then((data) => {
+            if (projectIdRef.current !== id) return;
+            setSymbols({ labels: data.labels || [], citations: data.citations || [], files: data.files || [] });
           }).catch(() => {});
           setStatus({ kind: "idle" });
-          setDrawerOpen(false);
         } catch (error) {
           setStatus({ kind: "error", message: error.message });
           notify(error.message, "err");
@@ -737,10 +1179,14 @@ window.__ModuleLoader__.load({
             pdf: pdfOpen,
             autoCompile,
             zoom,
+            dock,
+            dockHeight,
+            explorerWidth,
+            pdfPct,
           });
         }, 300);
         return () => clearTimeout(timer);
-      }, [tabs, active, explorerOpen, pdfOpen, autoCompile, zoom]);
+      }, [tabs, active, explorerOpen, pdfOpen, autoCompile, zoom, dock, dockHeight, explorerWidth, pdfPct]);
 
       // Cursor refresh when switching files.
       useEffect(() => {
@@ -797,40 +1243,119 @@ window.__ModuleLoader__.load({
         return next;
       }, [doSave]);
 
+      const refreshSymbols = useCallback(async () => {
+        const id = projectIdRef.current;
+        if (!id) return;
+        try {
+          const data = await request("symbols", { query: { project: id } });
+          if (projectIdRef.current !== id) return;
+          setSymbols({ labels: data.labels || [], citations: data.citations || [], files: data.files || [] });
+        } catch {
+          // Completion is an enhancement; failing to index must not disturb editing.
+        }
+      }, []);
+
+      const appendTerminal = useCallback((entry) => {
+        setTerminal((lines) => (lines.length > 3000 ? [...lines.slice(-3000), entry] : [...lines, entry]));
+      }, []);
+
+      const applyCompileResult = useCallback((result) => {
+        compilingRef.current = false;
+        setCompiling(false);
+        setStage("");
+        setElapsed(0);
+        setCompile(result);
+        if (result.ok) {
+          setPdf({ rev: result.rev, pages: result.pages, mode: result.pages > 0 ? "pages" : "iframe" });
+          setStatus({ kind: "ok", at: Date.now() });
+          notify(result.cached
+            ? t("cachedBuild")
+            : fmt(t("compileOk"), { pages: result.pages, time: formatDuration(result.durationMs) }));
+          if (result.warningsList && result.warningsList.length > 0) setDock("problems");
+        } else {
+          setDock("problems");
+          setStatus({ kind: "error", message: fmt(t("compileFailedWith"), { count: (result.errors || []).length }) });
+          notify(t("compileFailed"), "err");
+        }
+        void refreshTree();
+        void refreshSymbols();
+      }, [notify, refreshSymbols, refreshTree, t]);
+
       const runCompile = useCallback(async () => {
         const id = projectIdRef.current;
         if (!id || compilingRef.current) return;
         compilingRef.current = true;
         setCompiling(true);
         setStatus({ kind: "compiling" });
+        setTerminal([]);
+        setStage(t("stageSaving"));
+        setElapsed(0);
+        compileStartedRef.current = Date.now();
         try {
           const dirty = tabsRef.current.filter((item) => item.dirty && !item.conflict);
           await Promise.all(dirty.map((item) => saveTab(item.path)));
-          const result = await request("compile", { method: "POST", body: { project: id } });
-          setCompile(result);
-          if (result.ok) {
-            setPdf({ rev: result.rev, pages: result.renderedPages, mode: result.renderedPages > 0 ? "pages" : "iframe" });
-            setDrawerOpen(false);
-            setStatus({ kind: "ok", at: Date.now() });
-            notify(fmt(t("compileOk"), { pages: result.pages, time: formatDuration(result.durationMs) }));
-          } else {
-            setDrawerOpen(true);
-            setDrawerTab("problems");
-            setStatus({ kind: "error", message: fmt(t("compileFailedWith"), { count: result.errors.length }) });
-            notify(t("compileFailed"), "err");
-          }
-          void refreshTree();
+          const started = await request("compile/start", { method: "POST", body: { project: id } });
+          if (jobSourceRef.current) jobSourceRef.current.close();
+          const source = new EventSource(apiUrl("compile/events", { job: started.jobId }));
+          jobSourceRef.current = source;
+          let finished = false;
+          const settle = (result) => {
+            if (finished) return;
+            finished = true;
+            source.close();
+            if (jobSourceRef.current === source) jobSourceRef.current = null;
+            applyCompileResult(result);
+          };
+          const fail = (message) => {
+            if (finished) return;
+            finished = true;
+            source.close();
+            if (jobSourceRef.current === source) jobSourceRef.current = null;
+            compilingRef.current = false;
+            setCompiling(false);
+            appendTerminal({ kind: "err", text: message });
+            setCompile({ ok: false, errors: [], warningsList: [], log: message });
+            setDock("problems");
+            setStatus({ kind: "error", message });
+            notify(message, "err");
+          };
+          source.onmessage = (message) => {
+            let event;
+            try { event = JSON.parse(message.data); } catch { return; }
+            if (event.type === "command") {
+              appendTerminal({ kind: "cmd", text: `$ ${event.argv.join(" ")}` });
+              if (event.stage) setStage(event.stage);
+            } else if (event.type === "out") {
+              appendTerminal({ kind: event.channel === "stderr" ? "err" : "out", text: event.text });
+            } else if (event.type === "stage") {
+              if (event.label) setStage(event.label);
+              appendTerminal({ kind: "stage", text: `\u25b8 ${event.label}${event.detail ? ` \u2014 ${event.detail}` : ""}` });
+            } else if (event.type === "finish") {
+              settle(event.result);
+            } else if (event.type === "error") {
+              fail(event.message);
+            }
+          };
+          source.onerror = () => {
+            if (finished) return;
+            // The stream drops when the host restarts mid-compile; fall back to the
+            // plain request so the panel still ends in a consistent state.
+            finished = true;
+            source.close();
+            jobSourceRef.current = null;
+            request("compile", { method: "POST", body: { project: id } })
+              .then(applyCompileResult)
+              .catch((error) => fail(error.message));
+          };
         } catch (error) {
-          setStatus({ kind: "error", message: error.message });
-          setCompile({ ok: false, log: String(error.message), errors: [] });
-          setDrawerOpen(true);
-          setDrawerTab("log");
-          notify(error.message, "err");
-        } finally {
           compilingRef.current = false;
           setCompiling(false);
+          setStatus({ kind: "error", message: error.message });
+          setCompile({ ok: false, log: String(error.message), errors: [], warningsList: [] });
+          setDock("problems");
+          notify(error.message, "err");
         }
-      }, [notify, refreshTree, saveTab, t]);
+      }, [appendTerminal, applyCompileResult, notify, saveTab, t]);
 
       const runCompileRef = useRef(runCompile);
       useEffect(() => { runCompileRef.current = runCompile; }, [runCompile]);
@@ -847,6 +1372,9 @@ window.__ModuleLoader__.load({
           } else if (event.key === "Enter") {
             event.preventDefault();
             void runCompileRef.current();
+          } else if (event.key === "`") {
+            event.preventDefault();
+            setDock((current) => (current === "terminal" ? null : "terminal"));
           }
         };
         window.addEventListener("keydown", onKeyDown, true);
@@ -865,6 +1393,7 @@ window.__ModuleLoader__.load({
         clearTimeout(toastTimer.current);
         clearTimeout(compileTimer.current);
         for (const timer of saveTimers.current.values()) clearTimeout(timer);
+        if (jobSourceRef.current) jobSourceRef.current.close();
       }, []);
 
       const onEdit = useCallback((path, content) => {
@@ -1177,9 +1706,36 @@ window.__ModuleLoader__.load({
           actions);
       };
 
-      const maxWidthStyle = {
-        gridTemplateColumns: `${explorerOpen ? "238px" : "0px"} minmax(0, 1fr) ${pdfOpen ? "44%" : "0px"}`,
-      };
+      const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+      const startResize = useCallback((kind) => (event) => {
+        if (event.pointerType === "mouse" && event.button !== 0) return;
+        event.preventDefault();
+        const startX = event.clientX;
+        const startY = event.clientY;
+        const initial = kind === "explorer" ? explorerWidth : kind === "pdf" ? pdfPct : dockHeight;
+        const width = bodyRef.current ? bodyRef.current.getBoundingClientRect().width : window.innerWidth;
+        const move = (moveEvent) => {
+          if (kind === "explorer") setExplorerWidth(clamp(initial + moveEvent.clientX - startX, 180, 460));
+          else if (kind === "pdf") setPdfPct(clamp(initial - ((moveEvent.clientX - startX) / Math.max(360, width)) * 100, 22, 70));
+          else setDockHeight(clamp(initial - (moveEvent.clientY - startY), 96, 520));
+        };
+        const up = () => {
+          window.removeEventListener("pointermove", move);
+          window.removeEventListener("pointerup", up);
+          document.body.classList.remove("ps-resizing");
+        };
+        document.body.classList.add("ps-resizing");
+        window.addEventListener("pointermove", move);
+        window.addEventListener("pointerup", up);
+      }, [dockHeight, explorerWidth, pdfPct]);
+
+      const columns = [];
+      if (explorerOpen) columns.push(`${explorerWidth}px`, "5px");
+      columns.push("minmax(0, 1fr)");
+      if (pdfOpen) columns.push("5px", `${pdfPct}%`);
+
+      const problemCount = compile ? ((compile.errors || []).length + (compile.warningsList || []).length) : 0;
 
       return h("div", { className: "ps-root" },
         h("header", { className: "ps-head" },
@@ -1224,11 +1780,23 @@ window.__ModuleLoader__.load({
             "aria-pressed": pdfOpen, onClick: () => setPdfOpen((value) => !value),
           }, h(Icon.pdf)),
           h("button", {
+            className: `ps-btn${dock === "terminal" ? " active" : ""}`, type: "button", title: `${t("terminal")} — ${t("terminalHint")}`,
+            "aria-pressed": dock === "terminal",
+            onClick: () => setDock((current) => (current === "terminal" ? null : "terminal")),
+          }, h(Icon.terminal), h("span", { className: "ps-hide-narrow" }, t("terminal"))),
+          h("button", {
+            className: `ps-btn${dock === "problems" ? " active" : ""}`, type: "button", title: t("problemsHint"), disabled: !project,
+            "aria-pressed": dock === "problems",
+            onClick: () => setDock((current) => (current === "problems" ? null : "problems")),
+          }, h(Icon.alert), h("span", { className: "ps-hide-narrow" }, t("problems")),
+            problemCount > 0 ? h("span", { className: "ps-badge", style: { padding: "0 5px", fontSize: 10 } }, problemCount) : null),
+          h("button", {
             className: "ps-btn primary", type: "button", onClick: () => { void runCompile(); },
             disabled: compiling || !project, title: `${t("compile")} (${t("compileHint")})`,
           }, compiling ? h(Icon.refresh, { className: "ps-spin" }) : h(Icon.play), compiling ? t("compiling") : t("compile"))),
 
-        h("div", { className: "ps-main", style: maxWidthStyle },
+        h("div", { className: "ps-main" },
+          h("div", { className: "ps-body", ref: bodyRef, style: { gridTemplateColumns: columns.join(" ") } },
           project && explorerOpen ? h("section", { className: "ps-pane ps-explorer", "aria-label": t("files") },
             h("div", { className: "ps-pane-head" },
               h("span", { className: "ps-pane-title" }, t("files")),
@@ -1268,6 +1836,11 @@ window.__ModuleLoader__.load({
                 onClick: () => { openDialog("settings", { projectId: project.id, name: project.name, mainFile: project.mainFile || "", remote: project.overleaf ? project.overleaf.remote : "", token: "" }); void runGit("status"); },
               }, project.overleaf ? t("overleafBadge") : t("gitBadge")))) : null,
 
+          explorerOpen ? h("div", {
+            className: "ps-split", role: "separator", "aria-orientation": "vertical", title: t("files"),
+            onPointerDown: startResize("explorer"), onDoubleClick: () => setExplorerWidth(238),
+          }) : null,
+
           h(EditorPane, {
             t, tabs, activePath: active, tab: currentTab, cursor, compile, autoCompile, status,
             onSelectTab: (path) => { setActive(path); activeRef.current = path; },
@@ -1280,13 +1853,13 @@ window.__ModuleLoader__.load({
             onInsertText: insertText,
             onReloadDisk: reloadDisk,
             onKeepMine: keepMine,
-            saving: false,
-            showDrawer: drawerOpen,
-            drawerTab,
-            onDrawerTab: setDrawerTab,
-            onCloseDrawer: () => setDrawerOpen(false),
-            onOpenProblem: (problem) => { void openFile(problem.file, problem.line); },
+            symbols,
           }),
+
+          pdfOpen ? h("div", {
+            className: "ps-split", role: "separator", "aria-orientation": "vertical", title: t("pdf"),
+            onPointerDown: startResize("pdf"), onDoubleClick: () => setPdfPct(44),
+          }) : null,
 
           project && pdfOpen ? h("section", { className: "ps-pane ps-pdf", "aria-label": t("pdf") },
             h("div", { className: "ps-pane-head" },
@@ -1319,6 +1892,15 @@ window.__ModuleLoader__.load({
                 h("select", { value: zoom, onChange: (event) => setZoom(Number(event.target.value)) },
                   [75, 100, 125, 150, 200].map((value) => h("option", { key: value, value }, `${value}%`)))))) : null),
 
+          dock ? h(Dock, {
+            t, tab: dock, onTab: setDock, onClose: () => setDock(null),
+            compile, terminal, stage, elapsed, compiling,
+            onClear: () => setTerminal([]),
+            height: dockHeight,
+            onResize: startResize("dock"),
+            onOpenProblem: (problem) => { if (problem.file) void openFile(problem.file, problem.line); },
+          }) : null),
+
         !project
           ? h("div", { className: "ps-empty", style: { position: "absolute", inset: "48px 0 0", background: "var(--dsw-alias-bg-base)", paddingTop: "calc(48px + var(--dsh-frame-top-clearance,0px))" } },
             h("div", { className: "ps-empty-icon" }, h(Icon.logo)),
@@ -1338,6 +1920,8 @@ window.__ModuleLoader__.load({
     // -- plugin ------------------------------------------------------------
     return {
       inject: ["slots", "locale", "layout"],
+      /** Pure helpers exercised by test/client.test.mjs (no browser needed). */
+      __internals: { Studio, EditorPane, Dock, highlightLatex, completionContext, completionItems, escapeHtml },
       apply(ctx) {
         ctx.effect(() => {
           const style = document.createElement("style");

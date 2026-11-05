@@ -11,7 +11,7 @@
  * The same operations are exposed to the agent as the `paper_studio` tool.
  */
 import { execFile, spawn } from "node:child_process";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import {
   chmod, mkdir, readFile, readdir, rename, rm, stat, writeFile,
 } from "node:fs/promises";
@@ -279,7 +279,7 @@ async function detectTooling() {
 }
 
 /** Run one bounded child process, collecting capped stdout/stderr. */
-function run(argv, { cwd, env, timeoutMs = COMPILE_TIMEOUT_MS } = {}) {
+function run(argv, { cwd, env, timeoutMs = COMPILE_TIMEOUT_MS, onData } = {}) {
   return new Promise((resolveRun) => {
     let stdout = "";
     let stderr = "";
@@ -309,11 +309,17 @@ function run(argv, { cwd, env, timeoutMs = COMPILE_TIMEOUT_MS } = {}) {
     }, Math.max(1000, timeoutMs));
     child.stdout?.on("data", (chunk) => {
       const text = append(chunk);
-      if (text !== undefined) stdout += text;
+      if (text !== undefined) {
+        stdout += text;
+        if (onData) onData(text, "stdout");
+      }
     });
     child.stderr?.on("data", (chunk) => {
       const text = append(chunk);
-      if (text !== undefined) stderr += text;
+      if (text !== undefined) {
+        stderr += text;
+        if (onData) onData(text, "stderr");
+      }
     });
     const finish = (code, signal) => {
       if (settled) return;
@@ -391,19 +397,6 @@ function pageNumber(file) {
   return match ? Number(match[1]) : 0;
 }
 
-async function renderPages(pdfPath, buildDir, pageCount, tooling) {
-  if (!tooling.pdftoppm || pageCount === 0) return [];
-  const pagesDir = join(buildDir, "pages");
-  await rm(pagesDir, { recursive: true, force: true });
-  await mkdir(pagesDir, { recursive: true });
-  const limit = Math.min(pageCount, MAX_RENDER_PAGES);
-  await run([
-    "pdftoppm", "-png", "-r", String(PAGE_DPI), "-f", "1", "-l", String(limit), pdfPath, join(pagesDir, "page"),
-  ], { timeoutMs: 120_000 });
-  const files = (await readdir(pagesDir).catch(() => [])).filter((file) => file.endsWith(".png"));
-  return files.sort((a, b) => pageNumber(a) - pageNumber(b)).map((file) => ({ file, page: pageNumber(file) }));
-}
-
 async function buildCacheFromDisk(project) {
   const tooling = await detectTooling();
   const mainFile = await findMainFile(project);
@@ -414,9 +407,8 @@ async function buildCacheFromDisk(project) {
   const info = await stat(pdfPath).catch(() => null);
   if (!info?.isFile()) return null;
   const pages = await pdfPageCount(pdfPath, tooling);
-  let files = (await readdir(join(buildDir, "pages")).catch(() => [])).filter((file) => file.endsWith(".png"));
-  files = files.sort((a, b) => pageNumber(a) - pageNumber(b)).map((file) => ({ file, page: pageNumber(file) }));
-  if (files.length === 0 && tooling.pdftoppm && pages > 0) files = await renderPages(pdfPath, buildDir, pages, tooling);
+  const files = (await readdir(join(buildDir, "pages")).catch(() => [])).filter((file) => file.endsWith(".png"))
+    .sort((a, b) => pageNumber(a) - pageNumber(b)).map((file) => ({ file, page: pageNumber(file) }));
   const cache = {
     ok: true,
     rev: Math.round(info.mtimeMs),
@@ -427,8 +419,14 @@ async function buildCacheFromDisk(project) {
     files,
     errors: [],
     warnings: 0,
+    warningsList: [],
     logTail: "",
     durationMs: 0,
+    bibtex: false,
+    passes: 0,
+    fingerprint: (await projectFingerprint(project)).hash,
+    exitCode: 0,
+    timedOut: false,
     at: new Date(info.mtimeMs).toISOString(),
     restored: true,
   };
@@ -440,8 +438,118 @@ async function ensureCompiled(project) {
   return compiled.get(project.id) ?? buildCacheFromDisk(project);
 }
 
-async function compileProject(project) {
+/**
+ * Warnings the panel lists beside errors: LaTeX/package warnings, over- and
+ * underfull boxes (the usual "it compiles but the typesetting is ugly" cases),
+ * and bibtex's `Warning--` lines.
+ */
+function parseLatexWarnings(log, fallbackFile) {
+  const warnings = [];
+  const seen = new Set();
+  const push = (entry) => {
+    const key = `${entry.kind}:${entry.file}:${entry.line}:${entry.message}`;
+    if (seen.has(key) || warnings.length >= 200) return;
+    seen.add(key);
+    warnings.push(entry);
+  };
+  const lines = log.split(/\r?\n/u);
+  for (let index = 0; index < lines.length; index += 1) {
+    const text = lines[index].trim();
+    const warning = /^(?:LaTeX|Package\s+[\w@.-]+|Class\s+[\w@.-]+)\s+Warning:\s*(.+)$/u.exec(text);
+    if (warning) {
+      const message = warning[1].trim();
+      const inline = /(?:on input line|at lines?)\s+(\d+)/u.exec(message);
+      let lineNumber = inline ? Number(inline[1]) : null;
+      if (lineNumber === null) {
+        for (let ahead = index + 1; ahead < Math.min(lines.length, index + 6); ahead += 1) {
+          const context = /^(?:l\.|on input line\s+)(\d+)/u.exec(lines[ahead].trim());
+          if (context) { lineNumber = Number(context[1]); break; }
+        }
+      }
+      push({ kind: "warning", file: fallbackFile, line: lineNumber, message: message.slice(0, 600) });
+      continue;
+    }
+    const box = /^(Overfull|Underfull)\s+\\[hv]box[\s\S]*?at lines?\s+(\d+)/u.exec(text);
+    if (box) {
+      push({ kind: "badbox", file: fallbackFile, line: Number(box[2]), message: text.slice(0, 400) });
+      continue;
+    }
+    const bibtexWarning = /^Warning--(.+)$/u.exec(text);
+    if (bibtexWarning) {
+      push({ kind: "bibtex", file: null, line: null, message: bibtexWarning[1].trim().slice(0, 400) });
+    }
+  }
+  return warnings;
+}
+
+/** Inputs whose change invalidates a build. */
+const FINGERPRINT_RE = /\.(?:tex|bib|cls|sty|bst|cfg|def|clo|bbx|cbx|lbx|bibtex)$/iu;
+
+async function listInputs(root, relative, out) {
+  let entries;
+  try {
+    entries = await readdir(relative.length === 0 ? root : join(root, relative), { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    if (entry.name.startsWith(".") || SKIP_DIRS.has(entry.name)) continue;
+    const child = relative.length === 0 ? entry.name : `${relative}/${entry.name}`;
+    if (entry.isDirectory()) {
+      await listInputs(root, child, out);
+      continue;
+    }
+    if (!FINGERPRINT_RE.test(entry.name)) continue;
+    const info = await stat(join(root, child)).catch(() => null);
+    if (info?.isFile()) out.push(`${child}\u0000${Math.round(info.mtimeMs)}\u0000${info.size}`);
+  }
+}
+
+/**
+ * Cheap content fingerprint: source mtimes + sizes, so an unchanged recompile is
+ * skipped. `bibHash` covers only bibliography files, letting a prose edit reuse
+ * the existing `.bbl` instead of rerunning bibtex and a second pdflatex pass.
+ */
+async function projectFingerprint(project) {
+  const inputs = [];
+  await listInputs(project.path, "", inputs);
+  inputs.sort();
+  const bibs = inputs.filter((entry) => /\.bib\u0000/u.test(entry));
+  return {
+    hash: createHash("sha1").update(inputs.join("\n")).digest("hex"),
+    bibHash: createHash("sha1").update(bibs.join("\n")).digest("hex"),
+  };
+}
+
+/** In-flight page rasterizations, so two <img> loads for one page share a run. */
+const pageJobs = new Map();
+
+/** Render one page on demand into `.paper-studio/build/pages`, reusing the file if present. */
+async function renderPage(pdfPath, buildDir, page, tooling) {
+  if (!tooling.pdftoppm || !Number.isFinite(page) || page < 1) return null;
+  const pagesDir = join(buildDir, "pages");
+  const name = `page-${page}.png`;
+  const target = join(pagesDir, name);
+  const existing = await stat(target).catch(() => null);
+  if (existing?.isFile() && existing.size > 0) return name;
+  const key = `${pdfPath}:${page}`;
+  if (!pageJobs.has(key)) {
+    const job = (async () => {
+      await mkdir(pagesDir, { recursive: true });
+      await run([
+        "pdftoppm", "-png", "-r", String(PAGE_DPI), "-singlefile", "-f", String(page), "-l", String(page), pdfPath, join(pagesDir, `page-${page}`),
+      ], { timeoutMs: 60_000 });
+      const after = await stat(target).catch(() => null);
+      return after?.isFile() && after.size > 0 ? name : null;
+    })().finally(() => pageJobs.delete(key));
+    pageJobs.set(key, job);
+  }
+  return pageJobs.get(key);
+}
+
+async function compileProject(project, emit) {
   const started = Date.now();
+  const signal = typeof emit === "function" ? emit : () => {};
   const tooling = await detectTooling();
   if (!tooling.pdflatex) {
     throw new HttpError(503, "pdflatex was not found on PATH. Install a TeX distribution (TeX Live / MacTeX) and retry.");
@@ -455,55 +563,126 @@ async function compileProject(project) {
   const buildDir = join(project.path, ".paper-studio", "build");
   await mkdir(buildDir, { recursive: true });
 
+  // Inputs unchanged since the last successful build: reuse it instead of
+  // spending three pdflatex passes on an identical document.
+  const fingerprint = await projectFingerprint(project);
+  const previous = compiled.get(project.id);
+  if (previous?.ok && previous.fingerprint === fingerprint.hash && previous.pdfPath) {
+    const pdfInfo = await stat(previous.pdfPath).catch(() => null);
+    if (pdfInfo?.isFile()) {
+      signal({ type: "stage", label: "up to date", detail: "sources unchanged since the last build" });
+      const files = (await readdir(join(buildDir, "pages")).catch(() => [])).filter((file) => file.endsWith(".png")).sort((a, b) => pageNumber(a) - pageNumber(b)).map((file) => ({ file, page: pageNumber(file) }));
+      const reuse = { ...previous, rev: Math.round(pdfInfo.mtimeMs), files, durationMs: 0, cached: true, at: new Date().toISOString() };
+      compiled.set(project.id, reuse);
+      return {
+        ok: true,
+        cached: true,
+        durationMs: 0,
+        mainFile,
+        pages: reuse.pages,
+        renderedPages: files.length,
+        errors: reuse.errors ?? [],
+        warnings: (reuse.warningsList ?? []).length,
+        warningsList: reuse.warningsList ?? [],
+        bibtex: Boolean(reuse.bibtex),
+        passes: 0,
+        rev: reuse.rev,
+        exitCode: 0,
+        timedOut: false,
+        log: reuse.logTail ?? "",
+        tooling,
+      };
+    }
+  }
+
   const passes = [];
   const latexArgv = [
-    "pdflatex", "-interaction=nonstopmode", "-file-line-error", "-synctex=1", "-output-directory", buildDir, basename(mainFile),
+    "pdflatex", "-interaction=nonstopmode", "-file-line-error", "-output-directory", buildDir, basename(mainFile),
   ];
-  const first = await run(latexArgv, { cwd: project.path, timeoutMs: COMPILE_TIMEOUT_MS });
-  passes.push(first);
-  let bibtexRan = false;
+  const streamOutput = (chunk, channel) => signal({ type: "out", channel, text: chunk });
+  const hashFile = async (path) => {
+    const text = await readFile(path, "utf8").catch(() => "");
+    return text.length === 0 ? "" : createHash("sha1").update(text).digest("hex");
+  };
   const auxPath = join(buildDir, `${base}.aux`);
-  const aux = await readFile(auxPath, "utf8").catch(() => "");
-  if (tooling.bibtex && /\\bibdata\{/u.test(aux)) {
-    const bibtex = await run(["bibtex", base], {
-      cwd: buildDir,
-      timeoutMs: 60_000,
-      env: {
-        // The trailing separator keeps kpathsea's default search path after the
-        // project root, so `plain.bst` and friends still resolve while the
-        // project's own `references.bib` is found from the build directory.
-        BIBINPUTS: `${project.path}${sep === "\\" ? ";" : ":"}${process.env.BIBINPUTS ?? ""}`,
-      },
-    });
-    passes.push(bibtex);
-    bibtexRan = true;
+  const bblPath = join(buildDir, `${base}.bbl`);
+  const latexPass = async (label) => {
+    signal({ type: "command", argv: latexArgv, stage: label });
+    const result = await run(latexArgv, { cwd: project.path, timeoutMs: COMPILE_TIMEOUT_MS, onData: streamOutput });
+    passes.push(result);
+    return result;
+  };
+  const first = await latexPass("pdflatex · pass 1");
+  const auxText = await readFile(auxPath, "utf8").catch(() => "");
+  const auxHash = await hashFile(auxPath);
+  let bibtexRan = false;
+  let bibtexChanged = false;
+  let bibtexPass = null;
+  const rerunHint = (pass) => /Rerun to get|Label\(s\) may have changed|undefined/iu.test(`${pass.stdout}\n${pass.stderr}`);
+  if (tooling.bibtex && /\\bibdata\{/u.test(auxText)) {
+    const bblBefore = await hashFile(bblPath);
+    // Rerun bibtex only when the citations or the .bib changed, or no .bbl exists.
+    const needsBibtex = !previous?.ok || previous.bibHash !== fingerprint.bibHash || previous.auxHash !== auxHash || bblBefore === "";
+    if (needsBibtex) {
+      const argv = ["bibtex", base];
+      signal({ type: "command", argv, stage: "bibtex" });
+      const bibtex = await run(argv, {
+        cwd: buildDir,
+        timeoutMs: 60_000,
+        onData: streamOutput,
+        env: {
+          // The trailing separator keeps kpathsea's default search path after the
+          // project root, so `plain.bst` and friends still resolve while the
+          // project's own `references.bib` is found from the build directory.
+          BIBINPUTS: `${project.path}${sep === "\\" ? ";" : ":"}${process.env.BIBINPUTS ?? ""}`,
+        },
+      });
+      passes.push(bibtex);
+      bibtexRan = true;
+      bibtexPass = bibtex;
+      bibtexChanged = (await hashFile(bblPath)) !== bblBefore;
+    } else {
+      signal({ type: "stage", label: "bibtex skipped", detail: "citations unchanged" });
+    }
   }
-  if (bibtexRan || first.code !== 0) {
-    const second = await run(latexArgv, { cwd: project.path, timeoutMs: COMPILE_TIMEOUT_MS });
-    passes.push(second);
+  // A second pdflatex pass is only needed when the bibliography actually changed,
+  // the first pass failed, or LaTeX asked for a rerun (labels/citations moved).
+  if (bibtexChanged || first.code !== 0 || rerunHint(first)) {
+    await latexPass(bibtexRan ? "pdflatex · pass 2" : "pdflatex · retry");
   }
   let last = passes[passes.length - 1];
-  const rerun = /Rerun to get|Label\(s\) may have changed|undefined references/iu.test(`${last.stdout}\n${last.stderr}`);
-  if (rerun) {
-    last = await run(latexArgv, { cwd: project.path, timeoutMs: COMPILE_TIMEOUT_MS });
-    passes.push(last);
-  }
+  if (last !== first && rerunHint(last)) last = await latexPass("pdflatex · pass 3 (cross-references)");
 
   const combined = passes.map((pass) => `${pass.stdout}\n${pass.stderr}`).join("\n");
   const log = truncateLog(combined);
-  const errors = parseLatexErrors(combined, mainFile).map((entry) => {
-    let file = entry.file.replace(/^\.\//u, "");
+  // Diagnose the last pass only: an earlier pass's "undefined citation" is fixed
+  // by the rerun, so reporting it would flag a successful build as broken.
+  const finalLog = `${last.stdout}\n${last.stderr}`;
+  const bibtexLog = bibtexPass ? `${bibtexPass.stdout}\n${bibtexPass.stderr}` : "";
+  const relativeFile = (entry) => {
+    let file = String(entry.file ?? "").replace(/^\.\//u, "");
     if (isAbsolute(file) && (file === project.path || file.startsWith(project.path + sep))) {
       file = file.slice(project.path.length + 1);
     }
     return { ...entry, file };
-  });
-  const warningMatch = combined.match(/LaTeX Warning:/gu);
+  };
+  const errors = parseLatexErrors(finalLog, mainFile).map(relativeFile);
+  const warningsList = parseLatexWarnings(`${finalLog}\n${bibtexLog}`, mainFile).map(relativeFile);
   const pdfPath = join(buildDir, `${base}.pdf`);
   const pdfInfo = await stat(pdfPath).catch(() => null);
   const ok = last.code === 0 && Boolean(pdfInfo?.isFile());
   const pages = ok ? await pdfPageCount(pdfPath, tooling) : 0;
-  const files = ok ? await renderPages(pdfPath, buildDir, pages, tooling) : [];
+  let files = [];
+  if (ok) {
+    // Page images belong to exactly one PDF revision: drop the previous rev,
+    // draw page 1 immediately (the panel's first paint) and leave the rest to
+    // the on-demand `/page` route.
+    await rm(join(buildDir, "pages"), { recursive: true, force: true });
+    signal({ type: "stage", label: "rendering page 1" });
+    const firstPage = await renderPage(pdfPath, buildDir, 1, tooling);
+    files = firstPage ? [{ file: firstPage, page: 1 }] : [];
+  }
+  const durationMs = Date.now() - started;
   const cache = {
     ok,
     rev: ok ? Number(pdfInfo.mtimeMs) : Date.now(),
@@ -513,22 +692,30 @@ async function compileProject(project) {
     pages,
     files,
     errors,
-    warnings: warningMatch ? warningMatch.length : 0,
+    warnings: warningsList.length,
+    warningsList,
     logTail: log,
-    durationMs: Date.now() - started,
+    durationMs,
     bibtex: bibtexRan,
     passes: passes.length,
+    fingerprint: fingerprint.hash,
+    bibHash: fingerprint.bibHash,
+    auxHash: await hashFile(auxPath),
+    exitCode: last.code,
+    timedOut: passes.some((pass) => pass.timedOut),
     at: new Date().toISOString(),
   };
   if (ok) compiled.set(project.id, cache);
   return {
     ok,
-    durationMs: cache.durationMs,
+    cached: false,
+    durationMs,
     mainFile,
     pages,
     renderedPages: files.length,
     errors,
-    warnings: cache.warnings,
+    warnings: warningsList.length,
+    warningsList,
     bibtex: bibtexRan,
     passes: passes.length,
     rev: cache.rev,
@@ -925,6 +1112,7 @@ const ops = {
     }
     await mkdir(dirname(target), { recursive: true });
     await writeFile(target, next, "utf8");
+    symbolsCache.delete(project.id);
     const after = await stat(target);
     return { ok: true, path: relative, mtime: after.mtimeMs, size: after.size };
   },
@@ -941,6 +1129,7 @@ const ops = {
     }
     await mkdir(dirname(target), { recursive: true });
     await writeFile(target, "", "utf8");
+    symbolsCache.delete(project.id);
     return { ok: true, path: relative, dir: false };
   },
 
@@ -949,6 +1138,7 @@ const ops = {
     const target = insideProject(project, relative);
     if (target === project.path) throw new HttpError(400, "Refusing to delete the project root");
     await rm(target, { recursive: true, force: true });
+    symbolsCache.delete(project.id);
     return { ok: true, path: relative };
   },
 
@@ -960,12 +1150,13 @@ const ops = {
     if (await stat(destination).catch(() => null)) throw new HttpError(409, `Already exists: ${to}`);
     await mkdir(dirname(destination), { recursive: true });
     await rename(source, destination);
+    symbolsCache.delete(project.id);
     return { ok: true, from, to };
   },
 
   async compile({ project: reference }) {
     const project = projectRef(reference);
-    const { tooling: _tooling, ...result } = await compileProject(project);
+    const { tooling: _tooling, ...result } = await serializeCompile(project.id, () => compileProject(project));
     return { project: publicProject(project), ...result };
   },
 
@@ -1026,6 +1217,237 @@ async function walkTree(root, relative, out, depth) {
     const info = await stat(join(root, child)).catch(() => null);
     out.push({ path: child, name, dir: false, size: info?.size ?? 0, mtime: info?.mtimeMs ?? 0 });
   }
+}
+
+// ---------------------------------------------------------------------------
+// Compile jobs (streamed to the panel's terminal) and completion symbols
+// ---------------------------------------------------------------------------
+
+const JOB_TTL_MS = 10 * 60_000;
+const MAX_JOB_EVENTS = 6000;
+const jobs = new Map();
+/** One compile per project at a time: concurrent runs would share the build dir. */
+const compileChains = new Map();
+
+function serializeCompile(projectId, work) {
+  const previous = compileChains.get(projectId) ?? Promise.resolve();
+  const next = previous.catch(() => {}).then(work);
+  const tail = next.finally(() => {
+    if (compileChains.get(projectId) === tail) compileChains.delete(projectId);
+  });
+  compileChains.set(projectId, tail);
+  return next;
+}
+
+function createJob(project) {
+  const job = {
+    id: `j_${randomBytes(6).toString("hex")}`,
+    projectId: project.id,
+    projectName: project.name,
+    events: [],
+    listeners: new Set(),
+    done: false,
+    result: null,
+    error: null,
+    startedAt: Date.now(),
+    finishedAt: null,
+  };
+  let seq = 0;
+  job.emit = (event) => {
+    const entry = { seq: (seq += 1), at: Date.now(), ...event };
+    job.events.push(entry);
+    if (job.events.length > MAX_JOB_EVENTS) job.events.splice(0, job.events.length - MAX_JOB_EVENTS);
+    for (const listener of job.listeners) {
+      try { listener(entry); } catch { /* the browser went away mid-stream */ }
+    }
+  };
+  jobs.set(job.id, job);
+  const timer = setTimeout(() => jobs.delete(job.id), JOB_TTL_MS);
+  timer.unref?.();
+  return job;
+}
+
+/** Start a compile for a project and return immediately; progress arrives over SSE. */
+function startCompileJob(project) {
+  const job = createJob(project);
+  job.emit({ type: "start", project: { id: project.id, name: project.name, path: project.path } });
+  void serializeCompile(project.id, () => compileProject(project, job.emit))
+    .then((result) => {
+      job.result = result;
+      job.done = true;
+      job.finishedAt = Date.now();
+      job.emit({ type: "finish", ok: Boolean(result.ok), result });
+    })
+    .catch((error) => {
+      job.error = error?.message ?? String(error);
+      job.done = true;
+      job.finishedAt = Date.now();
+      job.emit({ type: "error", message: job.error });
+    });
+  return job;
+}
+
+function streamJob(request, response, job) {
+  response.writeHead(200, {
+    "content-type": "text/event-stream; charset=utf-8",
+    "cache-control": "no-store, no-transform",
+    connection: "keep-alive",
+    "x-accel-buffering": "no",
+  });
+  let closed = false;
+  const send = (entry) => {
+    if (closed) return;
+    try {
+      response.write(`id: ${entry.seq}\ndata: ${JSON.stringify(entry)}\n\n`);
+    } catch {
+      cleanup();
+    }
+  };
+  const cleanup = () => {
+    if (closed) return;
+    closed = true;
+    clearInterval(heartbeat);
+    job.listeners.delete(onEvent);
+    try { response.end(); } catch { /* already closed */ }
+  };
+  const onEvent = (entry) => {
+    send(entry);
+    if (entry.type === "finish" || entry.type === "error") cleanup();
+  };
+  const heartbeat = setInterval(() => {
+    if (!closed) {
+      try { response.write(": ping\n\n"); } catch { cleanup(); }
+    }
+  }, 15_000);
+  response.on("close", cleanup);
+  request.on("close", cleanup);
+  let lastSeq = 0;
+  for (const entry of job.events) {
+    send(entry);
+    lastSeq = entry.seq;
+  }
+  // A job can finish between the replay above and the listener registration;
+  // catch up on anything emitted in that window so the client always sees the
+  // final event instead of waiting forever.
+  job.listeners.add(onEvent);
+  if (job.done) {
+    for (const entry of job.events) if (entry.seq > lastSeq) send(entry);
+    cleanup();
+  }
+}
+
+const SYMBOL_CACHE_MS = 5_000;
+const symbolsCache = new Map();
+
+/** Read one bibtex field value, respecting braces and quotes. */
+function readBibValue(body, field) {
+  const match = new RegExp(`\\b${field}\\s*=\\s*`, "iu").exec(body);
+  if (!match) return "";
+  let index = match.index + match[0].length;
+  if (body[index] === "{") {
+    const start = index + 1;
+    let depth = 0;
+    for (; index < body.length; index += 1) {
+      if (body[index] === "{") depth += 1;
+      else if (body[index] === "}") {
+        depth -= 1;
+        if (depth === 0) return body.slice(start, index);
+      }
+    }
+    return body.slice(start);
+  }
+  if (body[index] === '"') {
+    const end = body.indexOf('"', index + 1);
+    return end === -1 ? body.slice(index + 1) : body.slice(index + 1, end);
+  }
+  const end = body.slice(index).search(/[,\n]/u);
+  return end === -1 ? body.slice(index) : body.slice(index, index + end);
+}
+
+function parseBibEntries(text) {
+  const entries = [];
+  const header = /@([a-zA-Z]+)\s*\{\s*([^,\s}]+)\s*,/gu;
+  let match;
+  while ((match = header.exec(text))) {
+    const type = match[1].toLowerCase();
+    if (type === "string" || type === "preamble" || type === "comment") continue;
+    let depth = 1;
+    let index = header.lastIndex;
+    for (; index < text.length; index += 1) {
+      if (text[index] === "{") depth += 1;
+      else if (text[index] === "}") {
+        depth -= 1;
+        if (depth === 0) break;
+      }
+    }
+    const body = text.slice(header.lastIndex - 1, index);
+    const title = readBibValue(body, "title");
+    const year = /\b(\d{4})\b/u.exec(readBibValue(body, "year"));
+    entries.push({
+      key: match[2],
+      type,
+      title: title.replace(/[{}]/gu, "").replace(/\s+/gu, " ").trim().slice(0, 160),
+      year: year ? year[1] : null,
+    });
+  }
+  return entries;
+}
+
+/** Citation keys, cross-reference labels and includable files for autocomplete. */
+async function collectSymbols(project) {
+  const cached = symbolsCache.get(project.id);
+  if (cached && Date.now() - cached.at < SYMBOL_CACHE_MS) return cached.value;
+  const labels = [];
+  const citations = [];
+  const files = [];
+  const seenLabels = new Set();
+  const seenCites = new Set();
+  const visit = async (relative) => {
+    const dir = relative.length === 0 ? project.path : join(project.path, relative);
+    let entries;
+    try {
+      entries = await readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (entry.name.startsWith(".") || SKIP_DIRS.has(entry.name)) continue;
+      const child = relative.length === 0 ? entry.name : `${relative}/${entry.name}`;
+      if (entry.isDirectory()) {
+        await visit(child);
+        continue;
+      }
+      if (/\.(?:png|jpe?g|pdf|eps|svg|tex|bib)$/iu.test(entry.name)) files.push(child);
+      if (!/\.(?:tex|bib)$/iu.test(entry.name)) continue;
+      const info = await stat(join(project.path, child)).catch(() => null);
+      if (!info?.isFile() || info.size > MAX_FILE_BYTES) continue;
+      const text = await readFile(join(project.path, child), "utf8").catch(() => "");
+      if (/\.tex$/iu.test(entry.name)) {
+        const labelRe = /\\label\s*\{([^{}]+)\}/gu;
+        let match;
+        while ((match = labelRe.exec(text))) {
+          const key = match[1].trim();
+          if (key.length === 0 || seenLabels.has(key)) continue;
+          seenLabels.add(key);
+          labels.push({ key, file: child, line: text.slice(0, match.index).split("\n").length });
+        }
+      } else {
+        for (const cite of parseBibEntries(text)) {
+          if (seenCites.has(cite.key)) continue;
+          seenCites.add(cite.key);
+          citations.push({ ...cite, file: child });
+        }
+      }
+    }
+  };
+  await visit("");
+  const value = {
+    labels: labels.slice(0, 2000),
+    citations: citations.slice(0, 2000),
+    files: files.slice(0, 2000),
+  };
+  symbolsCache.set(project.id, { at: Date.now(), value });
+  return value;
 }
 
 // ---------------------------------------------------------------------------
@@ -1127,10 +1549,25 @@ function createHandler(token) {
           return sendBytes(response, 200, bytes, "application/pdf", { "content-disposition": "inline" });
         }
         const requested = Number(url.searchParams.get("page") ?? "0");
-        const file = cache.files.find((candidate) => candidate.page === requested);
-        if (!file) return sendJson(response, 404, { error: `Page ${requested} is not rendered` });
-        const bytes = await readFile(join(dirname(cache.pdfPath), "pages", file.file));
+        if (!Number.isInteger(requested) || requested < 1) return sendJson(response, 400, { error: "Invalid page number" });
+        const buildDir = dirname(cache.pdfPath);
+        const rendered = await renderPage(cache.pdfPath, buildDir, requested, await detectTooling());
+        if (!rendered) return sendJson(response, 404, { error: `Page ${requested} could not be rendered` });
+        if (!cache.files.some((entry) => entry.page === requested)) {
+          cache.files.push({ file: rendered, page: requested });
+          cache.files.sort((left, right) => left.page - right.page);
+        }
+        const bytes = await readFile(join(buildDir, "pages", rendered));
         return sendBytes(response, 200, bytes, "image/png");
+      }
+      if (request.method === "GET" && action === "symbols") {
+        const project = projectRef(url.searchParams.get("project"));
+        return sendJson(response, 200, await collectSymbols(project));
+      }
+      if (request.method === "GET" && action === "compile/events") {
+        const job = jobs.get(String(url.searchParams.get("job") ?? ""));
+        if (!job) return sendJson(response, 404, { error: "Unknown compile job (it may have expired; compile again)" });
+        return streamJob(request, response, job);
       }
       if (request.method !== "POST") return sendJson(response, 405, { error: "Method not allowed" });
       const body = await readJsonBody(request);
@@ -1145,6 +1582,11 @@ function createHandler(token) {
         case "file/delete": return sendJson(response, 200, await ops.deleteEntry(body));
         case "file/rename": return sendJson(response, 200, await ops.renameEntry(body));
         case "compile": return sendJson(response, 200, await ops.compile(body));
+        case "compile/start": {
+          const project = projectRef(body.project);
+          const job = startCompileJob(project);
+          return sendJson(response, 200, { jobId: job.id, projectId: project.id, startedAt: job.startedAt });
+        }
         case "git": return sendJson(response, 200, await ops.git(body));
         default: return sendJson(response, 404, { error: `Unknown action: ${action}` });
       }
@@ -1234,3 +1676,17 @@ export function apply(ctx) {
     registerTool(scoped, scoped.tools);
   });
 }
+
+/** Internal helpers for `npm test` (test/compile.test.mjs); not part of the plugin API. */
+export const __test = {
+  createHandler,
+  ops,
+  compileProject,
+  collectSymbols,
+  parseBibEntries,
+  parseLatexErrors,
+  parseLatexWarnings,
+  projectFingerprint,
+  renderPage,
+  detectTooling,
+};
