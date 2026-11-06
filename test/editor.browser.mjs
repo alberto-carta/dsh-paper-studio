@@ -300,6 +300,46 @@ await check("vim keys in another field do not touch the editor", async () => {
   assert.equal(await page.inputValue("#outside"), "vdd");
 });
 
+const vimCase = async (name, content, caret, keys, expected, expectedCaret) => {
+  await check(name, async () => {
+    await focus(content, caret);
+    await page.keyboard.press("Escape");
+    for (const key of keys) await page.keyboard.press(key);
+    await page.waitForTimeout(40);
+    const result = await state();
+    assert.equal(result.content, expected);
+    if (expectedCaret !== undefined) assert.equal(result.start, expectedCaret, `caret ${result.start}`);
+  });
+};
+
+const exCase = async (name, content, command, expected) => {
+  await check(name, async () => {
+    await focus(content, 0);
+    await page.keyboard.press("Escape");
+    await page.keyboard.press(":");
+    await page.keyboard.type(command, { delay: 0 });
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(60);
+    const result = await state();
+    assert.equal(result.content, expected);
+  });
+};
+
+await vimCase("yyp copies the line below", "alpha\nbeta\n", 0, ["y", "y", "p"], "alpha\nalpha\nbeta\n");
+await vimCase("yy then j p pastes below the target line", "one\ntwo\nthree\n", 0, ["y", "y", "j", "p"], "one\ntwo\none\nthree\n");
+await vimCase("yyP pastes above the current line", "one\ntwo\nthree\n", 0, ["j", "y", "y", "j", "P"], "one\ntwo\ntwo\nthree\n");
+await vimCase("ddp deletes a line and pastes it below", "one\ntwo\nthree\n", 0, ["d", "d", "p"], "two\none\nthree\n");
+await vimCase("dw deletes the next word", "alpha beta gamma\n", 0, ["d", "w"], "beta gamma\n");
+await vimCase("x then p pastes the character after the cursor", "abc", 0, ["x", "p"], "bac");
+await vimCase("visual-line y p is linewise", "one\ntwo\n", 0, ["V", "y", "p"], "one\none\ntwo\n");
+await vimCase("dd on the last line removes the newline", "one\ntwo", 4, ["d", "d"], "one\n");
+await vimCase("f finds the next character", "a3b3c", 0, ["f", "3"], "a3b3c", 1);
+await vimCase("; repeats the find", "a3b3c", 0, ["f", "3", ";"], "a3b3c", 3);
+await vimCase("F finds the previous character", "a3b3c", 5, ["F", "3"], "a3b3c", 3);
+await exCase("s substitutes the first match on the current line", "aa\nba\n", "s/a/b/", "ba\nba\n");
+await exCase("%s substitutes globally", "aa\naa\n", "%s/a/b/g", "bb\nbb\n");
+await exCase("1,2s substitutes a line range", "aa\naa\nba\n", "1,2s/a/b/g", "bb\nbb\nba\n");
+
 await browser.close();
 await new Promise((resolve) => server.close(resolve));
 if (failures > 0) {

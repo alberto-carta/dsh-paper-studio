@@ -10,7 +10,7 @@ try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = 
 
     const PANEL_ID = "paper-studio";
     /** Shown in Settings so the loaded client can be matched to the source file. */
-    const CLIENT_BUILD = "2026-11-06T07:10";
+    const CLIENT_BUILD = "2026-11-06T08:00";
     const NS = "paperStudio";
     const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
 
@@ -1849,7 +1849,10 @@ body.ps-resizing *{cursor:inherit!important}
       const vimAnchor = useRef(0);
       const vimCursor = useRef(0);
       const vimRegister = useRef("");
+      const vimRegisterType = useRef("char");
       const vimPending = useRef("");
+      const vimFindPending = useRef("");
+      const vimLastFind = useRef(null);
 
       useEffect(() => {
         setVimMode(theme.vim ? "normal" : "insert");
@@ -1916,6 +1919,7 @@ body.ps-resizing *{cursor:inherit!important}
         const start = Math.max(0, Math.min(from, to));
         const end = Math.min(value.length, Math.max(from, to));
         vimRegister.current = value.slice(start, end);
+        vimRegisterType.current = "char";
         if (operator === "y") { setCaret(start); return; }
         applyVim(value.slice(0, start) + value.slice(end), start);
         if (operator === "c") setVimMode("insert");
@@ -1975,21 +1979,34 @@ body.ps-resizing *{cursor:inherit!important}
           setCaret(positionAt(Number(command) - 1, 0));
           return;
         }
-        const substitution = /^(%?)s\/(.+?)\/(.*?)\/([a-z]*)$/u.exec(command);
+        const substitution = /^([^s]*)s\/(.+?)\/(.*?)\/([a-z]*)$/u.exec(command);
         if (!substitution) {
           if (notify) notify(`Unknown command: ${command}`, "err");
           return;
         }
-        const [, scope, pattern, replacement, flags] = substitution;
+        const [, rangeText, pattern, rawReplacement, flags] = substitution;
         try {
-          const regex = new RegExp(pattern, flags.includes("i") ? "gi" : "g");
-          if (scope === "%") {
-            applyVim(value.replace(regex, replacement), position);
-          } else {
-            const { start, end } = lineBounds(position);
-            const nextLine = value.slice(start, end).replace(regex, replacement);
-            applyVim(value.slice(0, start) + nextLine + value.slice(end), start);
+          const replacement = rawReplacement.replace(/\\([1-9])/gu, "$$$1");
+          const regex = new RegExp(pattern, `${flags.includes("i") ? "i" : ""}${flags.includes("g") ? "g" : ""}`);
+          const rows = value.split("\n");
+          const lastRow = rows.length - 1;
+          const currentRow = value.slice(0, position).split("\n").length - 1;
+          let from = currentRow;
+          let to = currentRow;
+          if (rangeText === "%") { from = 0; to = lastRow; }
+          else if (rangeText) {
+            const [left, right] = rangeText.split(",");
+            const resolve = (part, fallback) => {
+              if (part === undefined || part === "" || part === ".") return fallback;
+              if (part === "$") return lastRow;
+              return Math.max(0, Math.min(lastRow, Number(part) - 1));
+            };
+            from = resolve(left, currentRow);
+            to = resolve(right, from);
           }
+          if (to < from) [from, to] = [to, from];
+          for (let row = from; row <= to; row += 1) rows[row] = rows[row].replace(regex, replacement);
+          applyVim(rows.join("\n"), positionAt(from, 0));
         } catch (error) {
           if (notify) notify(error.message, "err");
         }
@@ -2072,7 +2089,7 @@ body.ps-resizing *{cursor:inherit!important}
             if (vimVisualType === "line") {
               const from = lineBounds(first);
               const to = lineBounds(last);
-              return { start: from.start, end: to.end < value.length ? to.end + 1 : to.end };
+              return { start: from.start, end: to.end < value.length ? to.end + 1 : to.end, linewise: true };
             }
             if (vimVisualType === "block") {
               const a = lineColOf(first);
@@ -2101,12 +2118,16 @@ body.ps-resizing *{cursor:inherit!important}
               }
               const caret = positionAt(range.lineFrom, range.colFrom);
               vimRegister.current = removed.join("\n");
+              vimRegisterType.current = "block";
               if (operator === "y") { setCaret(caret); setVimMode("normal"); return; }
               applyVim(rows.join("\n"), caret);
               setVimMode(operator === "c" ? "insert" : "normal");
               return;
             }
-            vimRegister.current = value.slice(range.start, range.end);
+            vimRegister.current = range.linewise
+              ? value.slice(range.start, range.end).replace(/\n$/u, "")
+              : value.slice(range.start, range.end);
+            vimRegisterType.current = range.linewise ? "line" : "char";
             if (operator === "y") { setCaret(range.start); setVimMode("normal"); return; }
             applyVimOperator(operator, range.start, range.end);
             setVimMode(operator === "c" ? "insert" : "normal");
@@ -2116,6 +2137,27 @@ body.ps-resizing *{cursor:inherit!important}
           if (key === "c") { finishVisual("c"); return; }
           if (key === "v" || key === "V") { setVimMode("normal"); return; }
           if (key === "Escape") { setVimMode("normal"); return; }
+        }
+
+        if (vimFindPending.current) {
+          const command = vimFindPending.current;
+          vimFindPending.current = "";
+          if (key.length === 1) {
+            const bounds = lineBounds(position);
+            let target = -1;
+            if (command === "f" || command === "t") {
+              const found = value.indexOf(key, position + 1);
+              if (found !== -1 && found < bounds.end) target = command === "t" ? Math.max(position, found - 1) : found;
+            } else {
+              const found = value.lastIndexOf(key, Math.max(bounds.start, position - 1));
+              if (found !== -1 && found >= bounds.start) target = command === "T" ? Math.min(position, found + 1) : found;
+            }
+            if (target >= 0) {
+              moveTo(target);
+              vimLastFind.current = { command, key };
+            }
+          }
+          return;
         }
 
         if (vimPending.current === "g") {
@@ -2132,17 +2174,16 @@ body.ps-resizing *{cursor:inherit!important}
           }
           if (key === pending) {
             const { start, end } = lineBounds(position);
+            const lineText = value.slice(start, end).replace(/\n$/u, "");
+            vimRegister.current = lineText;
+            vimRegisterType.current = "line";
             if (pending === "c") {
-              vimRegister.current = value.slice(start, end);
               applyVim(value.slice(0, start) + value.slice(end), start);
               setVimMode("insert");
             } else if (pending === "d") {
               const removeEnd = end < value.length ? end + 1 : end;
-              vimRegister.current = value.slice(start, end);
               const next = value.slice(0, start) + value.slice(removeEnd);
               applyVim(next, Math.min(start, next.length));
-            } else {
-              vimRegister.current = value.slice(start, end);
             }
             return;
           }
@@ -2180,6 +2221,23 @@ body.ps-resizing *{cursor:inherit!important}
           case "e": moveTo(wordEnd(position)); return;
           case "0": moveTo(lineBounds(position).start); return;
           case "$": moveTo(lineBounds(position).end); return;
+          case "f": case "F": case "t": case "T": vimFindPending.current = key; return;
+          case ";": case ",": {
+            const last = vimLastFind.current;
+            if (!last) return;
+            const bounds = lineBounds(position);
+            const forward = key === ";" ? ["f", "t"].includes(last.command) : ["F", "T"].includes(last.command);
+            let target = -1;
+            if (forward) {
+              const found = value.indexOf(last.key, position + 1);
+              if (found !== -1 && found < bounds.end) target = last.command === "t" || last.command === "T" ? found - 1 : found;
+            } else {
+              const found = value.lastIndexOf(last.key, Math.max(bounds.start, position - 1));
+              if (found !== -1 && found >= bounds.start) target = last.command === "t" || last.command === "T" ? found + 1 : found;
+            }
+            if (target >= 0) moveTo(Math.max(bounds.start, Math.min(bounds.end, target)));
+            return;
+          }
           case "g": vimPending.current = "g"; return;
           case "G": moveTo(positionAt(value.split("\n").length - 1, 0)); return;
           case "i": setVimMode("insert"); return;
@@ -2188,12 +2246,31 @@ body.ps-resizing *{cursor:inherit!important}
           case "I": moveTo(lineBounds(position).start); setVimMode("insert"); return;
           case "o": insertAt(lineBounds(position).end, "\n"); setVimMode("insert"); return;
           case "O": insertAt(lineBounds(position).start, "\n"); setVimMode("insert"); return;
-          case "x": deleteRange(position, Math.min(value.length, position + 1)); return;
+          case "x":
+            vimRegister.current = value.slice(position, Math.min(value.length, position + 1));
+            vimRegisterType.current = "char";
+            deleteRange(position, Math.min(value.length, position + 1));
+            return;
           case "d": vimPending.current = "d"; return;
           case "y": vimPending.current = "y"; return;
           case "c": vimPending.current = "c"; return;
-          case "p": insertAt(Math.min(value.length, position + 1), vimRegister.current); return;
-          case "P": insertAt(position, vimRegister.current); return;
+          case "p":
+            if (vimRegisterType.current === "line" && vimRegister.current) {
+              const { start, end } = lineBounds(position);
+              if (end < value.length) insertAt(end + 1, `${vimRegister.current}\n`);
+              else insertAt(end, `\n${vimRegister.current}`);
+              return;
+            }
+            insertAt(Math.min(value.length, position + 1), vimRegister.current);
+            return;
+          case "P":
+            if (vimRegisterType.current === "line" && vimRegister.current) {
+              const { start } = lineBounds(position);
+              insertAt(start, `${vimRegister.current}\n`);
+              return;
+            }
+            insertAt(position, vimRegister.current);
+            return;
           case "u": if (onUndo) onUndo(tab.path); return;
           case "v": vimAnchor.current = position; vimCursor.current = position; setVimVisualType("char"); setVimMode("visual"); return;
           case "V": {
