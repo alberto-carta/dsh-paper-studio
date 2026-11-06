@@ -10,7 +10,7 @@ try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = 
 
     const PANEL_ID = "paper-studio";
     /** Shown in Settings so the loaded client can be matched to the source file. */
-    const CLIENT_BUILD = "2026-11-06T21:10";
+    const CLIENT_BUILD = "2026-11-06T22:15";
     const NS = "paperStudio";
     const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
 
@@ -428,6 +428,7 @@ try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = 
 .ps-cm-menu{position:fixed;z-index:90;min-width:200px;padding:4px;border-radius:8px;background:var(--dsw-alias-bg-overlay);border:.5px solid var(--dsw-alias-border-l2);box-shadow:0 10px 26px rgba(0,0,0,.28)}
 .ps-cm-wrap .cm-misspell{text-decoration:underline wavy #e5484d;text-decoration-skip-ink:none}
 .ps-cm-wrap .cm-activeLine{outline:1px solid var(--ps-current-line, #8b5cf6);outline-offset:-1px}
+.ps-cm-wrap .cm-line.cm-review-target{background:color-mix(in srgb,var(--dsw-alias-state-error-primary,#e5484d) 13%,transparent)}
 .ps-cm-wrap .cm-line.cm-band-figure{background:color-mix(in srgb,var(--ps-bg-figure,#3b82f6) 12%,transparent)}
 .ps-cm-wrap .cm-line.cm-band-math{background:color-mix(in srgb,var(--ps-bg-math,#f59e0b) 14%,transparent)}
 .ps-cm-wrap .cm-line.cm-diff-add{box-shadow:inset 3px 0 0 var(--ps-diff-add,#2ea043)}
@@ -3195,6 +3196,7 @@ body.ps-resizing *{cursor:inherit!important}
         t, tabs, activePath, tab, cursor, compile, status, onSelectTab, onCloseTab,
         onEdit, onCompile, editorApiRef, syntax, onSave, onToggleWrap, notify, symbols,
         onDiscuss, onAddChatContext, chatEnabled, changes, onKeepChange, onDiscardChange, onCloseReview, misspelled, onRetryChange,
+        onScroll, getScroll,
       } = props;
       const theme = syntax || DEFAULT_SYNTAX;
       const hostRef = useRef(null);
@@ -3206,9 +3208,16 @@ body.ps-resizing *{cursor:inherit!important}
       const moduleRef = useRef(null);
       const [diffBox, setDiffBox] = useState(null);
       const anchorLineRef = useRef(null);
+      const tintEffectRef = useRef(null);
       const firstChangeLineRef = useRef(null);
       const lastContentRef = useRef("");
       liveRef.current = { ...props, theme };
+
+      useEffect(() => {
+        const view = viewRef.current;
+        const effect = tintEffectRef.current;
+        if (view && effect) view.dispatch({ effects: effect.of(null) });
+      }, [changes ? changes.length : 0]);
 
       useEffect(() => {
         if (changes && changes.length > 0) {
@@ -3268,7 +3277,7 @@ body.ps-resizing *{cursor:inherit!important}
           EditorState, EditorView, lineNumbers, highlightActiveLine, highlightActiveLineGutter,
           drawSelection, dropCursor, history, keymap, defaultKeymap, historyKeymap, indentWithTab,
           syntaxHighlighting, defaultHighlightStyle, StreamLanguage, stex, vim, Vim,
-          Decoration, ViewPlugin, RangeSetBuilder, HighlightStyle, tags,
+          Decoration, ViewPlugin, RangeSetBuilder, StateEffect, HighlightStyle, tags, Compartment,
           bracketMatching, autocompletion, completionKeymap, closeBrackets,
         } = module;
         let cursorTimer = 0;
@@ -3429,6 +3438,32 @@ body.ps-resizing *{cursor:inherit!important}
             return true;
           },
         });
+        const tintEffect = StateEffect.define();
+        tintEffectRef.current = tintEffect;
+        const buildTint = (view) => {
+          const builder = new RangeSetBuilder();
+          for (const change of liveRef.current.changes || []) {
+            const match = change.hunk ? /^@@ -(\d+)(?:,(\d+))?/u.exec(change.hunk.header || "") : null;
+            if (!match) continue;
+            const from = Math.max(1, Number(match[1]));
+            const count = match[2] === undefined ? 1 : Number(match[2]);
+            for (let offset = 0; offset < Math.max(1, count); offset += 1) {
+              const number = from + offset;
+              if (number > view.state.doc.lines) break;
+              const line = view.state.doc.line(number);
+              builder.add(line.from, line.from, Decoration.line({ class: "cm-review-target" }));
+            }
+          }
+          return builder.finish();
+        };
+        const tintPlugin = ViewPlugin.fromClass(class {
+          constructor(view) { this.decorations = buildTint(view); }
+          update(update) {
+            if (update.docChanged || update.viewportChanged || update.transactions.some((tr) => tr.effects.some((effect) => effect.is(tintEffect)))) {
+              this.decorations = buildTint(update.view);
+            }
+          }
+        }, { decorations: (value) => value.decorations });
         const extensions = [];
         if (theme.vim) extensions.push(normalArrows, vim());
         extensions.push(
@@ -3437,7 +3472,6 @@ body.ps-resizing *{cursor:inherit!important}
           dropCursor(),
           history(),
           bracketMatching(),
-          autocompletion({ override: [completionSource], activateOnTyping: true, closeOnBlur: true }),
           EditorView.domEventHandlers({
             contextmenu: (event, view) => {
               event.preventDefault();
@@ -3453,8 +3487,6 @@ body.ps-resizing *{cursor:inherit!important}
             },
           }),
           syntaxHighlighting(latexHighlight),
-          bandPlugin,
-          spellPlugin,
           EditorState.tabSize.of(2),
           keymap.of([
             { key: "Mod-s", preventDefault: true, run: () => { const live = liveRef.current; if (live.onSave && live.tab) live.onSave(live.tab.path); return true; } },
@@ -3469,6 +3501,9 @@ body.ps-resizing *{cursor:inherit!important}
             const live = liveRef.current;
             if (!live.tab) return;
             if (update.docChanged) live.onEdit(live.tab.path, update.state.doc.toString(), update.state.selection.main.head);
+            if (update.viewportChanged && live.onScroll) {
+              live.onScroll({ currentTarget: { scrollTop: update.view.scrollDOM.scrollTop } });
+            }
             if (update.selectionSet || update.docChanged) {
               const head = update.state.selection.main.head;
               pendingCursor = {
@@ -3498,12 +3533,16 @@ body.ps-resizing *{cursor:inherit!important}
           }),
         );
         if (theme.currentLine) extensions.push(highlightActiveLineGutter(), highlightActiveLine());
-        if (theme.diffGutter !== "off") extensions.push(diffPlugin);
-        else {
-          const index = extensions.indexOf(diffPlugin);
-          if (index >= 0) extensions.splice(index, 1);
-        }
         if (theme.wrap) extensions.push(EditorView.lineWrapping);
+        const heavyCompartment = new Compartment();
+        extensions.push(heavyCompartment.of([]));
+        const heavy = [
+          bandPlugin,
+          tintPlugin,
+          spellPlugin,
+          autocompletion({ override: [completionSource], activateOnTyping: true, closeOnBlur: true }),
+        ];
+        if (theme.diffGutter !== "off") heavy.push(diffPlugin);
         moduleRef.current = module;
         const view = new EditorView({
           state: EditorState.create({ doc: tab.content, extensions }),
@@ -3549,8 +3588,24 @@ body.ps-resizing *{cursor:inherit!important}
           focus: () => view.focus(),
         };
         view.focus();
+        if (theme.vim && Vim && Vim.defineEx) {
+          try {
+            const save = () => { const live = liveRef.current; if (live.onSave && live.tab) live.onSave(live.tab.path); };
+            Vim.defineEx("write", "w", save);
+            Vim.defineEx("wq", "wq", save);
+          } catch { /* Vim API differences */ }
+        }
+        const schedule = window.requestIdleCallback || ((callback) => setTimeout(callback, 40));
+        const idleId = schedule(() => {
+          if (viewRef.current === view) view.dispatch({ effects: heavyCompartment.reconfigure(heavy) });
+        });
+        const savedScroll = getScroll ? getScroll(tab.path) : 0;
+        if (savedScroll) {
+          requestAnimationFrame(() => { if (viewRef.current === view) view.scrollDOM.scrollTop = savedScroll; });
+        }
         return () => {
           if (cursorTimer) clearTimeout(cursorTimer);
+          if (window.cancelIdleCallback && typeof idleId === "number") window.cancelIdleCallback(idleId);
           if (editorApiRef.current && editorApiRef.current.__cm === view) editorApiRef.current = null;
           view.destroy();
           viewRef.current = null;
@@ -6256,6 +6311,7 @@ body.ps-resizing *{cursor:inherit!important}
         const textarea = event.currentTarget;
         if (activeRef.current) scrollByPath.current[activeRef.current] = textarea.scrollTop;
       }, []);
+      const getScroll = useCallback((path) => scrollByPath.current[path] || 0, []);
 
       const insertText = useCallback((text) => {
         const textarea = editorRef.current;
@@ -7259,7 +7315,7 @@ body.ps-resizing *{cursor:inherit!important}
             onEdit,
             onCompile: runCompile,
             editorRef, gutterInnerRef, editorApiRef,
-            onScroll, onCursor,
+            onScroll, getScroll, onCursor,
             onInsertText: insertText,
             onReloadDisk: reloadDisk,
             onKeepMine: keepMine,

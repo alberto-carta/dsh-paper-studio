@@ -89,7 +89,7 @@ function Host() {
     symbols,
     syntax, misspelled, changes,
     onKeepChange: noop, onDiscardChange: noop, onCloseReview: noop,
-    onSave: noop, onUndo: noop, onRedo: noop, notify: noop,
+    onSave: () => { window.__saved = (window.__saved || 0) + 1; }, onUndo: noop, onRedo: noop, notify: noop,
   });
 }
 
@@ -494,8 +494,21 @@ await check("CM does not mark a matching diff as stale", async () => {
   ]));
   await page.waitForTimeout(250);
   assert.equal(await page.locator(".ps-cm-stale").count(), 0, "valid diff is not stale");
+  assert.ok((await page.locator(".cm-review-target").count()) > 0, "pending change is tinted");
   await page.evaluate(() => window.__setChanges([]));
   await page.waitForTimeout(150);
+});
+
+await check("CM vim :w saves", async () => {
+  await page.evaluate(() => window.__setContent("save me\n"));
+  await page.waitForTimeout(150);
+  await page.locator(".cm-content").click();
+  await page.keyboard.press("Escape");
+  await page.keyboard.press(":");
+  await page.keyboard.type("w", { delay: 20 });
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(150);
+  assert.ok((await page.evaluate(() => window.__saved || 0)) > 0, "save called");
 });
 
 await check("CM colours commands, math and comments on first paint", async () => {

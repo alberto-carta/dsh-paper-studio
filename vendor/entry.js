@@ -1,5 +1,5 @@
 // Bundled for the browser by `npm run build:editor`; served at /paper-studio/api/asset.
-export { EditorState, Compartment, RangeSetBuilder } from "@codemirror/state";
+export { EditorState, Compartment, RangeSetBuilder, StateEffect } from "@codemirror/state";
 export {
   EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter,
   drawSelection, dropCursor, rectangularSelection, crosshairCursor, highlightSpecialChars,
