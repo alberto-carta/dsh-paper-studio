@@ -10,7 +10,7 @@ try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = 
 
     const PANEL_ID = "paper-studio";
     /** Shown in Settings so the loaded client can be matched to the source file. */
-    const CLIENT_BUILD = "2026-11-06T20:35";
+    const CLIENT_BUILD = "2026-11-06T21:10";
     const NS = "paperStudio";
     const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
 
@@ -60,8 +60,8 @@ try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = 
         appearance: "Appearance",
         diffGutter: "Diff gutter",
         editorEngine: "Editor engine",
-        engineTextarea: "Textarea (current)",
-        engineCodeMirror: "CodeMirror (preview)",
+        engineTextarea: "Textarea (legacy)",
+        engineCodeMirror: "CodeMirror",
         diffOff: "Off",
         diffGit: "Git HEAD",
         editing: "Editing",
@@ -428,8 +428,8 @@ try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = 
 .ps-cm-menu{position:fixed;z-index:90;min-width:200px;padding:4px;border-radius:8px;background:var(--dsw-alias-bg-overlay);border:.5px solid var(--dsw-alias-border-l2);box-shadow:0 10px 26px rgba(0,0,0,.28)}
 .ps-cm-wrap .cm-misspell{text-decoration:underline wavy #e5484d;text-decoration-skip-ink:none}
 .ps-cm-wrap .cm-activeLine{outline:1px solid var(--ps-current-line, #8b5cf6);outline-offset:-1px}
-.ps-cm-wrap .cm-line.cm-band-figure{background:color-mix(in srgb,#3b82f6 12%,transparent)}
-.ps-cm-wrap .cm-line.cm-band-math{background:color-mix(in srgb,#f59e0b 14%,transparent)}
+.ps-cm-wrap .cm-line.cm-band-figure{background:color-mix(in srgb,var(--ps-bg-figure,#3b82f6) 12%,transparent)}
+.ps-cm-wrap .cm-line.cm-band-math{background:color-mix(in srgb,var(--ps-bg-math,#f59e0b) 14%,transparent)}
 .ps-cm-wrap .cm-line.cm-diff-add{box-shadow:inset 3px 0 0 var(--ps-diff-add,#2ea043)}
 .ps-cm-wrap .cm-line.cm-diff-mod{box-shadow:inset 3px 0 0 var(--ps-diff-mod,#3b82f6)}
 .ps-cm-wrap .cm-line.cm-diff-del{box-shadow:inset 3px 0 0 var(--ps-diff-del,#e5484d)}
@@ -967,7 +967,7 @@ body.ps-resizing *{cursor:inherit!important}
       autosave: true,
       autosaveDelay: 850,
       thinking: "last",
-      engine: "textarea",
+      engine: "codemirror",
       diagnostics: false,
       vim: false,
       keys: {
@@ -3353,6 +3353,7 @@ body.ps-resizing *{cursor:inherit!important}
         };
         const buildBands = (view) => {
           const builder = new RangeSetBuilder();
+          if (!liveRef.current.theme.backgrounds) return builder.finish();
           const document = view.state.doc;
           const stack = [];
           const topCategory = () => {
@@ -3432,8 +3433,6 @@ body.ps-resizing *{cursor:inherit!important}
         if (theme.vim) extensions.push(normalArrows, vim());
         extensions.push(
           lineNumbers(),
-          highlightActiveLineGutter(),
-          highlightActiveLine(),
           drawSelection(),
           dropCursor(),
           history(),
@@ -3454,7 +3453,6 @@ body.ps-resizing *{cursor:inherit!important}
             },
           }),
           syntaxHighlighting(latexHighlight),
-          diffPlugin,
           bandPlugin,
           spellPlugin,
           EditorState.tabSize.of(2),
@@ -3499,6 +3497,12 @@ body.ps-resizing *{cursor:inherit!important}
             ".cm-activeLineGutter": { backgroundColor: "color-mix(in srgb, var(--dsw-alias-brand-primary) 9%, transparent)" },
           }),
         );
+        if (theme.currentLine) extensions.push(highlightActiveLineGutter(), highlightActiveLine());
+        if (theme.diffGutter !== "off") extensions.push(diffPlugin);
+        else {
+          const index = extensions.indexOf(diffPlugin);
+          if (index >= 0) extensions.splice(index, 1);
+        }
         if (theme.wrap) extensions.push(EditorView.lineWrapping);
         moduleRef.current = module;
         const view = new EditorView({
@@ -3551,7 +3555,7 @@ body.ps-resizing *{cursor:inherit!important}
           view.destroy();
           viewRef.current = null;
         };
-      }, [module, tab ? tab.path : "", theme.vim, theme.wrap, editorApiRef]);
+      }, [module, tab ? tab.path : "", theme.vim, theme.wrap, theme.currentLine, theme.backgrounds, theme.diffGutter, editorApiRef]);
 
       useEffect(() => {
         const view = viewRef.current;
@@ -3584,7 +3588,7 @@ body.ps-resizing *{cursor:inherit!important}
         onClick: (event) => { event.stopPropagation(); onCloseTab(item.path); },
       }, h(Icon.close)))), h("div", { className: "ps-spacer" }));
 
-      return h("section", { className: "ps-pane ps-editor", "aria-label": "editor" },
+      return h("section", { className: "ps-pane ps-editor", "aria-label": "editor", style: syntaxVariables(theme) },
         tabBar,
         h("div", { className: "ps-code-wrap" },
           h("div", { className: "ps-cm-wrap", ref: hostRef }),

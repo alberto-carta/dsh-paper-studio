@@ -47,7 +47,7 @@ const h = React.createElement;
 function Host() {
   const [tab, setTab] = React.useState({ path: "main.tex", content: "alpha beta gamma\\nsecond line\\n", saved: "", mtime: 0, dirty: false, saving: false, conflict: null });
   const [cursor, setCursor] = React.useState({ line: 1, col: 1 });
-  const [syntax, setSyntax] = React.useState({ ...DEFAULT_SYNTAX, vim: true, diagnostics: true });
+  const [syntax, setSyntax] = React.useState({ ...DEFAULT_SYNTAX, engine: "textarea", vim: true, diagnostics: true });
   const [changes, setChanges] = React.useState([]);
   const editorRef = React.useRef(null);
   const gutterRef = React.useRef(null);
