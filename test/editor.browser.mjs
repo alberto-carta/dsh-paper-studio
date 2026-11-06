@@ -40,14 +40,14 @@ const plugin = window.__pluginDefinition.factory((id) => {
   if (id === "react") return React;
   throw new Error("unexpected module " + id);
 });
-const { EditorPane, DEFAULT_SYNTAX, CSS } = plugin.__internals;
+const { EditorPane, DEFAULT_SYNTAX, CSS, searchHunk } = plugin.__internals;
 const style = document.createElement("style");
 style.textContent = CSS;
 document.head.append(style);
 const h = React.createElement;
 
 function Host() {
-  const [tab, setTab] = React.useState({ path: "main.tex", content: "alpha beta gamma\\nsecond line\\n", saved: "", mtime: 0, dirty: false, saving: false, conflict: null });
+  const [tab, setTab] = React.useState({ path: "main.tex", content: "alpha beta gamma\\nsecond line\\n", base: "", saved: "", mtime: 0, dirty: false, saving: false, conflict: null });
   const [changes, setChanges] = React.useState([]);
   const [cursor, setCursor] = React.useState({ line: 1, col: 1 });
   const apiRef = React.useRef(null);
@@ -85,6 +85,8 @@ function Host() {
   const noop = React.useCallback(() => {}, []);
   React.useEffect(() => {
     window.__setContent = (content) => setTab((current) => ({ ...current, content }));
+    window.__setBase = (base) => setTab((current) => ({ ...current, base }));
+    window.__searchHunk = searchHunk;
     window.__setChanges = (value) => setChanges(value);
     window.__editorApi = apiRef;
   }, []);
@@ -262,14 +264,45 @@ await check("CM paints bands and first-paint colours", async () => {
   assert.ok(colours.comment && colours.comment !== "rgb(0, 0, 0)", `comment ${colours.comment}`);
 });
 
+await check("deleted lines use an arrow instead of a red bar", async () => {
+  await page.evaluate(() => window.__setBase("alpha\nremoved line\n"));
+  await setContent("alpha\n");
+  await page.waitForTimeout(200);
+  assert.ok((await page.locator(".cm-diff-del").count()) > 0, "deleted marker");
+  const styles = await page.evaluate(() => {
+    const line = document.querySelector(".cm-diff-del");
+    return { shadow: getComputedStyle(line).boxShadow, arrow: getComputedStyle(line, "::before").content };
+  });
+  assert.equal(styles.shadow, "none", `shadow ${styles.shadow}`);
+  assert.ok(styles.arrow && styles.arrow !== "none", `arrow ${styles.arrow}`);
+  await page.evaluate(() => window.__setBase(""));
+});
+
 await check("CM valid diff is not stale and tints its target", async () => {
   await setContent("alpha\nbeta\n");
   await page.evaluate(() => window.__setChanges([{ id: "valid-1", file: "main.tex", hunk: { header: "@@ -1,1 +1,1 @@", lines: [{ type: "-", text: "alpha" }, { type: "+", text: "ALPHA" }] } }]));
   await page.waitForTimeout(300);
   assert.equal(await page.locator(".ps-cm-stale").count(), 0);
   assert.ok((await page.locator(".cm-review-target").count()) > 0, "target tint");
+  assert.ok((await page.locator(".ps-diff-edit-add").count()) > 0, "added lines are editable");
+  assert.ok((await page.locator(".ps-diff-word-add").count()) > 0, "changed words highlighted");
   await page.evaluate(() => window.__setChanges([]));
   await page.waitForTimeout(150);
+});
+
+await check("search/replace suggestions are valid without line numbers", async () => {
+  await setContent("alpha\nbeta\n");
+  await page.evaluate(() => {
+    const hunk = window.__searchHunk("alpha", "ALPHA");
+    window.__setChanges([{ id: "edit-1", file: "main.tex", search: "alpha", replace: "ALPHA", hunk }]);
+  });
+  await page.waitForTimeout(250);
+  assert.equal(await page.locator(".ps-cm-stale").count(), 0, "search change is valid");
+  assert.ok((await page.locator(".cm-review-target").count()) > 0, "search target tinted");
+  await page.evaluate(() => window.__setChanges([{ id: "edit-2", file: "main.tex", search: "missing text", replace: "x", hunk: window.__searchHunk("missing text", "x") }]));
+  await page.waitForTimeout(200);
+  assert.ok((await page.locator(".ps-cm-stale").count()) > 0, "missing search is stale");
+  await page.evaluate(() => window.__setChanges([]));
 });
 
 await check("CM flags stale diffs", async () => {

@@ -26,7 +26,7 @@ const plugin = definition.factory((id) => {
   if (id === "react") return React;
   throw new Error(`unexpected require: ${id}`);
 });
-const { highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject, shouldCompileAfterSave, parseDiffSuggestions, applySuggestion, collectChanges, diffChangeKey, parseChoiceBlocks, stripChoiceBlocks, splitMath, diffLineKinds, normalizeSymbols, rebaseHunk, equationAtCursor } = plugin.__internals;
+const { highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject, shouldCompileAfterSave, parseDiffSuggestions, applySuggestion, collectChanges, diffChangeKey, parseChoiceBlocks, stripChoiceBlocks, splitMath, diffLineKinds, normalizeSymbols, rebaseHunk, equationAtCursor, inlineWordDiff, pairHunkLines, parseEditSuggestions, findSearchRange, applySearchReplace } = plugin.__internals;
 
 test("highlighter marks commands, braces and comments and escapes HTML", () => {
   const html = highlightLatex("\\section{Intro} % note <b>\nText $x^2$ here");
@@ -304,15 +304,71 @@ test("two-column reading order keeps each column contiguous", () => {
   assert.deepEqual(orderPageWords(words, 600, 800).map((word) => word.text), ["L1", "L2", "R1", "R2"]);
 });
 
-test("equation preview finds display and inline math at the caret", () => {
+test("equation preview finds only supported math contexts", () => {
   const display = "\\begin{equation}\nx^2+y^2\n\\end{equation}\n";
   assert.deepEqual(equationAtCursor(display, 2, 3), { text: "x^2+y^2", display: true });
   assert.equal(equationAtCursor("plain text\n", 1, 3), null);
   const inline = "before $a^2+b^2$ after\n";
   assert.deepEqual(equationAtCursor(inline, 1, 11), { text: "a^2+b^2", display: false });
   assert.equal(equationAtCursor(inline, 1, 1), null);
+  const paren = "x \\(a+b\\) y\n";
+  assert.deepEqual(equationAtCursor(paren, 1, 6), { text: "a+b", display: false });
+  assert.equal(equationAtCursor("\\begin{gather}x\\end{gather}\n", 1, 15), null);
+  assert.equal(equationAtCursor("\\[x\\]\n", 1, 2), null);
 });
 
 test("equation shading defaults to amber", () => {
   assert.equal(DEFAULT_SYNTAX.bgMath, "#f59e0b");
+});
+
+test("retry adapts a hunk whose removed line was edited", () => {
+  const hunk = {
+    header: "@@ -1,1 +1,1 @@",
+    lines: [{ type: "-", text: "alpha" }, { type: "+", text: "ALPHA" }],
+  };
+  const content = "alpha edited\nbeta";
+  const adapted = rebaseHunk(content, hunk);
+  assert.ok(adapted);
+  assert.equal(adapted.lines[0].text, "alpha edited");
+  assert.equal(adapted.lines[1].text, "ALPHA");
+  assert.equal(applySuggestion(content, { hunks: [adapted] }), "ALPHA\nbeta");
+});
+
+test("retry finds a hunk that moved far by similar text", () => {
+  const hunk = {
+    header: "@@ -1,1 +1,1 @@",
+    lines: [{ type: "-", text: "alpha" }, { type: "+", text: "ALPHA" }],
+  };
+  const content = [...Array.from({ length: 120 }, (unused, index) => `filler ${index}`), "alpha edited", "tail"].join("\n");
+  const adapted = rebaseHunk(content, hunk);
+  assert.ok(adapted);
+  assert.equal(adapted.header, "@@ -121,1 +121,1 @@");
+  assert.equal(adapted.lines[0].text, "alpha edited");
+  assert.match(applySuggestion(content, { hunks: [adapted] }), /ALPHA\ntail$/u);
+});
+
+test("search/replace edit blocks parse and apply with layered matching", () => {
+  const message = "```edit\nmain.tex\n<<<<<<< SEARCH\nThe old sentence.\n=======\nThe new sentence.\n>>>>>>> REPLACE\n```";
+  const [suggestion] = parseEditSuggestions(message);
+  assert.equal(suggestion.file, "main.tex");
+  assert.equal(suggestion.search, "The old sentence.");
+  assert.equal(suggestion.replace, "The new sentence.");
+  const content = "Intro\nThe old sentence.\nTail";
+  assert.equal(applySearchReplace(content, suggestion.search, suggestion.replace), "Intro\nThe new sentence.\nTail");
+  assert.ok(findSearchRange(content, "The old sentence."));
+  assert.ok(findSearchRange("Intro\nThe old sentence.  \nTail", "The old sentence."), "trailing whitespace tolerated");
+  assert.ok(findSearchRange("Intro\nThe old sentence was changed.\nTail", "The old sentence."), "fuzzy match");
+  assert.equal(findSearchRange("nothing here", "The old sentence."), null);
+});
+
+test("inline diff brackets only changed words and pairs hunk lines", () => {
+  const diff = inlineWordDiff("The quick brown fox", "The slow brown fox");
+  assert.deepEqual(diff.old.filter((part) => part.changed).map((part) => part.text), ["quick"]);
+  assert.deepEqual(diff.new.filter((part) => part.changed).map((part) => part.text), ["slow"]);
+  assert.equal(diff.old.filter((part) => !part.changed).map((part) => part.text.trim()).filter(Boolean).join(" "), "The brown fox");
+  const pairs = pairHunkLines([
+    { type: "-", text: "old" }, { type: "+", text: "new" }, { type: " ", text: "ctx" },
+  ]);
+  assert.equal(pairs[0].kind, "pair");
+  assert.equal(pairs[1].kind, "line");
 });

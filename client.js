@@ -10,7 +10,7 @@ try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = 
 
     const PANEL_ID = "paper-studio";
     /** Shown in Settings so the loaded client can be matched to the source file. */
-    const CLIENT_BUILD = "2026-11-07T02:00";
+    const CLIENT_BUILD = "2026-11-07T11:35";
     const NS = "paperStudio";
     const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
 
@@ -325,6 +325,15 @@ try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = 
         lastCommit: "Last commit",
         details: "Details",
         changes: "Changes",
+        staged: "Staged",
+        unstaged: "Unstaged",
+        stage: "Stage",
+        unstage: "Unstage",
+        stageAll: "Stage all",
+        unstageAll: "Unstage all",
+        commit: "Commit",
+        commitMessage: "Commit message",
+        commitHint: "Write a message, stage files, then commit.",
         changed: "changed",
         inSync: "in sync",
         toPush: "to push",
@@ -435,10 +444,12 @@ try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = 
 .ps-cm-wrap .cm-line.cm-band-math{background:var(--ps-bg-math,rgba(245,158,11,.14))}
 .ps-cm-wrap .cm-line.cm-diff-add{box-shadow:inset 3px 0 0 var(--ps-diff-add,#2ea043)}
 .ps-cm-wrap .cm-line.cm-diff-mod{box-shadow:inset 3px 0 0 var(--ps-diff-mod,#3b82f6)}
-.ps-cm-wrap .cm-line.cm-diff-del{box-shadow:inset 3px 0 0 var(--ps-diff-del,#e5484d)}
+.ps-cm-wrap .cm-line.cm-diff-del{box-shadow:none;position:relative}
+.ps-cm-wrap .cm-line.cm-diff-del::before{content:"◀";position:absolute;left:-14px;top:0;color:var(--ps-diff-del,#e5484d);font-size:10px;line-height:20px}
 .ps-diff-body{flex:1;min-height:0;overflow:auto;padding:5px 9px;font-size:12px}
 .ps-cm-stale{color:var(--dsw-alias-state-error-primary);font-size:11px;padding:2px 0}
 .ps-cm-diff-change{border-bottom:.5px solid var(--dsw-alias-border-l1);padding:5px 0;display:flex;flex-direction:column;min-height:0}
+.ps-diff-edit-add{width:100%;box-sizing:border-box;min-height:58px;resize:vertical;margin:3px 0;padding:5px 7px;border:.5px solid var(--ps-diff-add,#2ea043);border-radius:5px;background:color-mix(in srgb,var(--ps-diff-add,#2ea043) 8%,transparent);color:var(--dsw-alias-label-primary);font:11px/1.5 ${MONO}}
 .ps-cm-diff-actions{display:flex;gap:4px;padding:3px 0 2px}
 .ps-diff-lines{flex:1;min-height:80px;overflow:auto;margin:3px 0;font:11px/1.5 ${MONO};background:var(--dsw-alias-bg-layer-1);border-radius:5px;padding:4px}
 .ps-cm-status{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--dsw-alias-label-secondary);font-size:12px;background:var(--dsw-alias-bg-base)}
@@ -593,8 +604,10 @@ try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = 
 .ps-diff-hunk-head{display:flex;align-items:center;gap:4px;font:9.5px/1.3 ${MONO};color:var(--dsw-alias-label-secondary)}
 .ps-diff-hunk-head span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ps-diff-line{padding:0 4px;white-space:pre-wrap;overflow-wrap:anywhere;font:10.5px/1.45 ${MONO}}
-.ps-diff-line.add{background:color-mix(in srgb,#22c55e 24%,transparent)}
-.ps-diff-line.del{background:color-mix(in srgb,#ef4444 22%,transparent)}
+.ps-diff-line.add{background:color-mix(in srgb,#22c55e 10%,transparent)}
+.ps-diff-line.del{background:color-mix(in srgb,#ef4444 9%,transparent)}
+.ps-diff-word-add{background:color-mix(in srgb,#22c55e 46%,transparent);border-radius:2px;box-shadow:0 0 0 1px color-mix(in srgb,#22c55e 45%,transparent)}
+.ps-diff-word-del{background:color-mix(in srgb,#ef4444 44%,transparent);border-radius:2px;box-shadow:0 0 0 1px color-mix(in srgb,#ef4444 42%,transparent)}
 .ps-diff-line.ctx{color:var(--dsw-alias-label-secondary)}
 .ps-hl-line.ps-diff-target{background:color-mix(in srgb,#ef4444 16%,transparent);box-shadow:inset 2px 0 0 #ef4444}
 .ps-btn.keep{background:color-mix(in srgb,#22c55e 20%,transparent);color:#16a34a;border-color:color-mix(in srgb,#22c55e 40%,transparent)}
@@ -663,8 +676,10 @@ try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = 
 .ps-chat-text a{color:var(--dsw-alias-brand-primary);text-decoration:underline}
 .ps-chat-msg.user .ps-chat-text{background:var(--dsw-alias-bg-layer-2);border-radius:7px;padding:5px 7px}
 .ps-chat-thinking{opacity:.7;font-style:italic}
+.ps-chat-resize{height:7px;margin:0 8px;cursor:ns-resize;border-top:1px solid var(--dsw-alias-border-l1);position:relative;flex:0 0 auto}
+.ps-chat-resize:hover{border-top-color:var(--dsw-alias-brand-primary)}
 .ps-chat-compose{display:flex;gap:4px;padding:6px 8px;border-top:.5px solid var(--dsw-alias-border-l1);align-items:flex-end}
-.ps-chat-input{flex:1;min-height:46px;max-height:140px;resize:vertical;font:12px/1.45 inherit;padding:6px 7px;border:.5px solid var(--dsw-alias-border-l1);border-radius:7px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary)}
+.ps-chat-input{flex:1;min-height:46px;max-height:60vh;resize:none;overflow:auto;font:12px/1.45 inherit;padding:6px 7px;border:.5px solid var(--dsw-alias-border-l1);border-radius:7px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary)}
 .ps-agents-tools{display:flex;gap:4px}
 .ps-agents-path{font:9.5px/1.4 ${MONO};color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-layer-1);border:.5px solid var(--dsw-alias-border-l1);border-radius:6px;padding:4px 6px;user-select:text;overflow-wrap:anywhere}
 .ps-agents-bases{border:.5px solid var(--dsw-alias-border-l1);border-radius:7px;padding:5px 7px;display:flex;flex-direction:column;gap:2px;max-height:120px;overflow:auto}
@@ -693,6 +708,15 @@ try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = 
 .ps-pill.ok{color:var(--dsw-alias-state-success-primary);background:color-mix(in srgb,var(--dsw-alias-state-success-primary) 12%,transparent)}
 .ps-pill.warn{color:var(--dsw-alias-state-warn-primary);background:color-mix(in srgb,var(--dsw-alias-state-warn-primary) 14%,transparent)}
 .ps-pill.push{color:var(--dsw-alias-brand-primary);background:color-mix(in srgb,var(--dsw-alias-brand-primary) 12%,transparent)}
+.ps-git-commit-msg{width:100%;box-sizing:border-box;resize:vertical;min-height:54px;font:12px/1.45 inherit;padding:6px 8px;border:.5px solid var(--dsw-alias-border-l1);border-radius:7px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary)}
+.ps-git-commit-row{display:flex;align-items:center;gap:8px;margin:6px 0}
+.ps-git-commit-row .ps-btn{margin-left:auto}
+.ps-git-files-head{display:flex;align-items:center;gap:5px;padding:4px 0}
+.ps-git-file-row{display:flex;align-items:center;gap:3px;border-radius:5px;padding:1px 2px}
+.ps-git-file-row.staged{background:color-mix(in srgb,var(--dsw-alias-state-success-primary,#2ea043) 13%,transparent);box-shadow:inset 2px 0 0 var(--dsw-alias-state-success-primary,#2ea043)}
+.ps-git-staged-badge{flex:none;font-size:9px;line-height:1.4;padding:0 5px;border-radius:999px;color:var(--dsw-alias-state-success-primary,#2ea043);border:.5px solid currentColor}
+.ps-git-file-row .ps-git-file{flex:1;min-width:0}
+.ps-git-file-actions{display:flex;gap:2px}
 .ps-git-actions{display:grid;grid-template-columns:1fr 1fr;gap:4px}
 .ps-git-actions .ps-btn{height:27px;font-size:11.5px;justify-content:center;padding:0 6px}
 .ps-git-actions .ps-btn.wide{grid-column:1 / -1}
@@ -805,6 +829,10 @@ body.ps-resizing *{cursor:inherit!important}
         h("path", { key: 4, d: "M9 8.5h2" }),
       ]),
       chevron: (extra) => svg([h("path", { key: 1, d: "M9 6l6 6-6 6" })], extra),
+      chat: (extra) => svg([
+        h("path", { key: 1, d: "M4 5.5h16v11H9l-5 4z" }),
+        h("path", { key: 2, d: "M8 9.5h8M8 13h5" }),
+      ], extra),
       folder: (extra) => svg([h("path", { key: 1, d: "M3.5 7.5a2 2 0 0 1 2-2h3l1.7 2h8.3a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z" })], extra),
       file: (extra) => svg([
         h("path", { key: 1, d: "M13.5 3.5H7a1 1 0 0 0-1 1v15a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V8z" }),
@@ -1705,7 +1733,7 @@ body.ps-resizing *{cursor:inherit!important}
     }
 
 
-    const MATH_ENV = /^(?:equation|align|alignat|gather|multline|eqnarray|displaymath|math|split|cases)\*?$/u;
+    const MATH_ENV = /^(?:equation|align)\*?$/u;
 
     /** The math expression around a caret, for the equation preview. */
     function equationAtCursor(content, lineNumber, column) {
@@ -1728,7 +1756,7 @@ body.ps-resizing *{cursor:inherit!important}
           const end = inside.search(new RegExp("\\\\end\\{" + environment.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&") + "\\}"));
           let body = (end >= 0 ? inside.slice(0, end) : inside.split("\n").slice(0, 40).join("\n")).replace(/\\label\{[^}]*\}/gu, "").trim();
           if (!body) return null;
-          if (/^(?:align|alignat|gather|eqnarray)\*?$/u.test(environment) && /&/u.test(body)) body = "\\begin{aligned}" + body + "\\end{aligned}";
+          if (/^align\*?$/u.test(environment) && /&/u.test(body)) body = "\\begin{aligned}" + body + "\\end{aligned}";
           return { text: body, display: true };
         }
       }
@@ -1743,20 +1771,20 @@ body.ps-resizing *{cursor:inherit!important}
       for (let index = 0; index + 1 < dollars.length; index += 1) {
         const open = dollars[index];
         const close = dollars[index + 1];
-        if (open.width !== close.width || open.at !== index) { /* fall through */ }
-        if (open.width !== close.width) continue;
-        const innerStart = lineStart + open.at + open.width;
+        if (open.width !== 1 || close.width !== 1) continue;
+        const innerStart = lineStart + open.at + 1;
         const innerEnd = lineStart + close.at;
         if (offset < innerStart || offset > innerEnd) continue;
-        const body = line.slice(open.at + open.width, close.at).trim();
-        if (body) return { text: body, display: open.width === 2 };
+        const raw = line.slice(open.at + 1, close.at);
+        if (!raw.trim() || /^\s|\s$/u.test(raw)) continue;
+        return { text: raw.trim(), display: false };
       }
-      const bracketOpen = before.lastIndexOf("\\[");
-      if (bracketOpen >= 0 && bracketOpen > before.lastIndexOf("\\]")) {
-        const rest = text.slice(bracketOpen + 2);
-        const end = rest.indexOf("\\]");
+      const openParen = before.lastIndexOf("\\(");
+      if (openParen >= 0 && openParen > before.lastIndexOf("\\)")) {
+        const rest = text.slice(openParen + 2);
+        const end = rest.indexOf("\\)");
         const body = (end >= 0 ? rest.slice(0, end) : rest.split("\n").slice(0, 40).join("\n")).trim();
-        if (body) return { text: body, display: true };
+        if (body) return { text: body, display: false };
       }
       return null;
     }
@@ -1773,7 +1801,7 @@ body.ps-resizing *{cursor:inherit!important}
         t, tabs, activePath, tab, cursor, compile, status, onSelectTab, onCloseTab,
         onEdit, onCompile, editorApiRef, syntax, onSave, onToggleWrap, notify, symbols,
         onDiscuss, onAddChatContext, chatEnabled, changes, onKeepChange, onDiscardChange, onCloseReview, misspelled, onRetryChange,
-        onScroll, getScroll, onUndo, onRedo, initialCaret,
+        onScroll, getScroll, onUndo, onRedo, initialCaret, onUpdateChange,
       } = props;
       const theme = syntax || DEFAULT_SYNTAX;
       const hostRef = useRef(null);
@@ -2062,6 +2090,17 @@ body.ps-resizing *{cursor:inherit!important}
         const buildTint = (view) => {
           const builder = new RangeSetBuilder();
           for (const change of liveRef.current.changes || []) {
+            if (change.search !== undefined) {
+              const range = findSearchRange(view.state.doc.toString(), change.search);
+              if (!range) continue;
+              const first = view.state.doc.lineAt(range.from).number;
+              const last = view.state.doc.lineAt(range.to).number;
+              for (let number = first; number <= last; number += 1) {
+                const line = view.state.doc.line(number);
+                builder.add(line.from, line.from, Decoration.line({ class: "cm-review-target" }));
+              }
+              continue;
+            }
             const match = change.hunk ? /^@@ -(\d+)(?:,(\d+))?/u.exec(change.hunk.header || "") : null;
             if (!match) continue;
             const from = Math.max(1, Number(match[1]));
@@ -2385,15 +2424,58 @@ body.ps-resizing *{cursor:inherit!important}
         h("div", { className: "ps-diff-body" },
           changes.map((change) => {
             const targetTab = change.file ? (tabs || []).find((item) => item.path === change.file) : tab;
-            const stale = Boolean(targetTab && applySuggestion(targetTab.content, { hunks: [change.hunk] }) === null);
+            const stale = Boolean(targetTab && (change.search !== undefined
+              ? findSearchRange(targetTab.content, change.search) === null
+              : applySuggestion(targetTab.content, { hunks: [change.hunk] }) === null));
             return h("div", { className: "ps-cm-diff-change", key: change.id },
               h("div", { className: "ps-diff-file" }, change.file || ""),
               stale ? h("div", { className: "ps-cm-stale" }, "Diff no longer matches this file — use Repropose.") : null,
               h("pre", { className: "ps-diff-lines" },
-                (change.hunk ? change.hunk.lines : []).slice(0, 80).map((line, index) => h("div", {
-                  key: index,
-                  className: `ps-diff-line ${line.type === "+" ? "add" : line.type === "-" ? "del" : "ctx"}`,
-                }, line.text || " "))),
+                (() => {
+                  const entries = pairHunkLines((change.hunk ? change.hunk.lines : []).slice(0, 80));
+                  const row = (line, segments, key) => h("div", {
+                    key,
+                    className: `ps-diff-line ${line.type === "+" ? "add" : line.type === "-" ? "del" : "ctx"}`,
+                  }, segments
+                    ? segments.map((segment, index) => segment.changed
+                      ? h("span", { key: index, className: `ps-diff-word-${line.type === "+" ? "add" : "del"}` }, segment.text)
+                      : segment.text)
+                    : (line.text || " "));
+                  const output = [];
+                  entries.forEach((entry, index) => {
+                    if (entry.kind === "pair") {
+                      const diff = inlineWordDiff(entry.oldLine.text, entry.newLine.text);
+                      output.push(row(entry.oldLine, diff.old, `o${index}`));
+                      output.push(row(entry.newLine, diff.new, `n${index}`));
+                    } else {
+                      output.push(row(entry.line, null, `l${index}`));
+                    }
+                  });
+                  return output;
+                })()),
+              (() => {
+                const added = change.hunk ? change.hunk.lines.filter((line) => line.type === "+").map((line) => line.text) : [];
+                if (added.length === 0) return null;
+                return h("textarea", {
+                  className: "ps-diff-edit-add", value: added.join("\n"), spellCheck: false,
+                  placeholder: "Edit the added lines…",
+                  onChange: (event) => {
+                    const nextLines = event.target.value.split("\n");
+                    if (change.search !== undefined) {
+                      onUpdateChange(change.id, { replace: event.target.value, hunk: searchHunk(change.search, event.target.value) });
+                    } else {
+                      const lines = [];
+                      let used = 0;
+                      for (const line of change.hunk.lines) {
+                        if (line.type !== "+") { lines.push(line); continue; }
+                        if (used < nextLines.length) lines.push({ ...line, text: nextLines[used++] });
+                      }
+                      while (used < nextLines.length) lines.push({ type: "+", text: nextLines[used++] });
+                      onUpdateChange(change.id, { hunk: { ...change.hunk, lines } });
+                    }
+                  },
+                });
+              })(),
               h("div", { className: "ps-cm-diff-actions" },
                 h("button", {
                   className: "ps-btn primary", type: "button", disabled: stale,
@@ -2619,7 +2701,8 @@ body.ps-resizing *{cursor:inherit!important}
     };
 
     function GitView(props) {
-      const { t, info, diff, diffOpen, busy, onAction, onNewBranch, onNuke, onSwitch, onRefresh, onOpenFile, onToggleDiff } = props;
+      const { t, info, diff, diffOpen, busy, onAction, onNewBranch, onNuke, onSwitch, onRefresh, onOpenFile, onToggleDiff, onCommit } = props;
+      const [message, setMessage] = useState("");
       const data = info.data;
       const stats = useMemo(() => {
         let add = 0;
@@ -2649,7 +2732,13 @@ body.ps-resizing *{cursor:inherit!important}
           h("button", { className: "ps-btn icon", type: "button", title: t("refresh"), onClick: onRefresh }, h(Icon.refresh)));
       }
 
-      const files = data.files || [];
+      const files = (data.files || []).map((file) => {
+        const raw = String(file.status || "");
+        const staged = file.staged !== undefined ? file.staged : raw.length > 1 && raw[0] !== " " && raw[0] !== "?";
+        const unstaged = file.unstaged !== undefined ? file.unstaged : !staged;
+        return { ...file, staged, unstaged };
+      });
+      files.sort((left, right) => Number(Boolean(right.staged)) - Number(Boolean(left.staged)));
       const branches = data.branches || [];
       const ahead = data.ahead || 0;
       const behind = data.behind || 0;
@@ -2683,17 +2772,45 @@ body.ps-resizing *{cursor:inherit!important}
           h("div", { className: "ps-git-section-head" },
             h("span", null, t("changes")),
             h("span", { className: "ps-git-count" }, String(files.length))),
+          h("textarea", {
+            className: "ps-git-commit-msg", value: message, placeholder: t("commitMessage"),
+            rows: 2, onChange: (event) => setMessage(event.target.value),
+          }),
+          h("div", { className: "ps-git-commit-row" },
+            h("span", { className: "ps-git-hint" }, t("commitHint")),
+            h("button", {
+              className: "ps-btn primary", type: "button",
+              disabled: Boolean(busy) || !message.trim() || !files.some((file) => file.staged),
+              onClick: () => { if (onCommit) void onCommit(message).then((ok) => { if (ok) setMessage(""); }); },
+            }, busy === "commit" ? "…" : t("commit"))),
           files.length === 0
             ? h("div", { className: "ps-git-empty" }, h(Icon.check), t("cleanTree"))
-            : h("div", { className: "ps-git-files" }, files.map((file) => h("button", {
-              key: file.path,
-              className: "ps-git-file",
-              type: "button",
-              title: file.path,
-              onClick: () => onOpenFile(file.path),
-            },
-            h("span", { className: `ps-git-status ${gitStatusClass(file.status || "")}` }, (file.status || "?").slice(0, 2)),
-            h("span", { className: "ps-git-path" }, file.path))))),
+            : h(React.Fragment, null,
+              h("div", { className: "ps-git-files-head" },
+                h("span", null, t("changed")),
+                h("button", { className: "ps-btn", type: "button", disabled: Boolean(busy), onClick: () => onAction("stageAll") }, t("stageAll")),
+                h("button", { className: "ps-btn", type: "button", disabled: Boolean(busy), onClick: () => onAction("unstageAll") }, t("unstageAll"))),
+              h("div", { className: "ps-git-files" }, files.map((file) => h("div", {
+                key: file.path,
+                className: `ps-git-file-row${file.staged ? " staged" : ""}`,
+              },
+              h("button", {
+                className: "ps-git-file", type: "button", title: file.path,
+                onClick: () => onOpenFile(file.path),
+              },
+              h("span", { className: `ps-git-status ${gitStatusClass(file.status || "")}` }, (file.status || "?").slice(0, 2)),
+              h("span", { className: "ps-git-path" }, file.path),
+              file.staged ? h("span", { className: "ps-git-staged-badge" }, t("staged")) : null),
+              h("span", { className: "ps-git-file-actions" },
+                file.unstaged ? h("button", {
+                  className: "ps-btn icon", type: "button", title: t("stage"), "aria-label": t("stage"),
+                  disabled: Boolean(busy), onClick: () => onAction("stage", { file: file.path }),
+                }, "+") : null,
+                file.staged ? h("button", {
+                  className: "ps-btn icon", type: "button", title: t("unstage"), "aria-label": t("unstage"),
+                  disabled: Boolean(busy), onClick: () => onAction("unstage", { file: file.path }),
+                }, "−") : null)))))),
+
 
         h("details", { className: "ps-git-details" },
           h("summary", null, t("details")),
@@ -2954,7 +3071,7 @@ body.ps-resizing *{cursor:inherit!important}
         }
       }, [notify, selection, t]);
 
-      return h("div", { className: "ps-page-box", ref: boxRef },
+      return h("div", { className: "ps-page-box", ref: boxRef, "data-page": page },
         nearViewport ? h("img", {
           className: "ps-page",
           src: url,
@@ -3012,8 +3129,116 @@ body.ps-resizing *{cursor:inherit!important}
       return suggestions;
     }
 
+    // Aider-style search/replace blocks are text-anchored, so they survive
+    // line-number drift and unrelated edits. Unified diffs remain supported
+    // for old chats.
+    function parseEditSuggestions(text) {
+      const suggestions = [];
+      const blocks = /```(?:edit|aider)\s*\n([\s\S]*?)```/giu;
+      let match;
+      while ((match = blocks.exec(String(text || "")))) {
+        const body = match[1];
+        const lines = body.split("\n");
+        let file = "";
+        for (const line of lines) {
+          if (line.startsWith("<<<<<<<")) break;
+          const candidate = line.trim().replace(/^[*]{3}\s*(?:Update|Add|Delete) File:\s*/u, "");
+          if (candidate && !candidate.startsWith("#")) file = candidate;
+        }
+        let index = 0;
+        while (index < lines.length) {
+          if (!lines[index].startsWith("<<<<<<<")) { index += 1; continue; }
+          const search = [];
+          index += 1;
+          while (index < lines.length && !lines[index].startsWith("=======")) { search.push(lines[index]); index += 1; }
+          if (index >= lines.length) break;
+          index += 1;
+          const replace = [];
+          while (index < lines.length && !lines[index].startsWith(">>>>>>>")) { replace.push(lines[index]); index += 1; }
+          if (index < lines.length) index += 1;
+          const from = search.join("\n");
+          const to = replace.join("\n");
+          if (!from.trim()) continue;
+          const hunk = {
+            header: "@@ search @@",
+            lines: [
+              ...from.split("\n").map((lineText) => ({ type: "-", text: lineText })),
+              ...to.split("\n").map((lineText) => ({ type: "+", text: lineText })),
+            ],
+          };
+          suggestions.push({ file: file || "", search: from, replace: to, hunks: [hunk] });
+        }
+      }
+      return suggestions;
+    }
+
+    function searchHunk(search, replace) {
+      return {
+        header: "@@ search @@",
+        lines: [
+          ...String(search || "").split("\n").map((text) => ({ type: "-", text })),
+          ...String(replace || "").split("\n").map((text) => ({ type: "+", text })),
+        ],
+      };
+    }
+
+    function normalizeLine(value) {
+      return String(value || "").replace(/[ \t]+$/u, "");
+    }
+
+    /** Locate a search block exactly, then ignoring trailing whitespace, then fuzzily. */
+    function findSearchRange(content, search) {
+      const text = String(content || "").replace(/\r\n/gu, "\n");
+      const needle = String(search || "").replace(/\r\n/gu, "\n");
+      if (!needle) return null;
+      const exact = text.indexOf(needle);
+      if (exact >= 0) return { from: exact, to: exact + needle.length, exact: true };
+      const lines = text.split("\n");
+      const needleLines = needle.split("\n").map(normalizeLine);
+      const trimmed = (line) => normalizeLine(line);
+      for (let start = 0; start + needleLines.length <= lines.length; start += 1) {
+        if (!needleLines.every((line, offset) => trimmed(lines[start + offset]) === line)) continue;
+        const prefix = lines.slice(0, start).join("\n");
+        const from = prefix.length ? prefix.length + 1 : 0;
+        return { from, to: from + lines.slice(start, start + needleLines.length).join("\n").length, exact: false };
+      }
+      const tokenize = (line) => new Set(normalizeLine(line).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim().split(" ").filter(Boolean));
+      const similarity = (left, right) => {
+        const a = tokenize(left);
+        const b = tokenize(right);
+        if (!a.size || !b.size) return 0;
+        let common = 0;
+        for (const token of a) if (b.has(token)) common += 1;
+        return (2 * common) / (a.size + b.size);
+      };
+      let best = { score: 0, start: -1 };
+      for (let start = 0; start + needleLines.length <= lines.length; start += 1) {
+        let score = 0;
+        for (let offset = 0; offset < needleLines.length; offset += 1) score += similarity(needleLines[offset], lines[start + offset]);
+        score /= needleLines.length;
+        if (score > best.score) best = { score, start };
+      }
+      if (best.start < 0 || best.score < 0.7) return null;
+      const prefix = lines.slice(0, best.start).join("\n");
+      const from = prefix.length ? prefix.length + 1 : 0;
+      return { from, to: from + lines.slice(best.start, best.start + needleLines.length).join("\n").length, exact: false };
+    }
+
+    function applySearchReplace(content, search, replace) {
+      const range = findSearchRange(content, search);
+      if (!range) return null;
+      return String(content).slice(0, range.from) + String(replace || "") + String(content).slice(range.to);
+    }
+
+    function lineNumberAt(content, offset) {
+      return String(content || "").slice(0, Math.max(0, offset)).split("\n").length;
+    }
+
     function stripDiffBlocks(text) {
-      return String(text || "").replace(/```(?:diff|patch)\s*\n[\s\S]*?```/giu, "").trim();
+      return String(text || "")
+        .replace(/```(?:edit|aider)\s*\n[\s\S]*?```/giu, "")
+        .replace(/```(?:diff|patch)\s*\n[\s\S]*?```/giu, "")
+        .trim();
     }
 
     function diffChangeKey(file, hunk) {
@@ -3025,10 +3250,21 @@ body.ps-resizing *{cursor:inherit!important}
 
     function collectChanges(messages) {
       const changes = [];
-      (Array.isArray(messages) ? messages : []).forEach((message, messageIndex) => {
+      (Array.isArray(messages) ? messages : []).forEach((message) => {
         if (message.role !== "assistant") return;
-        parseDiffSuggestions(message.content).forEach((suggestion, suggestionIndex) => {
-          suggestion.hunks.forEach((hunk, hunkIndex) => {
+        parseEditSuggestions(message.content).forEach((suggestion) => {
+          suggestion.hunks.forEach((hunk) => {
+            changes.push({
+              id: diffChangeKey(suggestion.file, hunk),
+              file: suggestion.file || "",
+              hunk,
+              search: suggestion.search,
+              replace: suggestion.replace,
+            });
+          });
+        });
+        parseDiffSuggestions(message.content).forEach((suggestion) => {
+          suggestion.hunks.forEach((hunk) => {
             changes.push({
               id: diffChangeKey(suggestion.file, hunk),
               file: suggestion.file || "",
@@ -3083,12 +3319,75 @@ body.ps-resizing *{cursor:inherit!important}
       return lines.join("\n");
     }
 
+    /** Token-level diff for paired removed/added lines. */
+    function inlineWordDiff(oldText, newText) {
+      const tokenize = (value) => String(value || "").match(/\s+|[^\s]+/gu) || [];
+      const a = tokenize(oldText);
+      const b = tokenize(newText);
+      if (a.length > 400 || b.length > 400) {
+        return {
+          old: [{ text: String(oldText || ""), changed: true }],
+          new: [{ text: String(newText || ""), changed: true }],
+        };
+      }
+      const dp = Array.from({ length: a.length + 1 }, () => new Uint16Array(b.length + 1));
+      for (let i = a.length - 1; i >= 0; i -= 1) {
+        for (let j = b.length - 1; j >= 0; j -= 1) {
+          dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+        }
+      }
+      const oldSegments = [];
+      const newSegments = [];
+      const push = (list, text, changed) => {
+        if (!text) return;
+        if (/^\s+$/u.test(text)) {
+          list.push({ text, changed: false });
+          return;
+        }
+        const last = list[list.length - 1];
+        if (last && last.changed === changed && !/^\s+$/u.test(last.text)) last.text += text;
+        else list.push({ text, changed });
+      };
+      let i = 0;
+      let j = 0;
+      while (i < a.length && j < b.length) {
+        if (a[i] === b[j]) { push(oldSegments, a[i], false); push(newSegments, b[j], false); i += 1; j += 1; }
+        else if (dp[i + 1][j] >= dp[i][j + 1]) { push(oldSegments, a[i], true); i += 1; }
+        else { push(newSegments, b[j], true); j += 1; }
+      }
+      while (i < a.length) { push(oldSegments, a[i], true); i += 1; }
+      while (j < b.length) { push(newSegments, b[j], true); j += 1; }
+      return { old: oldSegments, new: newSegments };
+    }
+
+    /** Pair runs of removed/added lines so review rows can show word-level changes. */
+    function pairHunkLines(lines) {
+      const output = [];
+      let index = 0;
+      while (index < lines.length) {
+        if (lines[index].type !== "-") { output.push({ kind: "line", line: lines[index] }); index += 1; continue; }
+        const removed = [];
+        const added = [];
+        while (index < lines.length && lines[index].type === "-") { removed.push(lines[index]); index += 1; }
+        while (index < lines.length && lines[index].type === "+") { added.push(lines[index]); index += 1; }
+        const count = Math.max(removed.length, added.length);
+        for (let offset = 0; offset < count; offset += 1) {
+          if (removed[offset] && added[offset]) output.push({ kind: "pair", oldLine: removed[offset], newLine: added[offset] });
+          else if (removed[offset]) output.push({ kind: "line", line: removed[offset] });
+          else output.push({ kind: "line", line: added[offset] });
+        }
+      }
+      return output;
+    }
+
     /** Rewrite a hunk header so the same suggestion applies to the current buffer. */
     function rebaseHunk(content, hunk) {
       if (!hunk) return null;
-      const lines = String(content || "").split("\n");
+      const text = String(content || "");
+      const lines = text.split("\n");
       const match = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(.*)$/u.exec(hunk.header || "");
-      const oldLines = hunk.lines.filter((line) => line.type !== "+").map((line) => line.text);
+      const oldEntries = hunk.lines.filter((line) => line.type !== "+");
+      const oldLines = oldEntries.map((line) => line.text);
       const newLines = hunk.lines.filter((line) => line.type !== "-").map((line) => line.text);
       const declared = match ? Number(match[1]) - 1 : -1;
       const count = match && match[2] !== undefined ? Number(match[2]) : oldLines.length;
@@ -3097,6 +3396,19 @@ body.ps-resizing *{cursor:inherit!important}
         const at = Math.max(0, Math.min(lines.length, declared));
         return { ...hunk, header: `@@ -${at + 1},0 +${at + 1},${newCount} @@${match ? match[5] : ""}` };
       }
+      const normalize = (value) => String(value || "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+      const similarity = (left, right) => {
+        const a = normalize(left);
+        const b = normalize(right);
+        if (!a || !b) return a === b ? 1 : 0;
+        if (a === b) return 1;
+        if (a.startsWith(b) || b.startsWith(a)) return 0.85;
+        const at = new Set(a.split(" ").filter(Boolean));
+        const bt = new Set(b.split(" ").filter(Boolean));
+        let common = 0;
+        for (const token of at) if (bt.has(token)) common += 1;
+        return (2 * common) / Math.max(1, at.size + bt.size);
+      };
       const same = (index) => lines.slice(index, index + count)
         .every((line, offset) => String(line ?? "").trimEnd() === String(oldLines[offset] ?? "").trimEnd());
       let at = -1;
@@ -3108,14 +3420,59 @@ body.ps-resizing *{cursor:inherit!important}
           }
         }
       }
-      if (at < 0) {
-        const before = oldLines.join("\n");
-        if (!before) return null;
-        const index = lines.join("\n").indexOf(before);
-        if (index >= 0) at = lines.join("\n").slice(0, index).split("\n").length - 1;
+      // The hunk may have moved far, or its removed lines may have been edited.
+      // Search the whole file for the unchanged context lines first.
+      const contextLines = oldEntries.filter((line) => line.type === " ").map((line) => line.text);
+      if (at < 0 && contextLines.length > 0) {
+        const joined = lines.join("\n");
+        const needle = contextLines.join("\n");
+        const index = joined.indexOf(needle);
+        if (index >= 0) {
+          const prefix = joined.slice(0, index).split("\n").length - 1;
+          const beforeCount = oldEntries.findIndex((line) => line.type === " ");
+          at = Math.max(0, prefix - Math.max(0, beforeCount));
+        }
       }
-      if (at < 0) return null;
-      return { ...hunk, header: `@@ -${at + 1},${count} +${at + 1},${newCount} @@${match ? match[5] : ""}` };
+      if (at < 0) {
+        // Similarity search over every possible start, weighting unchanged
+        // context lines more than removed lines.
+        let best = { score: 0, start: -1 };
+        const span = oldEntries.length;
+        for (let candidate = 0; candidate + span <= lines.length; candidate += 1) {
+          let score = 0;
+          let total = 0;
+          for (let offset = 0; offset < span; offset += 1) {
+            const weight = oldEntries[offset].type === " " ? 3 : 1;
+            total += weight;
+            score += weight * similarity(oldEntries[offset].text, lines[candidate + offset]);
+          }
+          const normalized = total > 0 ? score / total : 0;
+          const distance = declared >= 0 ? Math.abs(candidate - declared) : 0;
+          if (normalized > best.score + 0.02 || (Math.abs(normalized - best.score) <= 0.02 && distance < Math.abs(best.start - declared))) {
+            best = { score: normalized, start: candidate };
+          }
+        }
+        if (best.start >= 0 && best.score >= 0.55) at = best.start;
+      }
+      if (at < 0) {
+        if (declared < 0) return null;
+        at = Math.max(0, Math.min(lines.length - 1, declared));
+      }
+      const currentOld = lines.slice(at, at + oldLines.length);
+      if (currentOld.length === 0) return null;
+      let oldIndex = 0;
+      const mapped = hunk.lines.map((line) => {
+        if (line.type === "+") return line;
+        const next = currentOld[oldIndex];
+        oldIndex += 1;
+        return next === undefined ? line : { ...line, text: next };
+      });
+      const adaptedCount = Math.max(1, currentOld.length);
+      return {
+        ...hunk,
+        header: `@@ -${at + 1},${adaptedCount} +${at + 1},${newCount} @@${match ? match[5] : ""}`,
+        lines: mapped,
+      };
     }
 
     function parseChoiceBlocks(text) {
@@ -3455,6 +3812,26 @@ body.ps-resizing *{cursor:inherit!important}
         resolvedChoices, onChoose, onDeleteChat, onShowPrompt, onShowMemory, streamReasoning, thinkingMode,
       } = props;
       const logRef = useRef(null);
+      const [inputHeight, setInputHeight] = useState(() => {
+        try { return Math.max(46, Math.min(600, Number(localStorage.getItem("dsh.paper-studio.chat-height")) || 92)); } catch { return 92; }
+      });
+      const startResize = (event) => {
+        event.preventDefault();
+        const startY = event.clientY;
+        const startHeight = inputHeight;
+        let latest = startHeight;
+        const move = (moveEvent) => {
+          latest = Math.max(46, Math.min((window.innerHeight || 800) * 0.6, startHeight + startY - moveEvent.clientY));
+          setInputHeight(latest);
+        };
+        const stop = () => {
+          window.removeEventListener("pointermove", move);
+          window.removeEventListener("pointerup", stop);
+          try { localStorage.setItem("dsh.paper-studio.chat-height", String(latest)); } catch { /* storage disabled */ }
+        };
+        window.addEventListener("pointermove", move);
+        window.addEventListener("pointerup", stop);
+      };
       useEffect(() => {
         if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
       }, [chat && chat.messages ? chat.messages.length : 0, stream, busy]);
@@ -3525,9 +3902,14 @@ body.ps-resizing *{cursor:inherit!important}
           h("div", { className: "ps-chat-changes-actions" },
             h("button", { className: "ps-btn keep", type: "button", onClick: () => onKeepAll && onKeepAll() }, t("keepAll")),
             h("button", { className: "ps-btn danger", type: "button", onClick: () => onDiscardAll && onDiscardAll() }, t("discardAll")))) : null,
+        h("div", {
+          className: "ps-chat-resize", title: "Drag to resize the message box",
+          onPointerDown: startResize,
+        }),
         h("div", { className: "ps-chat-compose" },
           h("textarea", {
             className: "ps-chat-input", value: input, placeholder: t("chatPlaceholder"),
+            style: { height: `${inputHeight}px` },
             onChange: (event) => onInput(event.target.value),
             onKeyDown: (event) => {
               if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); onSend(); }
@@ -3618,7 +4000,7 @@ body.ps-resizing *{cursor:inherit!important}
       const [resolvedChoices, setResolvedChoices] = useState(new Set());
       const [allChats, setAllChats] = useState(null);
       const resolvedRef = useRef(new Set());
-      const resolvedKey = useCallback((chatId) => `ps-chat-resolved:${projectIdRef.current || ""}:${chat && chat.agentId ? chat.agentId : ""}:${chatId || ""}`, [chat]);
+      const resolvedKey = useCallback((chatId, agentId) => `ps-chat-resolved:${projectIdRef.current || ""}:${agentId || (chat && chat.agentId) || (chatAgent && chatAgent.id) || ""}:${chatId || ""}`, [chat, chatAgent]);
       const chatSourceRef = useRef(null);
       const chatJobRef = useRef("");
       const onEditRef = useRef(null);
@@ -3642,6 +4024,10 @@ body.ps-resizing *{cursor:inherit!important}
       const mtimeByPath = useRef({});
       const scrollByPath = useRef({});
       const cursorByPath = useRef(readUi().cursors || {});
+      const pdfScrollRef = useRef(null);
+      const pdfPagesRef = useRef(readUi().pdfPages || {});
+      const pdfPageRef = useRef(1);
+      const [pdfPage, setPdfPage] = useState(1);
       const pendingLine = useRef(null);
       const autoCompileRef = useRef(Boolean(syntax.autoCompile));
       const compileOnSaveRef = useRef(syntax.compileOnSave !== false);
@@ -4136,13 +4522,13 @@ body.ps-resizing *{cursor:inherit!important}
       const applyChanges = useCallback((list, tag) => {
         const byFile = new Map();
         for (const change of list) {
-          if (!change || !change.hunk) continue;
+          if (!change || (!change.hunk && change.search === undefined)) continue;
           const file = change.file || "";
           if (!byFile.has(file)) byFile.set(file, []);
-          byFile.get(file).push(change.hunk);
+          byFile.get(file).push(change);
         }
         let applied = 0;
-        for (const [file, hunks] of byFile) {
+        for (const [file, entries] of byFile) {
           const tab = file
             ? tabsRef.current.find((item) => item.path === file)
             : tabsRef.current.find((item) => item.path === activeRef.current);
@@ -4153,8 +4539,10 @@ body.ps-resizing *{cursor:inherit!important}
           }
           let content = tab.content;
           let local = 0;
-          for (const hunk of hunks) {
-            const next = applySuggestion(content, { hunks: [hunk] });
+          for (const change of entries) {
+            const next = change.search !== undefined
+              ? applySearchReplace(content, change.search, change.replace)
+              : applySuggestion(content, { hunks: [change.hunk] });
             if (next !== null) { content = next; local += 1; }
           }
           if (local === 0) {
@@ -4184,32 +4572,70 @@ body.ps-resizing *{cursor:inherit!important}
         setChanges((list) => list.filter((entry) => entry.id !== change.id));
       }, [chat, resolvedKey]);
 
+      const decisionRef = useRef(() => {});
+      const decisionQueueRef = useRef([]);
+      const decisionTimerRef = useRef(null);
+      const chatBusyRef = useRef(false);
+
+      const updateChange = useCallback((id, patch) => {
+        setChanges((list) => list.map((entry) => (entry.id === id ? { ...entry, ...patch, edited: true } : entry)));
+      }, []);
+
       const keepChange = useCallback((change) => {
         if (applyChanges([change], { keep: change }) === 0) return;
+        decisionRef.current(change.edited ? "modified" : "kept", change);
         resolveChange(change);
         notify(t("suggestionApplied"));
       }, [applyChanges, notify, resolveChange, t]);
 
       const discardChange = useCallback((id) => {
         const change = changes.find((entry) => entry.id === id);
+        if (change) decisionRef.current("discarded", change);
         if (change) resolveChange(change);
         else setChanges((list) => list.filter((entry) => entry.id !== id));
       }, [changes, resolveChange]);
 
-      const retryChange = useCallback((change) => {
-        const target = change && change.file
-          ? tabsRef.current.find((item) => item.path === change.file)
+      const retryChange = useCallback(async (change) => {
+        const path = (change && change.file) || activeRef.current;
+        const target = path
+          ? tabsRef.current.find((item) => item.path === path)
           : tabsRef.current.find((item) => item.path === activeRef.current);
-        if (!target) {
+        // Re-read the live buffer at click time. The React tab snapshot can lag
+        // behind a keystroke, which is exactly how a retry ends up adapting to
+        // text the user has already changed.
+        const live = editorApiRef.current && editorApiRef.current.__cm;
+        let content = null;
+        if (live && path === activeRef.current) content = live.state.doc.toString();
+        else if (target) content = target.content;
+        if (content === null && path) {
+          try {
+            const file = await request("file", { query: { project: projectIdRef.current, path } });
+            content = file && file.content !== undefined ? file.content : null;
+          } catch { /* report below */ }
+        }
+        if (content === null) {
           notify("Open the file before retrying this diff.", "err");
           return;
         }
-        const hunk = rebaseHunk(target.content, change.hunk);
-        if (!hunk) {
-          notify("Still could not adapt this diff to the current file.", "err");
-          return;
+        let hunk;
+        let updated;
+        if (change.search !== undefined) {
+          const range = findSearchRange(content, change.search);
+          if (!range) {
+            notify("Still could not find that passage in the current file.", "err");
+            return;
+          }
+          const search = content.slice(range.from, range.to);
+          hunk = searchHunk(search, change.replace);
+          updated = { ...change, search, hunk, id: diffChangeKey(change.file, hunk) };
+        } else {
+          hunk = rebaseHunk(content, change.hunk);
+          if (!hunk) {
+            notify("Still could not adapt this diff to the current file.", "err");
+            return;
+          }
+          updated = { ...change, hunk, id: diffChangeKey(change.file, hunk) };
         }
-        const updated = { ...change, hunk, id: diffChangeKey(change.file, hunk) };
         setChanges((list) => list.map((entry) => (entry.id === change.id ? updated : entry)));
         notify("Suggestion adapted to the current file.");
       }, [notify]);
@@ -4217,7 +4643,10 @@ body.ps-resizing *{cursor:inherit!important}
       const keepAllChanges = useCallback(() => {
         const applied = [];
         for (const change of changes) {
-          if (applyChanges([change], { keep: change }) > 0) applied.push(change.id);
+          if (applyChanges([change], { keep: change }) > 0) {
+            applied.push(change.id);
+            decisionRef.current(change.edited ? "modified" : "kept", change);
+          }
         }
         if (applied.length === 0) return;
         for (const id of applied) resolvedRef.current.add(id);
@@ -4226,14 +4655,17 @@ body.ps-resizing *{cursor:inherit!important}
       }, [applyChanges, changes, chat, resolvedKey]);
 
       const discardAllChanges = useCallback(() => {
-        for (const change of changes) resolvedRef.current.add(change.id);
+        for (const change of changes) {
+          decisionRef.current("discarded", change);
+          resolvedRef.current.add(change.id);
+        }
         try { if (chat) localStorage.setItem(resolvedKey(chat.id), JSON.stringify([...resolvedRef.current])); } catch { /* storage disabled */ }
         setChanges([]);
       }, [changes, chat, resolvedKey]);
 
-      const loadResolved = useCallback((chatId) => {
+      const loadResolved = useCallback((chatId, agentId) => {
         try {
-          return new Set(JSON.parse(localStorage.getItem(resolvedKey(chatId)) || "[]"));
+          return new Set(JSON.parse(localStorage.getItem(resolvedKey(chatId, agentId)) || "[]"));
         } catch {
           return new Set();
         }
@@ -4281,6 +4713,10 @@ body.ps-resizing *{cursor:inherit!important}
         if (!id || !agent) return;
         try {
           const data = await request("chat", { query: { project: id, agent: agent.id, chat: chatId } });
+          resolvedRef.current = loadResolved(data.id, agent.id);
+          setResolvedChoices(loadResolvedChoices(data.id));
+          setChanges(collectChanges(data.messages).filter((change) => !resolvedRef.current.has(change.id)));
+          setReviewHidden(false);
           setChatAgent(agent);
           setChat(data);
           setChatInput("");
@@ -4295,12 +4731,25 @@ body.ps-resizing *{cursor:inherit!important}
         }
       }, [loadResolved, notify, refreshChats]);
 
+      const restoredChatFor = useRef(null);
+      useEffect(() => {
+        const id = project ? project.id : null;
+        if (!id || !agents || agents.length === 0) return;
+        if (restoredChatFor.current === id) return;
+        restoredChatFor.current = id;
+        if (chatAgent) return;
+        const ui = readUi();
+        if (!ui.chatAgentId || !ui.chatId) return;
+        const agent = agents.find((item) => item.id === ui.chatAgentId && item.scope === ui.chatAgentScope);
+        if (agent) void openExistingChat(agent, ui.chatId);
+      }, [project ? project.id : null, agents, chatAgent, openExistingChat]);
+
       const selectChat = useCallback(async (chatId) => {
         const id = projectIdRef.current;
         if (!id || !chatAgent || !chatId) return;
         try {
           const data = await request("chat", { query: { project: id, agent: chatAgent.id, chat: chatId } });
-          resolvedRef.current = loadResolved(data.id);
+          resolvedRef.current = loadResolved(data.id, chatAgent.id);
           setResolvedChoices(loadResolvedChoices(data.id));
           setChanges(collectChanges(data.messages).filter((change) => !resolvedRef.current.has(change.id)));
           setReviewHidden(false);
@@ -4415,6 +4864,32 @@ body.ps-resizing *{cursor:inherit!important}
           notify(error.message, "err");
         }
       }, [chat, chatAgent, chatBusy, chatInput, notify, openFile, refreshChats]);
+
+      chatBusyRef.current = chatBusy;
+      const queueDecision = useCallback((kind, change) => {
+        if (!chat || !chatAgent) return;
+        const head = change && change.hunk ? change.hunk.header || "" : "";
+        decisionQueueRef.current.push({ kind, label: `${change && change.file ? `${change.file} ` : ""}${head}`.trim() });
+        if (decisionTimerRef.current) clearTimeout(decisionTimerRef.current);
+        const flush = () => {
+          if (!chat || !chatAgent) { decisionQueueRef.current = []; return; }
+          if (chatBusyRef.current) {
+            decisionTimerRef.current = setTimeout(flush, 1200);
+            return;
+          }
+          const items = decisionQueueRef.current.splice(0);
+          if (items.length === 0) return;
+          const groups = {};
+          for (const item of items) {
+            if (!groups[item.kind]) groups[item.kind] = [];
+            if (item.label && !groups[item.kind].includes(item.label)) groups[item.kind].push(item.label);
+          }
+          const lines = Object.entries(groups).map(([group, labels]) => `${group}: ${labels.join("; ")}`);
+          void sendChat(`Decision summary — ${lines.join(" | ")}. Acknowledge briefly in one sentence; do not propose new edits.`);
+        };
+        decisionTimerRef.current = setTimeout(flush, 1200);
+      }, [chat, chatAgent, sendChat]);
+      decisionRef.current = queueDecision;
 
       const resolvedChoiceKey = useCallback((chatId) => `ps-chat-choices:${projectIdRef.current || ""}:${chat && chat.agentId ? chat.agentId : ""}:${chatId || ""}`, [chat]);
 
@@ -4546,11 +5021,33 @@ body.ps-resizing *{cursor:inherit!important}
         return () => { cancelled = true; };
       }, [openProject]);
 
+      useEffect(() => {
+        const id = project ? project.id : null;
+        if (!id) return;
+        const page = Number(pdfPagesRef.current[id]) || 1;
+        pdfPageRef.current = page;
+        setPdfPage(page);
+      }, [project ? project.id : null]);
+
+      useEffect(() => {
+        if (!pdfOpen || !project || rightTab !== "pdf" || pdf.mode !== "pages") return;
+        const scroll = pdfScrollRef.current;
+        if (!scroll) return;
+        const page = Math.max(1, Math.min(pdf.pages, pdfPageRef.current));
+        requestAnimationFrame(() => {
+          const target = scroll.querySelector(`[data-page="${page}"]`);
+          if (target) scroll.scrollTop = target.offsetTop;
+        });
+      }, [pdfOpen, project ? project.id : null, rightTab, pdf.mode, pdf.rev, pdf.pages]);
+
       // Persist light UI state.
       useEffect(() => {
         const timer = setTimeout(() => {
+          const id = projectIdRef.current;
+          const restored = Boolean(id) && restoredChatFor.current === id;
+          const saved = readUi();
           writeUi({
-            projectId: projectIdRef.current,
+            projectId: id,
             tabs: tabs.map((item) => item.path),
             active,
             explorer: explorerOpen,
@@ -4562,10 +5059,17 @@ body.ps-resizing *{cursor:inherit!important}
             pdfPct,
             explorerTab,
             cursors: cursorByPath.current,
+            // Do not blank the saved chat before the async restore has had a
+            // chance to read it (this used to erase it after every reload).
+            chatAgentId: restored || chatAgent ? (chatAgent ? chatAgent.id : "") : (saved.chatAgentId || ""),
+            chatAgentScope: restored || chatAgent ? (chatAgent ? chatAgent.scope : "") : (saved.chatAgentScope || ""),
+            chatId: restored || chatAgent ? (chat ? chat.id : "") : (saved.chatId || ""),
+            rightTab: restored ? rightTab : (saved.rightTab || rightTab),
+            pdfPages: pdfPagesRef.current,
           });
         }, 300);
         return () => clearTimeout(timer);
-      }, [tabs, active, explorerOpen, pdfOpen, zoom, dock, dockHeight, explorerWidth, pdfPct, explorerTab, cursor]);
+      }, [tabs, active, explorerOpen, pdfOpen, zoom, dock, dockHeight, explorerWidth, pdfPct, explorerTab, cursor, chatAgent, chat, rightTab, pdfPage]);
 
       // Cursor refresh when switching files.
       useEffect(() => {
@@ -5800,6 +6304,13 @@ body.ps-resizing *{cursor:inherit!important}
           h("button", { className: "ps-btn", type: "button", onClick: () => openDialog("clone"), title: t("cloneOverleaf") },
             h(Icon.git), h("span", { className: "ps-hide-narrow" }, t("cloneOverleaf"))),
           project ? h("button", {
+            className: `ps-btn${chatAgent ? " active" : ""}`, type: "button", title: t("chatTab"),
+            onClick: () => {
+              if (chatAgent) { setPdfOpen(true); setRightTab("chat"); }
+              else setDialog({ kind: "agents", context: null });
+            },
+          }, h(Icon.chat), h("span", { className: "ps-hide-narrow" }, t("chatTab"))) : null,
+          project ? h("button", {
             className: "ps-btn icon", type: "button", title: t("settings"), "aria-label": t("settings"),
             onClick: () => openDialog("prefs", {
               tab: "editor",
@@ -5880,7 +6391,8 @@ body.ps-resizing *{cursor:inherit!important}
               diff: gitDiff,
               diffOpen: gitDiffOpen,
               busy: gitBusy,
-              onAction: (action) => { void runGitAction(action); },
+              onAction: (action, extra) => { void runGitAction(action, extra); },
+              onCommit: (message) => runGitAction("commit", { message }),
               onNewBranch: () => openDialog("branch", { name: "" }),
               onNuke: () => openDialog("nuke", {
                 target: gitInfo.data
@@ -5963,6 +6475,7 @@ body.ps-resizing *{cursor:inherit!important}
             onKeepChange: keepChange,
             onDiscardChange: discardChange,
             onRetryChange: retryChange,
+            onUpdateChange: updateChange,
             onCloseReview: () => setReviewHidden(true),
             onUndo: undo,
             onRedo: redo,
@@ -6007,7 +6520,7 @@ body.ps-resizing *{cursor:inherit!important}
                 stream: chatStream,
                 onSelectChat: (chatId) => { void selectChat(chatId); },
                 onNewChat: () => { void startChat(chatAgent, chat && chat.context ? chat.context : null); },
-                onClose: () => { setChatAgent(null); setChat(null); setRightTab("pdf"); },
+                onClose: () => { setChatAgent(null); setChat(null); setChanges([]); setRightTab("pdf"); },
                 changes,
                 onKeepChange: keepChange,
                 onDiscardChange: discardChange,
@@ -6024,6 +6537,19 @@ body.ps-resizing *{cursor:inherit!important}
               : pdf.mode === "pages"
               ? h("div", {
                 className: "ps-pdf-scroll",
+                ref: pdfScrollRef,
+                onScroll: (event) => {
+                  const scroll = event.currentTarget;
+                  const top = scroll.getBoundingClientRect().top + 8;
+                  let page = 1;
+                  for (const box of scroll.querySelectorAll("[data-page]")) {
+                    if (box.getBoundingClientRect().top <= top) page = Number(box.dataset.page) || page;
+                    else break;
+                  }
+                  pdfPageRef.current = page;
+                  if (project) pdfPagesRef.current[project.id] = page;
+                  if (page !== pdfPage) setPdfPage(page);
+                },
                 onPointerEnter: () => setPdfTextLayer(true),
                 onPointerDown: (event) => {
                   if (pdfTextLayerRef.current) return;
@@ -6112,7 +6638,7 @@ body.ps-resizing *{cursor:inherit!important}
     return {
       inject: ["slots", "locale", "layout"],
       /** Pure helpers exercised by test/client.test.mjs (no browser needed). */
-      __internals: { CSS, Studio, EditorPane, Dock, FolderPicker, PdfPage, GitView, Explosion, ChatPane, parseDiffSuggestions, applySuggestion, stripDiffBlocks, collectChanges, diffChangeKey, parseChoiceBlocks, stripChoiceBlocks, splitMath, diffLineKinds, normalizeSymbols, rebaseHunk, equationAtCursor, highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject, shouldCompileAfterSave },
+      __internals: { CSS, Studio, EditorPane, Dock, FolderPicker, PdfPage, GitView, Explosion, ChatPane, parseDiffSuggestions, applySuggestion, stripDiffBlocks, collectChanges, diffChangeKey, parseChoiceBlocks, stripChoiceBlocks, splitMath, diffLineKinds, normalizeSymbols, rebaseHunk, equationAtCursor, inlineWordDiff, pairHunkLines, parseEditSuggestions, findSearchRange, applySearchReplace, searchHunk, highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject, shouldCompileAfterSave },
       apply(ctx) {
         ctx.effect(() => {
           const style = document.createElement("style");

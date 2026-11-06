@@ -536,8 +536,11 @@ test("web blocks parse search and fetch requests", () => {
   assert.deepEqual(__test.webRequests("no web here"), []);
 });
 
-test("read blocks map to relative paths", () => {
-  assert.deepEqual(__test.readRequests("```read\nsections/methods.tex\n```\nand\n```read\nmain.tex\n```"), ["sections/methods.tex", "main.tex"]);
+test("read blocks map to relative paths and line ranges", () => {
+  assert.deepEqual(__test.readRequests("```read\nsections/methods.tex\n```\nand\n```read\nmain.tex 290-420\n```"), [
+    { path: "sections/methods.tex", start: null, end: null },
+    { path: "main.tex", start: 290, end: 420 },
+  ]);
   assert.deepEqual(__test.readRequests("no reads here"), []);
 });
 
@@ -816,4 +819,32 @@ test("page 1 is served and unknown pages are refused", async () => {
 
   const missing = await fetch(api("page", { project: project.id, page: 99 }));
   assert.equal(missing.status, 404);
+});
+
+test("git staging, unstaging and committing", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "ps-gitstage-"));
+  const project = { path: dir };
+  try {
+    execFileSync("git", ["init", "-q"], { cwd: dir });
+    execFileSync("git", ["config", "user.email", "test@example.com"], { cwd: dir });
+    execFileSync("git", ["config", "user.name", "Test"], { cwd: dir });
+    await writeFile(join(dir, "main.tex"), "one\n", "utf8");
+    execFileSync("git", ["add", "main.tex"], { cwd: dir });
+    execFileSync("git", ["commit", "-qm", "init"], { cwd: dir });
+    await writeFile(join(dir, "main.tex"), "two\n", "utf8");
+    await __test.gitSync(project, "stage", { path: "main.tex" });
+    let info = await __test.gitInfo(project);
+    assert.equal(info.files[0].staged, true);
+    await __test.gitSync(project, "unstage", { path: "main.tex" });
+    info = await __test.gitInfo(project);
+    assert.equal(info.files[0].staged, false);
+    assert.equal(info.files[0].unstaged, true);
+    await __test.gitSync(project, "stage", { path: "main.tex" });
+    const commit = await __test.gitSync(project, "commit", { message: "change main" });
+    assert.equal(commit.ok, true);
+    info = await __test.gitInfo(project);
+    assert.match(info.lastCommit, /change main/u);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });
