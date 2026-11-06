@@ -1152,7 +1152,8 @@ const wordsCache = new Map();
 
 /** Word boxes for one page in PDF points (origin top-left). */
 async function pageWords(pdfPath, page) {
-  const key = `${pdfPath}:${page}`;
+  const info = await stat(pdfPath).catch(() => null);
+  const key = `${pdfPath}:${page}:${info ? info.mtimeMs : 0}:${info ? info.size : 0}`;
   const cached = wordsCache.get(key);
   if (cached) return cached;
   const result = await run(

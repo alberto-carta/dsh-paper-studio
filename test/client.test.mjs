@@ -293,3 +293,13 @@ test("retry rebases the same hunk onto shifted content", () => {
   assert.equal(rebased.header, "@@ -3,1 +3,1 @@");
   assert.equal(applySuggestion(content, { hunks: [rebased] }), "a\nb\nALPHA\nc");
 });
+
+test("two-column reading order keeps each column contiguous", () => {
+  const words = [
+    { text: "L1", xMin: 50, xMax: 100, yMin: 10, yMax: 20 },
+    { text: "R1", xMin: 350, xMax: 400, yMin: 10, yMax: 20 },
+    { text: "L2", xMin: 50, xMax: 100, yMin: 30, yMax: 40 },
+    { text: "R2", xMin: 350, xMax: 400, yMin: 30, yMax: 40 },
+  ];
+  assert.deepEqual(orderPageWords(words, 600, 800).map((word) => word.text), ["L1", "L2", "R1", "R2"]);
+});

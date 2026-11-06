@@ -10,7 +10,7 @@ try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = 
 
     const PANEL_ID = "paper-studio";
     /** Shown in Settings so the loaded client can be matched to the source file. */
-    const CLIENT_BUILD = "2026-11-06T19:20";
+    const CLIENT_BUILD = "2026-11-06T20:35";
     const NS = "paperStudio";
     const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
 
@@ -531,6 +531,7 @@ try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = 
 .ps-text-layer{position:absolute;inset:0;overflow:visible;z-index:1;line-height:0;cursor:text;user-select:text;-webkit-user-select:text}
 .ps-text-layer span{position:absolute;color:transparent;background:transparent;white-space:pre;overflow:hidden;line-height:1;cursor:text}
 .ps-text-layer span::selection{background:rgba(96,165,250,.38);color:transparent}
+.ps-text-layer span.ps-word-selected{background:rgba(96,165,250,.42);color:transparent}
 .ps-text-layer span::-moz-selection{background:rgba(96,165,250,.38);color:transparent}
 .ps-page-bar{position:absolute;z-index:6;display:flex;gap:4px;padding:3px;border-radius:8px;background:var(--dsw-alias-bg-overlay);border:.5px solid var(--dsw-alias-border-l2);box-shadow:0 6px 18px rgba(0,0,0,.25);transform:translate(-50%,8px)}
 .ps-page-bar .ps-btn{height:24px;font-size:11.5px;padding:0 8px}
@@ -4090,7 +4091,7 @@ body.ps-resizing *{cursor:inherit!important}
       return output;
     }
 
-    const PageTextLayer = React.memo(function PageTextLayer({ words, layerRef }) {
+    const PageTextLayer = React.memo(function PageTextLayer({ words, layerRef, selected }) {
       const spans = useMemo(() => {
         if (!words || !words.width || !words.height || words.words.length === 0) return [];
         return orderPageWords(words.words, words.width, words.height)
@@ -4099,6 +4100,7 @@ body.ps-resizing *{cursor:inherit!important}
       return h("div", { className: "ps-text-layer", ref: layerRef },
         spans.map(({ word, index }) => h("span", {
           key: index,
+          className: selected && selected.has(index) ? "ps-word-selected" : undefined,
           "data-x": (word.xMin + word.xMax) / 2,
           "data-y": (word.yMin + word.yMax) / 2,
           style: {
@@ -4118,6 +4120,7 @@ body.ps-resizing *{cursor:inherit!important}
       const [words, setWords] = useState(null);
       const [selection, setSelection] = useState(null);
       const [busy, setBusy] = useState(false);
+      const [selectedWords, setSelectedWords] = useState(null);
       const [nearViewport, setNearViewport] = useState(Boolean(eager));
 
       useEffect(() => {
@@ -4162,30 +4165,14 @@ body.ps-resizing *{cursor:inherit!important}
         return data;
       }, [page, project, rev, words]);
 
-      // Fetch word boxes when the page approaches the viewport, not all at once.
+      // Fetch the word layer as soon as the page mounts. Waiting for an
+      // intersection can race a click, leaving the selection anchored to the
+      // image with no visible trail.
       useEffect(() => {
         if (words) return undefined;
-        const box = boxRef.current;
-        if (!box) return undefined;
         let cancelled = false;
-        const load = () => {
-          loadWords().catch((error) => { if (!cancelled) notify(error.message, "err"); });
-        };
-        if (typeof IntersectionObserver === "undefined") {
-          load();
-          return () => { cancelled = true; };
-        }
-        const observer = new IntersectionObserver((entries) => {
-          if (entries.some((entry) => entry.isIntersecting)) {
-            observer.disconnect();
-            load();
-          }
-        }, { rootMargin: "600px" });
-        observer.observe(box);
-        return () => {
-          cancelled = true;
-          observer.disconnect();
-        };
+        loadWords().catch((error) => { if (!cancelled) notify(error.message, "err"); });
+        return () => { cancelled = true; };
       }, [loadWords, notify, words]);
 
       // The layer is sized in pixels; spans use em, so zoom just rescales them.
@@ -4209,6 +4196,7 @@ body.ps-resizing *{cursor:inherit!important}
           const live = window.getSelection();
           if (!live || live.rangeCount === 0 || live.isCollapsed) {
             setSelection(null);
+            setSelectedWords(null);
             return;
           }
           const range = live.getRangeAt(0);
@@ -4216,8 +4204,14 @@ body.ps-resizing *{cursor:inherit!important}
           const box = boxRef.current;
           if (!layer || !box || !layer.contains(range.commonAncestorContainer)) {
             setSelection(null);
+            setSelectedWords(null);
             return;
           }
+          const highlighted = new Set();
+          [...layer.querySelectorAll("span")].forEach((node, index) => {
+            if (live.containsNode(node, true)) highlighted.add(index);
+          });
+          setSelectedWords(highlighted.size > 0 ? highlighted : null);
           const parts = [...range.cloneContents().querySelectorAll("span")]
             .map((node) => node.textContent)
             .filter(Boolean);
@@ -4272,7 +4266,7 @@ body.ps-resizing *{cursor:inherit!important}
           onError: () => { if (onMissing) onMissing(); },
         }) : h("div", { className: "ps-page ps-page-placeholder", "aria-hidden": "true" }),
         words && nearViewport && textLayer && words.words.length > 0
-          ? h(PageTextLayer, { words, layerRef })
+          ? h(PageTextLayer, { words, layerRef, selected: selectedWords })
           : null,
         selection
           ? h("div", {
