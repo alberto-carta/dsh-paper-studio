@@ -8,7 +8,7 @@ window.__ModuleLoader__.load({
 
     const PANEL_ID = "paper-studio";
     /** Shown in Settings so the loaded client can be matched to the source file. */
-    const CLIENT_BUILD = "2026-11-06T02:55";
+    const CLIENT_BUILD = "2026-11-06T04:55";
     const NS = "paperStudio";
     const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
 
@@ -58,7 +58,6 @@ window.__ModuleLoader__.load({
         appearance: "Appearance",
         diffGutter: "Diff gutter",
         diffOff: "Off",
-        diffSaved: "Saved file",
         diffGit: "Git HEAD",
         editing: "Editing",
         wrapLines: "Soft-wrap long lines",
@@ -417,6 +416,8 @@ window.__ModuleLoader__.load({
 .ps-root textarea.ps-code{color:transparent!important;-webkit-text-fill-color:transparent!important;caret-color:var(--dsw-alias-label-primary)!important;background:transparent!important}
 .ps-highlight{position:absolute;inset:0;z-index:0;margin:0;padding:8px 18px 8px 48px;font:13px/20px ${MONO};tab-size:2;white-space:pre;overflow:hidden;pointer-events:none;color:var(--dsw-alias-label-primary);background:transparent}
 .ps-hl-inner{position:relative;min-height:100%}
+.ps-hl-inner.virtual{height:0;min-height:0}
+.ps-hl-inner.virtual .ps-hl-line{position:absolute;left:-48px;right:-18px;top:0;margin:0;padding:0 18px 0 48px;min-height:20px}
 .ps-match-layer{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
 .ps-match-box{position:absolute;box-sizing:border-box;border-radius:2px;border:.5px solid var(--dsw-alias-brand-primary);background:color-mix(in srgb,var(--dsw-alias-brand-primary) 22%,transparent);box-shadow:0 0 0 .5px color-mix(in srgb,var(--dsw-alias-brand-primary) 45%,transparent)}
 .ps-match-box.unmatched{border-color:var(--dsw-alias-state-error-primary);background:color-mix(in srgb,var(--dsw-alias-state-error-primary) 20%,transparent)}
@@ -494,6 +495,7 @@ window.__ModuleLoader__.load({
 .ps-pages{width:var(--ps-zoom,100%);min-width:280px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
 .ps-page-box{position:relative;width:100%;line-height:0}
 .ps-page{width:100%;display:block;background:#fff;border-radius:2px;box-shadow:0 1px 5px rgba(0,0,0,.2)}
+.ps-page-placeholder{aspect-ratio:612 / 792;box-shadow:none;background:var(--dsw-alias-bg-layer-2)}
 .ps-text-layer{position:absolute;inset:0;overflow:visible;z-index:1;line-height:0;cursor:text;user-select:text;-webkit-user-select:text}
 .ps-text-layer span{position:absolute;color:transparent;background:transparent;white-space:pre;overflow:hidden;line-height:1;cursor:text}
 .ps-text-layer span::selection{background:rgba(96,165,250,.38);color:transparent}
@@ -1135,6 +1137,9 @@ body.ps-resizing *{cursor:inherit!important}
      * editor can paint a background band for the environment and a box around
      * the cursor line; each entry carries ready HTML for the tokens.
      */
+    const HIGHLIGHT_CACHE = new Map();
+    const HIGHLIGHT_CACHE_LIMIT = 20_000;
+
     function highlightLines(source, misspelled) {
       const text = String(source ?? "");
       if (text.length > MAX_HIGHLIGHT_CHARS) {
@@ -1146,6 +1151,16 @@ body.ps-resizing *{cursor:inherit!important}
       let mathBlock = false;
       const result = [];
       for (const line of lines) {
+        const stateKey = `${stack.join(">")}|${mathBlock ? 1 : 0}`;
+        const cacheKey = (!misspelled || misspelled.size === 0) ? `${stateKey}\u0000${line}` : null;
+        const cached = cacheKey ? HIGHLIGHT_CACHE.get(cacheKey) : null;
+        if (cached) {
+          result.push({ html: cached.html, bg: cached.bg });
+          stack.length = 0;
+          stack.push(...cached.stack);
+          mathBlock = cached.math;
+          continue;
+        }
         let html = "";
         let index = 0;
         let category = stack.length > 0 ? envCategory(stack[stack.length - 1]) : null;
@@ -1250,6 +1265,10 @@ body.ps-resizing *{cursor:inherit!important}
         if (mathBlock && !category) category = "math";
         if (popAtEnd) stack.pop();
         result.push({ html, bg: category });
+        if (cacheKey) {
+          HIGHLIGHT_CACHE.set(cacheKey, { html, bg: category, stack: stack.slice(), math: mathBlock });
+          if (HIGHLIGHT_CACHE.size > HIGHLIGHT_CACHE_LIMIT) HIGHLIGHT_CACHE.delete(HIGHLIGHT_CACHE.keys().next().value);
+        }
       }
       return result;
     }
@@ -1647,13 +1666,19 @@ body.ps-resizing *{cursor:inherit!important}
         [tab ? tab.content : "", misspelled],
       );
       const currentLine = cursor && cursor.line ? cursor.line - 1 : -1;
+      const [diffText, setDiffText] = useState(tab ? tab.content : "");
+      const [viewport, setViewport] = useState({ top: 0, height: 640 });
+      useEffect(() => {
+        if (tab) setDiffText(tab.content);
+        else setDiffText("");
+      }, [tab ? tab.path : null, tab ? tab.saved : null]);
       const diffMap = useMemo(() => {
         if (!tab) return new Map();
         const mode = theme.diffGutter || "git";
         if (mode === "off") return new Map();
-        const base = mode === "git" && tab.base !== undefined && tab.base !== null ? tab.base : tab.saved;
-        return diffLineKinds(base, tab.content);
-      }, [tab ? tab.content : "", tab ? tab.base : undefined, tab ? tab.saved : "", theme.diffGutter]);
+        if (tab.base === undefined || tab.base === null) return new Map();
+        return diffLineKinds(tab.base, diffText);
+      }, [diffText, tab ? tab.base : undefined, tab ? tab.saved : "", theme.diffGutter]);
       const diffTargets = useMemo(() => {
         const targets = new Set();
         for (const change of changes || []) {
@@ -1666,14 +1691,20 @@ body.ps-resizing *{cursor:inherit!important}
         return targets;
       }, [changes]);
 
-      const markup = useMemo(() => lines.map((line, index) => {
-        const background = theme.backgrounds && line.bg ? ` data-bg="${line.bg}"` : "";
-        const current = theme.currentLine && index === currentLine ? " current" : "";
-        const target = diffTargets.has(index + 1) ? " ps-diff-target" : "";
-        const diff = diffMap.get(index);
-        const diffAttr = diff ? ` data-diff="${diff}"` : "";
-        return `<div class="ps-hl-line${current}${target}"${background}${diffAttr} data-line="${index + 1}">${line.html}</div>`;
-      }).join(""), [lines, currentLine, theme.backgrounds, theme.currentLine, diffTargets, diffMap]);
+      const lineElsRef = useRef([]);
+      const initialMarkupRef = useRef(null);
+      if (initialMarkupRef.current === null) {
+        initialMarkupRef.current = lines.map((line, index) => {
+          const bg = theme.backgrounds && line.bg ? ` data-bg="${line.bg}"` : "";
+          const current = theme.currentLine && index === currentLine ? " current" : "";
+          const target = diffTargets.has(index + 1) ? " ps-diff-target" : "";
+          const diff = diffMap.get(index);
+          return `<div class="ps-hl-line${current}${target}"${bg}${diff ? ` data-diff="${diff}"` : ""} data-line="${index + 1}">${line.html}</div>`;
+        }).join("");
+      }
+      const lineRangeRef = useRef("");
+      const lineStart = theme.wrap ? 0 : Math.max(0, Math.floor(viewport.top / 20) - 20);
+      const lineEnd = theme.wrap ? lines.length : Math.min(lines.length, Math.ceil((viewport.top + viewport.height) / 20) + 20);
       const styleVars = useMemo(() => syntaxVariables(theme), [theme]);
 
       const closeCompletion = useCallback(() => setCompletion(null), []);
@@ -2231,18 +2262,92 @@ body.ps-resizing *{cursor:inherit!important}
       useEffect(() => {
         const textarea = editorRef.current;
         if (!textarea) return undefined;
-        const onNativeScroll = () => syncHighlight();
+        let frame = 0;
+        const measure = () => {
+          if (frame) return;
+          frame = requestAnimationFrame(() => {
+            frame = 0;
+            setViewport({ top: textarea.scrollTop, height: textarea.clientHeight });
+          });
+        };
+        const onNativeScroll = () => { syncHighlight(); measure(); };
         textarea.addEventListener("scroll", onNativeScroll, { passive: true });
-        return () => textarea.removeEventListener("scroll", onNativeScroll);
+        measure();
+        return () => {
+          if (frame) cancelAnimationFrame(frame);
+          textarea.removeEventListener("scroll", onNativeScroll);
+        };
       }, [syncHighlight, theme.wrap, tab ? tab.path : ""]);
 
-      useLayoutEffectSafe(() => { syncHighlight(); }, [markup, activePath, syncHighlight]);
+      useLayoutEffectSafe(() => {
+        const inner = highlightInnerRef.current;
+        if (!inner) return;
+        const rangeKey = `${lineStart}:${lineEnd}`;
+        let els = lineElsRef.current;
+        if (lineRangeRef.current !== rangeKey || els.length !== lineEnd - lineStart) {
+          inner.textContent = "";
+          const fragment = document.createDocumentFragment();
+          els = [];
+          for (let index = lineStart; index < lineEnd; index += 1) {
+            const element = document.createElement("div");
+            element.className = "ps-hl-line";
+            element.dataset.line = String(index + 1);
+            fragment.appendChild(element);
+            els.push(element);
+          }
+          inner.appendChild(fragment);
+          inner.classList.toggle("virtual", !theme.wrap);
+          if (theme.wrap) {
+            inner.style.paddingTop = `${lineStart * 20}px`;
+            inner.style.paddingBottom = `${(lines.length - lineEnd) * 20}px`;
+          } else {
+            inner.style.paddingTop = "0";
+            inner.style.paddingBottom = "0";
+            for (let index = lineStart; index < lineEnd; index += 1) els[index - lineStart].style.top = `${index * 20}px`;
+          }
+          lineElsRef.current = els;
+          lineRangeRef.current = rangeKey;
+        }
+        for (let index = lineStart; index < lineEnd; index += 1) {
+          const line = lines[index];
+          const element = els[index - lineStart];
+          if (!line || !element) continue;
+          if (element.__psHtml !== line.html) {
+            element.innerHTML = line.html;
+            element.__psHtml = line.html;
+          }
+          const bg = theme.backgrounds && line.bg ? line.bg : null;
+          if (bg) {
+            if (element.dataset.bg !== bg) element.dataset.bg = bg;
+          } else if (element.hasAttribute("data-bg")) {
+            element.removeAttribute("data-bg");
+          }
+          const isCurrent = Boolean(theme.currentLine && index === currentLine);
+          if (element.__psCurrent !== isCurrent) {
+            element.classList.toggle("current", isCurrent);
+            element.__psCurrent = isCurrent;
+          }
+          const isTarget = diffTargets.has(index + 1);
+          if (element.__psTarget !== isTarget) {
+            element.classList.toggle("ps-diff-target", isTarget);
+            element.__psTarget = isTarget;
+          }
+          const diff = diffMap.get(index) || null;
+          if (element.__psDiff !== diff) {
+            if (diff) element.dataset.diff = diff;
+            else if (element.hasAttribute("data-diff")) element.removeAttribute("data-diff");
+            element.__psDiff = diff;
+          }
+        }
+      }, [lines, lineStart, lineEnd, currentLine, theme.backgrounds, theme.currentLine, diffTargets, diffMap]);
+
+      useLayoutEffectSafe(() => { syncHighlight(); }, [activePath, syncHighlight, theme.wrap]);
 
       useLayoutEffectSafe(() => {
         const textarea = editorRef.current;
-        if (!textarea || !tab) { setMatches([]); return; }
+        if (!textarea || !tab) { setMatches((previous) => (previous.length > 0 ? [] : previous)); return; }
         const pair = bracketMatch(tab.content, textarea.selectionStart);
-        if (!pair) { setMatches([]); return; }
+        if (!pair) { setMatches((previous) => (previous.length > 0 ? [] : previous)); return; }
         const boxes = [];
         for (const index of [pair.open, pair.close]) {
           if (index < 0) continue;
@@ -2253,7 +2358,7 @@ body.ps-resizing *{cursor:inherit!important}
           });
         }
         setMatches(boxes);
-      }, [cursor.line, cursor.col, tab ? tab.content : "", theme.wrap, markup]);
+      }, [cursor.line, cursor.col, tab ? tab.content : "", theme.wrap]);
 
       useLayoutEffectSafe(() => {
         if (!theme.diagnostics) return;
@@ -2273,7 +2378,7 @@ body.ps-resizing *{cursor:inherit!important}
           `sh ${textarea.scrollHeight}`,
           `ch ${textarea.clientHeight}`,
         ].join(" · "));
-      }, [theme.diagnostics, markup, cursor.line, cursor.col, tab ? tab.content : "", theme.wrap]);
+      }, [theme.diagnostics, lines, cursor.line, cursor.col, tab ? tab.content : "", theme.wrap]);
 
       // A wrap toggle remounts the textarea (to apply wrapping), so restore the
       // caret, then measure and sync before the browser paints.
@@ -2350,7 +2455,7 @@ body.ps-resizing *{cursor:inherit!important}
       }, [changes, editorRef, theme.wrap]);
 
       useEffect(() => { diffPopRef.current = placeDiffPopup; }, [placeDiffPopup]);
-      useLayoutEffectSafe(() => { placeDiffPopup(); }, [placeDiffPopup, markup, activePath]);
+      useLayoutEffectSafe(() => { placeDiffPopup(); }, [placeDiffPopup, activePath]);
 
       const handleScroll = useCallback((event) => {
         onScroll(event);
@@ -2611,7 +2716,7 @@ body.ps-resizing *{cursor:inherit!important}
           h("div", {
             className: "ps-hl-inner",
             ref: highlightInnerRef,
-            dangerouslySetInnerHTML: { __html: markup },
+            dangerouslySetInnerHTML: { __html: initialMarkupRef.current },
           })),
           h("textarea", {
             key: `code-${theme.wrap ? "wrap" : "nowrap"}`,
@@ -3185,13 +3290,14 @@ body.ps-resizing *{cursor:inherit!important}
         }, word.text)));
     });
 
-    function PdfPage(props) {
-      const { t, project, page, rev, url, eager, onGoTo, notify, onMissing } = props;
+    const PdfPage = React.memo(function PdfPage(props) {
+      const { t, project, page, rev, url, eager, onGoTo, notify, onMissing, textLayer } = props;
       const boxRef = useRef(null);
       const layerRef = useRef(null);
       const [words, setWords] = useState(null);
       const [selection, setSelection] = useState(null);
       const [busy, setBusy] = useState(false);
+      const [nearViewport, setNearViewport] = useState(Boolean(eager));
 
       useEffect(() => {
         const box = boxRef.current;
@@ -3207,6 +3313,17 @@ body.ps-resizing *{cursor:inherit!important}
         };
         box.addEventListener("wheel", onWheel, { passive: false });
         return () => box.removeEventListener("wheel", onWheel);
+      }, []);
+
+      useEffect(() => {
+        const box = boxRef.current;
+        if (!box || typeof IntersectionObserver === "undefined") { setNearViewport(true); return undefined; }
+        const pane = box.closest(".ps-pdf-scroll");
+        const observer = new IntersectionObserver((entries) => {
+          for (const entry of entries) setNearViewport(entry.isIntersecting);
+        }, { root: pane || null, rootMargin: "1200px" });
+        observer.observe(box);
+        return () => observer.disconnect();
       }, []);
 
       const loadWords = useCallback(async () => {
@@ -3325,15 +3442,15 @@ body.ps-resizing *{cursor:inherit!important}
       }, [notify, selection, t]);
 
       return h("div", { className: "ps-page-box", ref: boxRef },
-        h("img", {
+        nearViewport ? h("img", {
           className: "ps-page",
           src: url,
           alt: `page ${page}`,
           loading: eager ? "eager" : "lazy",
           draggable: false,
           onError: () => { if (onMissing) onMissing(); },
-        }),
-        words && words.words.length > 0
+        }) : h("div", { className: "ps-page ps-page-placeholder", "aria-hidden": "true" }),
+        words && nearViewport && textLayer && words.words.length > 0
           ? h(PageTextLayer, { words, layerRef })
           : null,
         selection
@@ -3348,7 +3465,7 @@ body.ps-resizing *{cursor:inherit!important}
           h("button", { className: "ps-btn primary", type: "button", disabled: busy, title: t("goToEditorHint"), onClick: goToEditor }, busy ? "…" : t("goToEditor")),
           h("button", { className: "ps-btn", type: "button", onClick: copyText }, t("copyText")))
           : null);
-    }
+    });
 
     // -- main component ----------------------------------------------------
     function parseDiffSuggestions(text) {
@@ -3525,6 +3642,48 @@ body.ps-resizing *{cursor:inherit!important}
       return katexPromise;
     }
 
+    function myersOps(a, b, maxD) {
+      const n = a.length;
+      const m = b.length;
+      const max = n + m;
+      if (max === 0) return [];
+      const offset = max + 1;
+      const v = new Int32Array(2 * max + 3);
+      const trace = [];
+      const limit = Math.min(max, maxD);
+      for (let d = 0; d <= limit; d += 1) {
+        trace.push(v.slice());
+        for (let k = -d; k <= d; k += 2) {
+          let x;
+          if (k === -d || (k !== d && v[offset + k - 1] < v[offset + k + 1])) x = v[offset + k + 1];
+          else x = v[offset + k - 1] + 1;
+          let y = x - k;
+          while (x < n && y < m && a[x] === b[y]) { x += 1; y += 1; }
+          v[offset + k] = x;
+          if (x >= n && y >= m) {
+            const ops = [];
+            let bx = n;
+            let by = m;
+            for (let depth = d; depth >= 0; depth -= 1) {
+              const row = trace[depth];
+              const kk = bx - by;
+              let prevK;
+              if (kk === -depth || (kk !== depth && row[offset + kk - 1] < row[offset + kk + 1])) prevK = kk + 1;
+              else prevK = kk - 1;
+              const prevX = depth === 0 ? 0 : row[offset + prevK];
+              const prevY = prevX - prevK;
+              while (bx > prevX && by > prevY) { ops.push({ kind: "eq" }); bx -= 1; by -= 1; }
+              if (depth === 0) break;
+              if (bx === prevX) { by -= 1; ops.push({ kind: "ins", index: by }); }
+              else { bx -= 1; ops.push({ kind: "del" }); }
+            }
+            return ops.reverse();
+          }
+        }
+      }
+      return null;
+    }
+
     function diffLineKinds(base, current) {
       const a = String(base ?? "").replace(/\r\n/gu, "\n").split("\n");
       const b = String(current ?? "").replace(/\r\n/gu, "\n").split("\n");
@@ -3548,29 +3707,8 @@ body.ps-resizing *{cursor:inherit!important}
         for (let j = 0; j < m; j += 1) kinds.set(start + j, "add");
         return kinds;
       }
-      if (n * m > 4_000_000) return kinds;
-      const width = m + 1;
-      const dp = new Uint32Array((n + 1) * width);
-      for (let i = n - 1; i >= 0; i -= 1) {
-        for (let j = m - 1; j >= 0; j -= 1) {
-          dp[i * width + j] = A[i] === B[j]
-            ? dp[(i + 1) * width + j + 1] + 1
-            : Math.max(dp[(i + 1) * width + j], dp[i * width + j + 1]);
-        }
-      }
-      const ops = [];
-      let i = 0;
-      let j = 0;
-      while (i < n || j < m) {
-        if (i < n && j < m && A[i] === B[j]) { i += 1; j += 1; ops.push({ kind: "eq" }); continue; }
-        if (j < m && (i === n || dp[i * width + j + 1] >= dp[(i + 1) * width + j])) {
-          ops.push({ kind: "ins", index: start + j });
-          j += 1;
-        } else {
-          ops.push({ kind: "del" });
-          i += 1;
-        }
-      }
+      const ops = myersOps(A, B, 4000);
+      if (!ops) return kinds;
       let currentIndex = 0;
       let k = 0;
       while (k < ops.length) {
@@ -3579,7 +3717,7 @@ body.ps-resizing *{cursor:inherit!important}
         const inserts = [];
         while (k < ops.length && ops[k].kind !== "eq") {
           if (ops[k].kind === "del") deletes += 1;
-          else inserts.push(ops[k].index);
+          else inserts.push(start + ops[k].index);
           k += 1;
         }
         const paired = Math.min(deletes, inserts.length);
@@ -3849,7 +3987,7 @@ body.ps-resizing *{cursor:inherit!important}
     }
 
     function Studio(props) {
-      const t = props.t || ((key) => key);
+      const t = useMemo(() => props.t || ((key) => key), [props.t]);
       const panelInfo = props.panelInfo;
       const panelSnapshot = panelInfo
         ? React.useSyncExternalStore(
@@ -3901,6 +4039,10 @@ body.ps-resizing *{cursor:inherit!important}
       const [agentBases, setAgentBases] = useState(new Set());
       const agentFileRef = useRef(null);
       const [rightTab, setRightTab] = useState("pdf");
+      const [pdfTextLayer, setPdfTextLayer] = useState(true);
+      const pdfTextLayerRef = useRef(true);
+      useEffect(() => { pdfTextLayerRef.current = pdfTextLayer; }, [pdfTextLayer]);
+      const onPdfMissing = useCallback(() => setPdf({ rev: null, pages: 0, mode: "missing" }), []);
       const [chatAgent, setChatAgent] = useState(null);
       const [chat, setChat] = useState(null);
       const [chatList, setChatList] = useState([]);
@@ -4862,7 +5004,6 @@ body.ps-resizing *{cursor:inherit!important}
             return { ...item, saving: false, mtime: result.mtime, saved: tab.content, dirty: unchanged ? false : item.dirty, conflict: null };
           }));
           setStatus({ kind: "saved", at: Date.now() });
-          void refreshBaseline(path);
           const manual = Boolean(options && options.manual);
           if (shouldCompileAfterSave({ manual, compileOnSave: compileOnSaveRef.current, autoCompile: autoCompileRef.current })) {
             clearTimeout(compileTimer.current);
@@ -5100,6 +5241,7 @@ body.ps-resizing *{cursor:inherit!important}
       }, []);
 
       const onEdit = useCallback((path, content, caret) => {
+        if (pdfTextLayerRef.current) setPdfTextLayer(false);
         const current = tabsRef.current.find((item) => item.path === path);
         if (current && current.content !== content) {
           const now = Date.now();
@@ -5719,11 +5861,10 @@ body.ps-resizing *{cursor:inherit!important}
               h("label", { className: "ps-color-row" },
                 h("span", { className: "ps-color-label" }, t("diffGutter")),
                 h("select", {
-                  className: "ps-select", value: draft.diffGutter || "git",
+                  className: "ps-select", value: draft.diffGutter === "off" ? "off" : "git",
                   onChange: (event) => updateDraft({ diffGutter: event.target.value }),
                 },
                 h("option", { value: "off" }, t("diffOff")),
-                h("option", { value: "saved" }, t("diffSaved")),
                 h("option", { value: "git" }, t("diffGit"))))),
             h("div", { className: "ps-color-group", key: "cursor" },
               h("h3", null, t("cursorLine")),
@@ -6261,7 +6402,12 @@ body.ps-resizing *{cursor:inherit!important}
                 thinkingMode: syntax.thinking || "last",
               })
               : pdf.mode === "pages"
-              ? h("div", { className: "ps-pdf-scroll" },
+              ? h("div", {
+                className: "ps-pdf-scroll",
+                onPointerEnter: () => setPdfTextLayer(true),
+                onPointerDown: () => setPdfTextLayer(true),
+                onFocus: () => setPdfTextLayer(true),
+              },
                 h("div", { className: "ps-pages", style: { "--ps-zoom": `${zoom}%` } },
                   Array.from({ length: pdf.pages }, (unused, index) => h(PdfPage, {
                     key: `${pdf.rev}-${index + 1}`,
@@ -6273,7 +6419,8 @@ body.ps-resizing *{cursor:inherit!important}
                     eager: index < 2,
                     onGoTo: locateSelection,
                     notify,
-                    onMissing: () => setPdf({ rev: null, pages: 0, mode: "missing" }),
+                    onMissing: onPdfMissing,
+                    textLayer: pdfTextLayer,
                   }))))
               : pdf.mode === "missing"
                 ? h(EmptyState, {

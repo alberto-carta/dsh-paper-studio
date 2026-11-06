@@ -31,7 +31,7 @@ missing-folder recovery, per-project settings.
 cursor-line box, bracket matching, soft wrap, completion (commands, environments,
 packages, `\ref`, `\cite`, paths), aspell spellcheck, context menu, word-level
 undo. The gutter marks Git-HEAD changes (green added, blue modified, red
-deleted; Settings → Appearance → Diff gutter). Vim mode (normal/insert/visual,
+deleted; recomputed on save, Settings → Appearance → Diff gutter). Vim mode (normal/insert/visual,
 text objects, `:w`, `:%s///g`) is scoped to the editor.
 
 **Compile** — `pdflatex` + `bibtex` with incremental builds, a streamed terminal,
