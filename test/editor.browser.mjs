@@ -482,6 +482,38 @@ await check("CM paints figure and equation bands", async () => {
   assert.ok((await page.locator(".cm-band-math").count()) > 0, "equation band");
 });
 
+await check("CM does not mark a matching diff as stale", async () => {
+  await page.evaluate(() => window.__setContent("alpha\nbeta\n"));
+  await page.waitForTimeout(150);
+  await page.evaluate(() => window.__setChanges([
+    { id: "valid-1", file: "main.tex", hunk: { header: "@@ -1,1 +1,1 @@", lines: [
+      { type: " ", text: "alpha" },
+      { type: "-", text: "alpha" },
+      { type: "+", text: "ALPHA" },
+    ] } },
+  ]));
+  await page.waitForTimeout(250);
+  assert.equal(await page.locator(".ps-cm-stale").count(), 0, "valid diff is not stale");
+  await page.evaluate(() => window.__setChanges([]));
+  await page.waitForTimeout(150);
+});
+
+await check("CM colours commands, math and comments on first paint", async () => {
+  await page.evaluate(() => window.__setContent("\\section{Hello} $x^2$ % note\n"));
+  await page.waitForTimeout(250);
+  const colours = await page.evaluate(() => {
+    const result = {};
+    for (const span of document.querySelectorAll(".cm-line span")) {
+      const text = span.textContent || "";
+      if (text.includes("\\section") && !result.command) result.command = getComputedStyle(span).color;
+      if (text.includes("note") && !result.comment) result.comment = getComputedStyle(span).color;
+    }
+    return result;
+  });
+  assert.ok(colours.command && colours.command !== "rgb(0, 0, 0)", `command colour ${colours.command}`);
+  assert.ok(colours.comment && colours.comment !== "rgb(0, 0, 0)", `comment colour ${colours.comment}`);
+});
+
 await check("CM suggestion card opens near the change and flags stale hunks", async () => {
   await page.evaluate(() => window.__setChanges([
     { id: "stale-1", file: "main.tex", hunk: { header: "@@ -1,1 +1,1 @@", lines: [

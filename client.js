@@ -10,7 +10,7 @@ try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = 
 
     const PANEL_ID = "paper-studio";
     /** Shown in Settings so the loaded client can be matched to the source file. */
-    const CLIENT_BUILD = "2026-11-06T17:40";
+    const CLIENT_BUILD = "2026-11-06T19:20";
     const NS = "paperStudio";
     const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
 
@@ -3193,7 +3193,7 @@ body.ps-resizing *{cursor:inherit!important}
       const {
         t, tabs, activePath, tab, cursor, compile, status, onSelectTab, onCloseTab,
         onEdit, onCompile, editorApiRef, syntax, onSave, onToggleWrap, notify, symbols,
-        onDiscuss, onAddChatContext, chatEnabled, changes, onKeepChange, onDiscardChange, onCloseReview, misspelled,
+        onDiscuss, onAddChatContext, chatEnabled, changes, onKeepChange, onDiscardChange, onCloseReview, misspelled, onRetryChange,
       } = props;
       const theme = syntax || DEFAULT_SYNTAX;
       const hostRef = useRef(null);
@@ -3306,13 +3306,20 @@ body.ps-resizing *{cursor:inherit!important}
           };
         };
         const latexHighlight = HighlightStyle.define([
-          { tag: tags.keyword, color: "var(--ps-hl-command, #8b5cf6)" },
+          // Legacy stex mode emits "tag" for commands, which maps to tagName.
+          { tag: tags.tagName, color: "var(--ps-hl-command, #8b5cf6)" },
+          { tag: tags.keyword, color: "var(--ps-hl-math, #059669)" },
           { tag: tags.controlKeyword, color: "var(--ps-hl-command, #8b5cf6)" },
-          { tag: tags.atom, color: "var(--ps-hl-command, #8b5cf6)" },
+          { tag: tags.atom, color: "var(--ps-hl-env, #d97706)" },
+          { tag: tags.variableName, color: "var(--ps-hl-command, #8b5cf6)" },
           { tag: tags.comment, color: "var(--ps-hl-comment, #94a3b8)", fontStyle: "italic" },
           { tag: tags.bracket, color: "var(--ps-hl-brace, #94a3b8)" },
           { tag: tags.number, color: "var(--ps-hl-math, #059669)" },
           { tag: tags.string, color: "var(--ps-hl-math, #059669)" },
+          { tag: tags.operator, color: "var(--ps-hl-brace, #94a3b8)" },
+          { tag: tags.meta, color: "var(--ps-hl-env, #d97706)" },
+          { tag: tags.processingInstruction, color: "var(--ps-hl-command, #8b5cf6)" },
+          { tag: tags.invalid, color: "var(--dsw-alias-state-error-primary, #e5484d)" },
         ]);
         const diffPlugin = ViewPlugin.fromClass(class {
           constructor(view) { this.decorations = buildDiff(view); }
@@ -3669,23 +3676,17 @@ body.ps-resizing *{cursor:inherit!important}
         h("span", null, `${changes.length} suggested change${changes.length === 1 ? "" : "s"}`),
         h("span", { className: "ps-grow" }),
         h("button", {
-          className: "ps-btn", type: "button", title: "Ask an agent to re-read and repropose",
-          onClick: () => {
-            const change = changes[0];
-            if (onDiscuss && tab) onDiscuss({
-              text: `The proposed diff for ${change.file || tab.path} (${change.hunk ? change.hunk.header : "hunk"}) no longer matches the current file. Re-read that section and propose a fresh diff.`,
-              file: change.file || tab.path,
-              startLine: change.hunk ? Number((/^@@ -(\d+)/u.exec(change.hunk.header || "") || [])[1] || 1) : 1,
-            });
-          },
-        }, "Repropose"),
+          className: "ps-btn", type: "button", title: "Re-read and adapt this diff to the current file",
+          onClick: () => { if (onRetryChange) onRetryChange(changes[0]); },
+        }, "Retry"),
         h("button", {
           className: "ps-btn icon", type: "button", title: t("close"),
           onClick: () => { if (onCloseReview) onCloseReview(); },
         }, h(Icon.close))),
         h("div", { className: "ps-diff-body" },
           changes.map((change) => {
-            const stale = Boolean(tab && applySuggestion(tab.content, { hunks: [change.hunk] }) === null);
+            const targetTab = change.file ? (tabs || []).find((item) => item.path === change.file) : tab;
+            const stale = Boolean(targetTab && applySuggestion(targetTab.content, { hunks: [change.hunk] }) === null);
             return h("div", { className: "ps-cm-diff-change", key: change.id },
               h("div", { className: "ps-diff-file" }, change.file || ""),
               stale ? h("div", { className: "ps-cm-stale" }, "Diff no longer matches this file — use Repropose.") : null,
@@ -4388,6 +4389,41 @@ body.ps-resizing *{cursor:inherit!important}
         lines.splice(at, count, ...newLines);
       }
       return lines.join("\n");
+    }
+
+    /** Rewrite a hunk header so the same suggestion applies to the current buffer. */
+    function rebaseHunk(content, hunk) {
+      if (!hunk) return null;
+      const lines = String(content || "").split("\n");
+      const match = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(.*)$/u.exec(hunk.header || "");
+      const oldLines = hunk.lines.filter((line) => line.type !== "+").map((line) => line.text);
+      const newLines = hunk.lines.filter((line) => line.type !== "-").map((line) => line.text);
+      const declared = match ? Number(match[1]) - 1 : -1;
+      const count = match && match[2] !== undefined ? Number(match[2]) : oldLines.length;
+      const newCount = match && match[4] !== undefined ? Number(match[4]) : newLines.length;
+      if (count === 0) {
+        const at = Math.max(0, Math.min(lines.length, declared));
+        return { ...hunk, header: `@@ -${at + 1},0 +${at + 1},${newCount} @@${match ? match[5] : ""}` };
+      }
+      const same = (index) => lines.slice(index, index + count)
+        .every((line, offset) => String(line ?? "").trimEnd() === String(oldLines[offset] ?? "").trimEnd());
+      let at = -1;
+      if (declared >= 0 && declared + count <= lines.length && same(declared)) at = declared;
+      if (at < 0 && declared >= 0) {
+        for (let delta = 1; delta <= 8 && at < 0; delta += 1) {
+          for (const candidate of [declared - delta, declared + delta]) {
+            if (candidate >= 0 && candidate + count <= lines.length && same(candidate)) { at = candidate; break; }
+          }
+        }
+      }
+      if (at < 0) {
+        const before = oldLines.join("\n");
+        if (!before) return null;
+        const index = lines.join("\n").indexOf(before);
+        if (index >= 0) at = lines.join("\n").slice(0, index).split("\n").length - 1;
+      }
+      if (at < 0) return null;
+      return { ...hunk, header: `@@ -${at + 1},${count} +${at + 1},${newCount} @@${match ? match[5] : ""}` };
     }
 
     function parseChoiceBlocks(text) {
@@ -5466,6 +5502,24 @@ body.ps-resizing *{cursor:inherit!important}
         if (change) resolveChange(change);
         else setChanges((list) => list.filter((entry) => entry.id !== id));
       }, [changes, resolveChange]);
+
+      const retryChange = useCallback((change) => {
+        const target = change && change.file
+          ? tabsRef.current.find((item) => item.path === change.file)
+          : tabsRef.current.find((item) => item.path === activeRef.current);
+        if (!target) {
+          notify("Open the file before retrying this diff.", "err");
+          return;
+        }
+        const hunk = rebaseHunk(target.content, change.hunk);
+        if (!hunk) {
+          notify("Still could not adapt this diff to the current file.", "err");
+          return;
+        }
+        const updated = { ...change, hunk, id: diffChangeKey(change.file, hunk) };
+        setChanges((list) => list.map((entry) => (entry.id === change.id ? updated : entry)));
+        notify("Suggestion adapted to the current file.");
+      }, [notify]);
 
       const keepAllChanges = useCallback(() => {
         const applied = [];
@@ -7221,6 +7275,7 @@ body.ps-resizing *{cursor:inherit!important}
             changes: reviewHidden ? [] : changes,
             onKeepChange: keepChange,
             onDiscardChange: discardChange,
+            onRetryChange: retryChange,
             onCloseReview: () => setReviewHidden(true),
             onUndo: undo,
             onRedo: redo,
@@ -7370,7 +7425,7 @@ body.ps-resizing *{cursor:inherit!important}
     return {
       inject: ["slots", "locale", "layout"],
       /** Pure helpers exercised by test/client.test.mjs (no browser needed). */
-      __internals: { Studio, EditorPane, Dock, FolderPicker, PdfPage, GitView, Explosion, ChatPane, parseDiffSuggestions, applySuggestion, stripDiffBlocks, collectChanges, diffChangeKey, parseChoiceBlocks, stripChoiceBlocks, splitMath, diffLineKinds, normalizeSymbols, highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject, shouldCompileAfterSave },
+      __internals: { Studio, EditorPane, Dock, FolderPicker, PdfPage, GitView, Explosion, ChatPane, parseDiffSuggestions, applySuggestion, stripDiffBlocks, collectChanges, diffChangeKey, parseChoiceBlocks, stripChoiceBlocks, splitMath, diffLineKinds, normalizeSymbols, rebaseHunk, highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject, shouldCompileAfterSave },
       apply(ctx) {
         ctx.effect(() => {
           const style = document.createElement("style");

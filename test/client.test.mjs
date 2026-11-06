@@ -26,7 +26,7 @@ const plugin = definition.factory((id) => {
   if (id === "react") return React;
   throw new Error(`unexpected require: ${id}`);
 });
-const { highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject, shouldCompileAfterSave, parseDiffSuggestions, applySuggestion, collectChanges, diffChangeKey, parseChoiceBlocks, stripChoiceBlocks, splitMath, diffLineKinds, normalizeSymbols } = plugin.__internals;
+const { highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject, shouldCompileAfterSave, parseDiffSuggestions, applySuggestion, collectChanges, diffChangeKey, parseChoiceBlocks, stripChoiceBlocks, splitMath, diffLineKinds, normalizeSymbols, rebaseHunk } = plugin.__internals;
 
 test("highlighter marks commands, braces and comments and escapes HTML", () => {
   const html = highlightLatex("\\section{Intro} % note <b>\nText $x^2$ here");
@@ -277,4 +277,19 @@ test("symbol loading keeps custom commands and environments", () => {
   assert.equal(symbols.labels[0].key, "intro");
   const items = completionItems("command", "pre", symbols);
   assert.equal(items[0].label, "\\pref");
+});
+
+test("retry rebases the same hunk onto shifted content", () => {
+  const hunk = {
+    header: "@@ -1,1 +1,1 @@",
+    lines: [
+      { type: "-", text: "alpha" },
+      { type: "+", text: "ALPHA" },
+    ],
+  };
+  const content = "a\nb\nalpha\nc";
+  const rebased = rebaseHunk(content, hunk);
+  assert.ok(rebased);
+  assert.equal(rebased.header, "@@ -3,1 +3,1 @@");
+  assert.equal(applySuggestion(content, { hunks: [rebased] }), "a\nb\nALPHA\nc");
 });
