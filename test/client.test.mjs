@@ -26,7 +26,7 @@ const plugin = definition.factory((id) => {
   if (id === "react") return React;
   throw new Error(`unexpected require: ${id}`);
 });
-const { highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject, shouldCompileAfterSave, parseDiffSuggestions, applySuggestion, collectChanges, diffChangeKey, parseChoiceBlocks, stripChoiceBlocks, splitMath } = plugin.__internals;
+const { highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject, shouldCompileAfterSave, parseDiffSuggestions, applySuggestion, collectChanges, diffChangeKey, parseChoiceBlocks, stripChoiceBlocks, splitMath, diffLineKinds } = plugin.__internals;
 
 test("highlighter marks commands, braces and comments and escapes HTML", () => {
   const html = highlightLatex("\\section{Intro} % note <b>\nText $x^2$ here");
@@ -244,4 +244,12 @@ test("math is split into inline and display segments", () => {
   assert.equal(parts[3].text, "y = mc^2");
   assert.equal(parts[3].display, true);
   assert.deepEqual(splitMath("no math"), [{ math: false, text: "no math" }]);
+});
+
+test("diff gutter classifies additions, modifications and deletions", () => {
+  assert.deepEqual([...diffLineKinds("a\nb\nc", "a\nB\nc").entries()], [[1, "mod"]]);
+  assert.deepEqual([...diffLineKinds("a\nb\nc", "a\nc").entries()], [[1, "del"]]);
+  assert.deepEqual([...diffLineKinds("a\nc", "a\nb\nc").entries()], [[1, "add"]]);
+  assert.deepEqual([...diffLineKinds("a\nb", "a\nb\nc").entries()], [[2, "add"]]);
+  assert.equal(diffLineKinds("same", "same").size, 0);
 });

@@ -832,6 +832,15 @@ async function gitStatus(project) {
 const sshKeyCache = new Map();
 
 /** Which SSH key git actually offers, best effort: config override, then a probe. */
+async function gitFileContent(project, file) {
+  const relative = String(file || "").replace(/\\/gu, "/").replace(/^\.\//u, "");
+  if (!relative || relative.startsWith("../") || isAbsolute(relative)) throw new HttpError(400, "Invalid file path.");
+  const inside = await runGit(project.path, ["rev-parse", "--is-inside-work-tree"], { timeoutMs: 20_000 });
+  if (!inside.ok || !inside.output.includes("true")) return { tracked: false };
+  const result = await runGit(project.path, ["show", `HEAD:${relative}`], { timeoutMs: 20_000 });
+  return result.ok ? { tracked: true, content: result.stdout } : { tracked: false };
+}
+
 async function gitSshKey(project) {
   const cached = sshKeyCache.get(project.id);
   if (cached && Date.now() - cached.at < 60_000) return cached.value;
@@ -2454,6 +2463,11 @@ const ops = {
     return spellCheck(text, lang);
   },
 
+  async gitFile({ project: reference, file }) {
+    const project = projectRef(reference);
+    return gitFileContent(project, file);
+  },
+
   async git({ project: reference, action, url, token, name: cloneName, path: clonePath, branch }) {
     if (action === "clone") {
       const remote = normalizeOverleafRemote(url);
@@ -3016,6 +3030,10 @@ function createHandler(token) {
       if (request.method === "GET" && action === "fs/list") {
         return sendJson(response, 200, await listDirectories(url.searchParams.get("path")));
       }
+      if (request.method === "GET" && action === "git/file") return sendJson(response, 200, await ops.gitFile({
+        project: url.searchParams.get("project"),
+        file: url.searchParams.get("path"),
+      }));
       if (request.method === "GET" && action === "git/info") {
         return sendJson(response, 200, await ops.gitInfo({ project: url.searchParams.get("project") }));
       }
@@ -3218,6 +3236,7 @@ export const __test = {
   refineTextLine,
   spellCheck,
   gitInfo,
+  gitFileContent,
   gitDiff,
   gitSshKey,
   pageWords,

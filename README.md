@@ -30,8 +30,9 @@ missing-folder recovery, per-project settings.
 **Editor** — LaTeX highlighting with customizable colours, block bands and a
 cursor-line box, bracket matching, soft wrap, completion (commands, environments,
 packages, `\ref`, `\cite`, paths), aspell spellcheck, context menu, word-level
-undo. Vim mode (normal/insert/visual, text objects, `:w`, `:%s///g`) is scoped to
-the editor.
+undo. The gutter marks Git-HEAD changes (green added, blue modified, red
+deleted; Settings → Appearance → Diff gutter). Vim mode (normal/insert/visual,
+text objects, `:w`, `:%s///g`) is scoped to the editor.
 
 **Compile** — `pdflatex` + `bibtex` with incremental builds, a streamed terminal,
 one-click Problems with source jumps, full recompile, cache in

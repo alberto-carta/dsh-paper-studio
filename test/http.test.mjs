@@ -5,6 +5,7 @@
 import assert from "node:assert/strict";
 import http from "node:http";
 import { after, test } from "node:test";
+import { execFileSync } from "node:child_process";
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -419,6 +420,25 @@ test("chat history gives assistant turns a model source", () => {
   assert.deepEqual(assistant.source, { kind: "model", provider: "deepseek", model: "chat" });
   assert.ok(messages.some((message) => message.role === "user" && message.content[0].text === "hi"));
   assert.match(messages[0].content[0].text, /Persistent memory for this conversation/u);
+});
+
+test("git HEAD content is available for diff baselines", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "ps-gitfile-"));
+  try {
+    execFileSync("git", ["init", "-q"], { cwd: dir });
+    execFileSync("git", ["config", "user.email", "test@example.com"], { cwd: dir });
+    execFileSync("git", ["config", "user.name", "Test"], { cwd: dir });
+    await writeFile(join(dir, "main.tex"), "old\n", "utf8");
+    execFileSync("git", ["add", "main.tex"], { cwd: dir });
+    execFileSync("git", ["commit", "-qm", "init"], { cwd: dir });
+    await writeFile(join(dir, "main.tex"), "new\n", "utf8");
+    const base = await __test.gitFileContent({ path: dir }, "main.tex");
+    assert.equal(base.tracked, true);
+    assert.equal(base.content, "old\n");
+    assert.equal((await __test.gitFileContent({ path: dir }, "other.tex")).tracked, false);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });
 
 test("literature is discovered from the main file's bibliography", async () => {

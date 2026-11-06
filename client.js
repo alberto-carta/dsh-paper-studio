@@ -8,7 +8,7 @@ window.__ModuleLoader__.load({
 
     const PANEL_ID = "paper-studio";
     /** Shown in Settings so the loaded client can be matched to the source file. */
-    const CLIENT_BUILD = "2026-11-05T23:10";
+    const CLIENT_BUILD = "2026-11-06T02:55";
     const NS = "paperStudio";
     const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
 
@@ -56,6 +56,10 @@ window.__ModuleLoader__.load({
         settingsTitle: "Settings",
         editorSettings: "Editor",
         appearance: "Appearance",
+        diffGutter: "Diff gutter",
+        diffOff: "Off",
+        diffSaved: "Saved file",
+        diffGit: "Git HEAD",
         editing: "Editing",
         wrapLines: "Soft-wrap long lines",
         wrapShort: "Wrap",
@@ -434,6 +438,10 @@ window.__ModuleLoader__.load({
 .ps-hl-line[data-bg="theorem"]{background:var(--ps-bg-theorem)}
 .ps-hl-line[data-bg="code"]{background:var(--ps-bg-code)}
 .ps-hl-line.current{outline:1px solid var(--ps-current-line);outline-offset:-1px}
+.ps-hl-line[data-diff="add"]::after,.ps-hl-line[data-diff="mod"]::after{content:"";position:absolute;left:43px;top:1px;bottom:1px;width:3px;border-radius:2px;pointer-events:none}
+.ps-hl-line[data-diff="add"]::after{background:var(--ps-diff-add,#2ea043)}
+.ps-hl-line[data-diff="mod"]::after{background:var(--ps-diff-mod,#3b82f6)}
+.ps-hl-line[data-diff="del"]::after{content:"";position:absolute;left:40px;top:-1px;width:7px;height:5px;background:var(--ps-diff-del,#e5484d);clip-path:polygon(0 0,100% 0,50% 100%);pointer-events:none}
 .ps-hl-misspell{text-decoration:underline wavy #e5484d;text-decoration-skip-ink:none}
 .ps-block-caret{position:absolute;z-index:2;pointer-events:none;box-sizing:border-box;border-radius:2px;border:1px solid color-mix(in srgb,var(--ps-hl-command,#8b5cf6) 75%,transparent);background:color-mix(in srgb,var(--ps-hl-command,#8b5cf6) 16%,transparent)}
 .ps-root textarea.ps-code.vim-normal{caret-color:transparent!important}
@@ -915,6 +923,7 @@ body.ps-resizing *{cursor:inherit!important}
       backgrounds: true,
       currentLine: true,
       currentLineColor: "#8b5cf6",
+      diffGutter: "git",
       spellcheck: false,
       spellLang: "en_US",
       wrap: false,
@@ -1638,6 +1647,13 @@ body.ps-resizing *{cursor:inherit!important}
         [tab ? tab.content : "", misspelled],
       );
       const currentLine = cursor && cursor.line ? cursor.line - 1 : -1;
+      const diffMap = useMemo(() => {
+        if (!tab) return new Map();
+        const mode = theme.diffGutter || "git";
+        if (mode === "off") return new Map();
+        const base = mode === "git" && tab.base !== undefined && tab.base !== null ? tab.base : tab.saved;
+        return diffLineKinds(base, tab.content);
+      }, [tab ? tab.content : "", tab ? tab.base : undefined, tab ? tab.saved : "", theme.diffGutter]);
       const diffTargets = useMemo(() => {
         const targets = new Set();
         for (const change of changes || []) {
@@ -1654,8 +1670,10 @@ body.ps-resizing *{cursor:inherit!important}
         const background = theme.backgrounds && line.bg ? ` data-bg="${line.bg}"` : "";
         const current = theme.currentLine && index === currentLine ? " current" : "";
         const target = diffTargets.has(index + 1) ? " ps-diff-target" : "";
-        return `<div class="ps-hl-line${current}${target}"${background} data-line="${index + 1}">${line.html}</div>`;
-      }).join(""), [lines, currentLine, theme.backgrounds, theme.currentLine, diffTargets]);
+        const diff = diffMap.get(index);
+        const diffAttr = diff ? ` data-diff="${diff}"` : "";
+        return `<div class="ps-hl-line${current}${target}"${background}${diffAttr} data-line="${index + 1}">${line.html}</div>`;
+      }).join(""), [lines, currentLine, theme.backgrounds, theme.currentLine, diffTargets, diffMap]);
       const styleVars = useMemo(() => syntaxVariables(theme), [theme]);
 
       const closeCompletion = useCallback(() => setCompletion(null), []);
@@ -3507,6 +3525,75 @@ body.ps-resizing *{cursor:inherit!important}
       return katexPromise;
     }
 
+    function diffLineKinds(base, current) {
+      const a = String(base ?? "").replace(/\r\n/gu, "\n").split("\n");
+      const b = String(current ?? "").replace(/\r\n/gu, "\n").split("\n");
+      const kinds = new Map();
+      let start = 0;
+      while (start < a.length && start < b.length && a[start] === b[start]) start += 1;
+      let endA = a.length;
+      let endB = b.length;
+      while (endA > start && endB > start && a[endA - 1] === b[endB - 1]) { endA -= 1; endB -= 1; }
+      const A = a.slice(start, endA);
+      const B = b.slice(start, endB);
+      const n = A.length;
+      const m = B.length;
+      if (n === 0 && m === 0) return kinds;
+      if (m === 0) {
+        const target = Math.min(start, b.length - 1);
+        if (target >= 0) kinds.set(target, "del");
+        return kinds;
+      }
+      if (n === 0) {
+        for (let j = 0; j < m; j += 1) kinds.set(start + j, "add");
+        return kinds;
+      }
+      if (n * m > 4_000_000) return kinds;
+      const width = m + 1;
+      const dp = new Uint32Array((n + 1) * width);
+      for (let i = n - 1; i >= 0; i -= 1) {
+        for (let j = m - 1; j >= 0; j -= 1) {
+          dp[i * width + j] = A[i] === B[j]
+            ? dp[(i + 1) * width + j + 1] + 1
+            : Math.max(dp[(i + 1) * width + j], dp[i * width + j + 1]);
+        }
+      }
+      const ops = [];
+      let i = 0;
+      let j = 0;
+      while (i < n || j < m) {
+        if (i < n && j < m && A[i] === B[j]) { i += 1; j += 1; ops.push({ kind: "eq" }); continue; }
+        if (j < m && (i === n || dp[i * width + j + 1] >= dp[(i + 1) * width + j])) {
+          ops.push({ kind: "ins", index: start + j });
+          j += 1;
+        } else {
+          ops.push({ kind: "del" });
+          i += 1;
+        }
+      }
+      let currentIndex = 0;
+      let k = 0;
+      while (k < ops.length) {
+        if (ops[k].kind === "eq") { currentIndex += 1; k += 1; continue; }
+        let deletes = 0;
+        const inserts = [];
+        while (k < ops.length && ops[k].kind !== "eq") {
+          if (ops[k].kind === "del") deletes += 1;
+          else inserts.push(ops[k].index);
+          k += 1;
+        }
+        const paired = Math.min(deletes, inserts.length);
+        for (let p = 0; p < paired; p += 1) kinds.set(inserts[p], "mod");
+        for (let p = paired; p < inserts.length; p += 1) kinds.set(inserts[p], "add");
+        for (let p = 0; p < deletes - paired; p += 1) {
+          const target = Math.min(start + currentIndex + inserts.length, start + m - 1);
+          if (target >= start && !kinds.has(target)) kinds.set(target, "del");
+        }
+        currentIndex += inserts.length;
+      }
+      return kinds;
+    }
+
     function splitMath(text) {
       const source = String(text || "");
       const parts = [];
@@ -3950,6 +4037,16 @@ body.ps-resizing *{cursor:inherit!important}
         });
       }, []);
 
+      const refreshBaseline = useCallback((path) => {
+        const id = projectIdRef.current;
+        if (!id || !path) return;
+        request("git/file", { query: { project: id, path } })
+          .then((result) => {
+            setTabs((list) => list.map((item) => (item.path === path ? { ...item, base: result.tracked ? result.content : null } : item)));
+          })
+          .catch(() => {});
+      }, []);
+
       const openFile = useCallback(async (path, line) => {
         const id = projectIdRef.current;
         if (!id || !path) return;
@@ -3962,6 +4059,7 @@ body.ps-resizing *{cursor:inherit!important}
             if (alreadyActive) jumpToLine(path, line);
             else pendingLine.current = { path, line };
           }
+          void refreshBaseline(path);
           return;
         }
         try {
@@ -3972,6 +4070,7 @@ body.ps-resizing *{cursor:inherit!important}
           setActive(path);
           activeRef.current = path;
           if (line) pendingLine.current = { path, line };
+          void refreshBaseline(path);
         } catch (error) {
           notify(error.message, "err");
         }
@@ -4018,6 +4117,7 @@ body.ps-resizing *{cursor:inherit!important}
             }
           }
           setTabs(loaded);
+          for (const item of loaded) void refreshBaseline(item.path);
           tabsRef.current = loaded;
           const preferred = restoreTabs && ui.active && loaded.some((item) => item.path === ui.active) ? ui.active : loaded[0] ? loaded[0].path : null;
           setActive(preferred);
@@ -4762,6 +4862,7 @@ body.ps-resizing *{cursor:inherit!important}
             return { ...item, saving: false, mtime: result.mtime, saved: tab.content, dirty: unchanged ? false : item.dirty, conflict: null };
           }));
           setStatus({ kind: "saved", at: Date.now() });
+          void refreshBaseline(path);
           const manual = Boolean(options && options.manual);
           if (shouldCompileAfterSave({ manual, compileOnSave: compileOnSaveRef.current, autoCompile: autoCompileRef.current })) {
             clearTimeout(compileTimer.current);
@@ -5182,6 +5283,7 @@ body.ps-resizing *{cursor:inherit!important}
         setGitState((state) => ({ ...state, busy: true }));
         try {
           const result = await request("git", { method: "POST", body: { project: id, action } });
+          void refreshBaseline(activeRef.current);
           setGitState((state) => ({ ...state, busy: false, status: result, output: result.output || state.output }));
           if (action !== "status") notify(result.ok ? `${action} ok` : `${action} failed`, result.ok ? "" : "err");
           await refreshCatalog();
@@ -5189,7 +5291,7 @@ body.ps-resizing *{cursor:inherit!important}
           setGitState((state) => ({ ...state, busy: false, output: error.message }));
           notify(error.message, "err");
         }
-      }, [notify, refreshCatalog]);
+      }, [notify, refreshBaseline, refreshCatalog]);
 
       const submitDialog = useCallback(async () => {
         if (!dialog) return;
@@ -5612,6 +5714,17 @@ body.ps-resizing *{cursor:inherit!important}
               color(t("colorTable"), "bgTable"),
               color(t("colorTheorem"), "bgTheorem"),
               color(t("colorCode"), "bgCode")),
+            h("div", { className: "ps-color-group", key: "diff" },
+              h("h3", null, t("diffGutter")),
+              h("label", { className: "ps-color-row" },
+                h("span", { className: "ps-color-label" }, t("diffGutter")),
+                h("select", {
+                  className: "ps-select", value: draft.diffGutter || "git",
+                  onChange: (event) => updateDraft({ diffGutter: event.target.value }),
+                },
+                h("option", { value: "off" }, t("diffOff")),
+                h("option", { value: "saved" }, t("diffSaved")),
+                h("option", { value: "git" }, t("diffGit"))))),
             h("div", { className: "ps-color-group", key: "cursor" },
               h("h3", null, t("cursorLine")),
               toggle(t("enableCursorLine"), "currentLine"),
@@ -6225,7 +6338,7 @@ body.ps-resizing *{cursor:inherit!important}
     return {
       inject: ["slots", "locale", "layout"],
       /** Pure helpers exercised by test/client.test.mjs (no browser needed). */
-      __internals: { Studio, EditorPane, Dock, FolderPicker, PdfPage, GitView, Explosion, ChatPane, parseDiffSuggestions, applySuggestion, stripDiffBlocks, collectChanges, diffChangeKey, parseChoiceBlocks, stripChoiceBlocks, splitMath, highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject, shouldCompileAfterSave },
+      __internals: { Studio, EditorPane, Dock, FolderPicker, PdfPage, GitView, Explosion, ChatPane, parseDiffSuggestions, applySuggestion, stripDiffBlocks, collectChanges, diffChangeKey, parseChoiceBlocks, stripChoiceBlocks, splitMath, diffLineKinds, highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject, shouldCompileAfterSave },
       apply(ctx) {
         ctx.effect(() => {
           const style = document.createElement("style");
