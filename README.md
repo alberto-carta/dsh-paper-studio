@@ -69,6 +69,12 @@ sits above **Old conversations** across all agents; chats stream in the right pa
 - Long chats compact older turns into a stored summary
   (`PAPER_STUDIO_CHAT_BUDGET`, default 60k chars).
 
+## Chat controls
+
+- **🧠 brain menu** bundles per-conversation memory with **Thinking effort**
+  (model default / off / low / high / max); the choice is stored on the chat and
+  sent as the model's reasoning effort.
+
 ## Shortcuts
 
 | Keys | Action |

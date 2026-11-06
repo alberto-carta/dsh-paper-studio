@@ -411,6 +411,57 @@ test("short chats are not summarized", async () => {
   assert.equal(chat.summary, undefined);
 });
 
+test("chat context omits the full file and thinking effort reaches the model", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "ps-context-"));
+  const project = { id: `context-${Date.now()}`, name: "Context", path: dir, mainFile: "main.tex" };
+  try {
+    await writeFile(join(dir, "main.tex"), "SECRET_BODY\nselected phrase here\n", "utf8");
+    await __test.saveAgentFile(project, { scope: "project", markdown: "---\nname: Reader\n---\n\nRead when needed.\n" });
+    let system = "";
+    let lastEffort;
+    __test.setServiceContext({
+      get(name) {
+        if (name === "llm") {
+          return {
+            stream: async function* stream(options) {
+              system = options.system;
+              lastEffort = options.reasoningEffort;
+              yield { type: "text-delta", text: "ok" };
+              yield { type: "finish", reason: { kind: "stop" } };
+            },
+          };
+        }
+        if (name === "agentDefaultModel") return { currentSelection: () => ({ provider: "fake", model: "fake" }) };
+        return undefined;
+      },
+    });
+    const wait = (job) => new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("context chat timed out")), 3000);
+      const check = () => {
+        if (job.events.some((event) => event.type === "done" || event.type === "error")) { clearTimeout(timer); resolve(); }
+        else setTimeout(check, 10);
+      };
+      check();
+    });
+    await wait(__test.startChatJob(project, {
+      agentId: "reader", agentScope: "project", message: "explain",
+      context: { file: "main.tex", text: "selected phrase here" },
+    }));
+    assert.match(system, /selected phrase here/u);
+    assert.doesNotMatch(system, /SECRET_BODY/u);
+    const chats = await __test.listChats(project, "reader");
+    const chat = await __test.readChat(project, "reader", chats[0].id);
+    chat.reasoningEffort = "high";
+    await __test.writeChat(project, "reader", chat);
+    await wait(__test.startChatJob(project, { agentId: "reader", agentScope: "project", chatId: chat.id, message: "again" }));
+    assert.equal(lastEffort, "high");
+  } finally {
+    __test.setServiceContext(null);
+    await rm(join(__test.CHATS_ROOT, project.id), { recursive: true, force: true });
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test("chat history gives assistant turns a model source", () => {
   const messages = __test.chatRequestMessages({ messages: [
     { role: "user", content: "hi" },
@@ -454,6 +505,11 @@ test("PDF selection maps the full phrase inside its paragraph", async () => {
     const miss = await __test.paragraphWordSelection(project, "main.tex", 2, "absent phrase here");
     assert.equal(miss.line, 1);
     assert.equal(miss.column, 0);
+    await writeFile(join(dir, "main.tex"), "The quick brown fox.\n", "utf8");
+    const word = await __test.paragraphWordSelection(project, "main.tex", 1, "quick fox");
+    assert.equal(word.line, 1);
+    assert.equal(word.column, 4);
+    assert.equal(word.endColumn, 9);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

@@ -47,11 +47,12 @@ const h = React.createElement;
 function Host() {
   const [tab, setTab] = React.useState({ path: "main.tex", content: "alpha beta gamma\\nsecond line\\n", saved: "", mtime: 0, dirty: false, saving: false, conflict: null });
   const [cursor, setCursor] = React.useState({ line: 1, col: 1 });
-  const [syntax] = React.useState({ ...DEFAULT_SYNTAX, vim: true, diagnostics: true });
+  const [syntax, setSyntax] = React.useState({ ...DEFAULT_SYNTAX, vim: true, diagnostics: true });
+  const [changes, setChanges] = React.useState([]);
   const editorRef = React.useRef(null);
   const gutterRef = React.useRef(null);
   const apiRef = React.useRef(null);
-  const symbols = React.useMemo(() => ({ labels: [], citations: [], files: [], commands: [], environments: [] }), []);
+  const symbols = React.useMemo(() => ({ labels: [{ key: 'intro', file: 'main.tex', line: 1 }], citations: [], files: [], commands: [{ name: 'pref', arity: 1 }, { name: 'acarta', arity: 1 }], environments: [] }), []);
   const misspelled = React.useMemo(() => new Set(), []);
   const onCursor = React.useCallback((event) => {
     const textarea = event.currentTarget || event.target;
@@ -65,6 +66,10 @@ function Host() {
   const noop = React.useCallback(() => {}, []);
   React.useEffect(() => {
     window.__setContent = (content) => setTab((current) => ({ ...current, content }));
+    window.__setEngine = (engine) => setSyntax((current) => ({ ...current, engine }));
+    window.__setChanges = (value) => setChanges(value);
+    window.__editorApi = apiRef;
+    window.__setVim = (value) => setSyntax((current) => ({ ...current, vim: value }));
     const textarea = editorRef.current;
     if (textarea) { textarea.focus(); textarea.setSelectionRange(0, 0); }
   }, []);
@@ -82,7 +87,8 @@ function Host() {
     onInsertText: noop,
     onReloadDisk: noop, onKeepMine: noop,
     symbols,
-    syntax, misspelled,
+    syntax, misspelled, changes,
+    onKeepChange: noop, onDiscardChange: noop, onCloseReview: noop,
     onSave: noop, onUndo: noop, onRedo: noop, notify: noop,
   });
 }
@@ -113,6 +119,10 @@ const server = http.createServer(async (request, response) => {
     if (path === "/") return send(HTML, "text/html; charset=utf-8");
     if (path === "/host.js") return send(HOST, "text/javascript; charset=utf-8");
     if (path === "/client.js") return send(await readFile(join(pluginRoot, "client.js")), "text/javascript; charset=utf-8");
+    if (path === "/paper-studio/api/asset") {
+      const name = new URL(request.url, "http://x").searchParams.get("name");
+      return send(await readFile(join(pluginRoot, "vendor", name)), "text/javascript; charset=utf-8");
+    }
     if (path === "/react.js") return send(await readFile(join(deps, "node_modules/react/umd/react.development.js")), "text/javascript; charset=utf-8");
     if (path === "/react-dom.js") return send(await readFile(join(deps, "node_modules/react-dom/umd/react-dom.development.js")), "text/javascript; charset=utf-8");
     response.writeHead(404); response.end("not found");
@@ -339,6 +349,154 @@ await vimCase("F finds the previous character", "a3b3c", 5, ["F", "3"], "a3b3c",
 await exCase("s substitutes the first match on the current line", "aa\nba\n", "s/a/b/", "ba\nba\n");
 await exCase("%s substitutes globally", "aa\naa\n", "%s/a/b/g", "bb\nbb\n");
 await exCase("1,2s substitutes a line range", "aa\naa\nba\n", "1,2s/a/b/g", "bb\nbb\nba\n");
+
+await check("CodeMirror preview loads and Vim yyp works", async () => {
+  await page.evaluate(() => { window.__setEngine("codemirror"); window.__setVim(true); });
+  await page.waitForSelector(".cm-editor", { timeout: 15000, state: "attached" });
+  await page.evaluate(() => window.__setContent("alpha\nbeta\n"));
+  await page.waitForTimeout(300);
+  await page.locator(".cm-content").click();
+  await page.keyboard.press("g");
+  await page.keyboard.press("g");
+  await page.waitForTimeout(50);
+  await page.keyboard.press("y");
+  await page.waitForTimeout(50);
+  await page.keyboard.press("y");
+  await page.waitForTimeout(50);
+  await page.keyboard.press("p");
+  await page.waitForTimeout(200);
+  const doc = await page.evaluate(() => document.querySelector(".ps-cm-wrap").__cmView.state.doc.toString());
+  assert.equal(doc, "alpha\nalpha\nbeta\n");
+  await page.evaluate(() => {
+    const view = document.querySelector(".ps-cm-wrap").__cmView;
+    view.dispatch({ selection: { anchor: 0, head: 5 } });
+    view.focus();
+  });
+  await page.waitForTimeout(120);
+  assert.ok((await page.locator(".cm-selectionBackground").count()) > 0, "selection layer is visible");
+  await page.evaluate(() => {
+    const view = document.querySelector(".ps-cm-wrap").__cmView;
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: "" }, selection: { anchor: 0 } });
+    view.focus();
+  });
+  await page.keyboard.press("i");
+  await page.keyboard.type("\\pre", { delay: 30 });
+  await page.waitForTimeout(300);
+  const tools = await page.locator(".cm-tooltip-autocomplete").count();
+  assert.ok(tools > 0, "custom command completion opens");
+  const commandOptions = await page.locator(".cm-tooltip-autocomplete li").allInnerTexts();
+  assert.ok(commandOptions.some((text) => text.includes("pref")), `command options ${commandOptions.join(",")}`);
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(120);
+  const completed = await page.evaluate(() => document.querySelector(".ps-cm-wrap").__cmView.state.doc.toString());
+  assert.equal(completed, "\\pref{}");
+  await page.evaluate(() => {
+    const view = document.querySelector(".ps-cm-wrap").__cmView;
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: "" }, selection: { anchor: 0 } });
+    view.focus();
+  });
+  await page.keyboard.press("i");
+  await page.keyboard.type("\\pref{", { delay: 30 });
+  await page.waitForTimeout(300);
+  const options = await page.locator(".cm-tooltip-autocomplete li").allInnerTexts();
+  assert.ok(options.some((text) => text.includes("intro")), `label options ${options.join(",")}`);
+});
+
+await check("CM right-click offers clipboard and agent actions", async () => {
+  await page.evaluate(() => window.__setContent("hello world\n"));
+  await page.waitForTimeout(150);
+  await page.evaluate(() => {
+    const view = document.querySelector(".ps-cm-wrap").__cmView;
+    view.dispatch({ selection: { anchor: 0, head: 5 } });
+    view.focus();
+  });
+  const box = await page.locator(".cm-content").boundingBox();
+  await page.mouse.click(box.x + 20, box.y + 10, { button: "right" });
+  await page.waitForTimeout(150);
+  const labels = await page.locator(".ps-cm-menu .ps-ctx-item").allInnerTexts();
+  assert.ok(labels.includes("Copy"), `menu labels ${labels.join(",")}`);
+  assert.ok(labels.some((label) => label.includes("Discuss with agent")), `menu labels ${labels.join(",")}`);
+  await page.keyboard.press("Escape");
+});
+
+await check("CM keeps the selected word when revealing its line", async () => {
+  await page.evaluate(() => window.__setContent("alpha\nbeta\ngamma\n"));
+  await page.waitForTimeout(150);
+  const selection = await page.evaluate(() => {
+    const api = window.__editorApi.current;
+    api.selectRange(6, 10);
+    api.scrollToLine(2);
+    const view = document.querySelector(".ps-cm-wrap").__cmView;
+    return { from: view.state.selection.main.from, to: view.state.selection.main.to };
+  });
+  assert.deepEqual(selection, { from: 6, to: 10 });
+});
+
+await check("CM keeps the top visible line when external content changes", async () => {
+  const lines = Array.from({ length: 60 }, (unused, index) => `line ${index}`).join("\n");
+  await page.evaluate((value) => window.__setContent(value), lines);
+  await page.waitForTimeout(200);
+  await page.evaluate(() => {
+    const view = document.querySelector(".ps-cm-wrap").__cmView;
+    const line = view.state.doc.line(25);
+    view.dispatch({ selection: { anchor: line.from }, effects: view.constructor.scrollIntoView ? [] : [] });
+    view.scrollDOM.scrollTop = 25 * 20;
+  });
+  await page.waitForTimeout(100);
+  const before = await page.evaluate(() => {
+    const view = document.querySelector(".ps-cm-wrap").__cmView;
+    return view.state.doc.lineAt(view.lineBlockAtHeight(view.scrollDOM.scrollTop).from).number;
+  });
+  await page.evaluate((value) => window.__setContent(value + "\nappended"), lines);
+  await page.waitForTimeout(250);
+  const after = await page.evaluate(() => {
+    const view = document.querySelector(".ps-cm-wrap").__cmView;
+    return view.state.doc.lineAt(view.lineBlockAtHeight(view.scrollDOM.scrollTop).from).number;
+  });
+  assert.ok(Math.abs(after - before) <= 1, `top line ${before} -> ${after}`);
+});
+
+await check("CM normal mode arrows move without losing the view", async () => {
+  const lines = Array.from({ length: 40 }, (unused, index) => `line ${index}`).join("\n");
+  await page.evaluate((value) => window.__setContent(value), lines);
+  await page.waitForTimeout(200);
+  await page.evaluate(() => {
+    const view = document.querySelector(".ps-cm-wrap").__cmView;
+    view.dispatch({ selection: { anchor: 0 } });
+    view.focus();
+  });
+  for (let index = 0; index < 8; index += 1) await page.keyboard.press("ArrowDown");
+  await page.waitForTimeout(100);
+  const line = await page.evaluate(() => {
+    const view = document.querySelector(".ps-cm-wrap").__cmView;
+    return { number: view.state.doc.lineAt(view.state.selection.main.head).number, direct: document.querySelector(".ps-cm-wrap").__cmDirectArrows || 0 };
+  });
+  assert.ok(line.number >= 5, `moved to line ${line.number}`);
+  assert.ok(line.direct > 0, "direct arrow handler ran");
+});
+
+await check("CM paints figure and equation bands", async () => {
+  await page.evaluate(() => window.__setContent("\\begin{figure}\nfig\n\\end{figure}\n\\begin{equation}\neq\n\\end{equation}\n"));
+  await page.waitForTimeout(250);
+  assert.ok((await page.locator(".cm-band-figure").count()) > 0, "figure band");
+  assert.ok((await page.locator(".cm-band-math").count()) > 0, "equation band");
+});
+
+await check("CM suggestion card opens near the change and flags stale hunks", async () => {
+  await page.evaluate(() => window.__setChanges([
+    { id: "stale-1", file: "main.tex", hunk: { header: "@@ -1,1 +1,1 @@", lines: [
+      { type: " ", text: "not in the document" },
+      { type: "-", text: "not in the document" },
+      { type: "+", text: "replacement" },
+    ] } },
+  ]));
+  await page.waitForTimeout(300);
+  assert.ok((await page.locator(".ps-diff-pop").count()) > 0, "diff card");
+  assert.ok((await page.locator(".ps-cm-stale").count()) > 0, "stale warning");
+  await page.evaluate(() => window.__setChanges([]));
+  await page.waitForTimeout(200);
+  assert.equal(await page.locator(".ps-diff-pop").count(), 0);
+});
 
 await browser.close();
 await new Promise((resolve) => server.close(resolve));

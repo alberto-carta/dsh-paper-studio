@@ -10,7 +10,7 @@ try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = 
 
     const PANEL_ID = "paper-studio";
     /** Shown in Settings so the loaded client can be matched to the source file. */
-    const CLIENT_BUILD = "2026-11-06T08:00";
+    const CLIENT_BUILD = "2026-11-06T17:40";
     const NS = "paperStudio";
     const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
 
@@ -59,6 +59,9 @@ try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = 
         editorSettings: "Editor",
         appearance: "Appearance",
         diffGutter: "Diff gutter",
+        editorEngine: "Editor engine",
+        engineTextarea: "Textarea (current)",
+        engineCodeMirror: "CodeMirror (preview)",
         diffOff: "Off",
         diffGit: "Git HEAD",
         editing: "Editing",
@@ -137,6 +140,13 @@ try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = 
         promptEmpty: "No prompt snapshot yet; it is captured with the next message.",
         memory: "Memory",
         memoryTitle: "Conversation memory",
+        brainTitle: "Memory & thinking",
+        thinkingEffort: "Thinking effort",
+        effortDefault: "Model default",
+        effortOff: "Off",
+        effortLow: "Low",
+        effortHigh: "High",
+        effortMax: "Max",
         memoryHint: "Only this conversation: never summarized, not inherited by new chats. One note per line.",
         memorySaved: "Memory saved",
         memoryUpdated: "Agent memory updated",
@@ -410,6 +420,26 @@ try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = 
 .ps-tab-close svg{width:10px;height:10px}
 .ps-code-wrap{flex:1;display:flex;min-height:0;overflow:hidden;position:relative}
 .ps-code-area{flex:1;min-width:0;position:relative;display:flex;overflow:hidden}
+.ps-cm-wrap{flex:1;min-width:0;min-height:0;position:relative;display:flex;overflow:hidden}
+.ps-cm-wrap .cm-editor{flex:1;height:100%;min-width:0}
+.ps-cm-wrap .cm-vim-panel{font:11px/1.4 ${MONO};padding:2px 8px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-secondary);border-top:.5px solid var(--dsw-alias-border-l1)}
+.ps-cm-wrap .cm-selectionBackground{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 26%,transparent)}
+.ps-cm-wrap .cm-focused .cm-selectionBackground{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 32%,transparent)}
+.ps-cm-menu{position:fixed;z-index:90;min-width:200px;padding:4px;border-radius:8px;background:var(--dsw-alias-bg-overlay);border:.5px solid var(--dsw-alias-border-l2);box-shadow:0 10px 26px rgba(0,0,0,.28)}
+.ps-cm-wrap .cm-misspell{text-decoration:underline wavy #e5484d;text-decoration-skip-ink:none}
+.ps-cm-wrap .cm-activeLine{outline:1px solid var(--ps-current-line, #8b5cf6);outline-offset:-1px}
+.ps-cm-wrap .cm-line.cm-band-figure{background:color-mix(in srgb,#3b82f6 12%,transparent)}
+.ps-cm-wrap .cm-line.cm-band-math{background:color-mix(in srgb,#f59e0b 14%,transparent)}
+.ps-cm-wrap .cm-line.cm-diff-add{box-shadow:inset 3px 0 0 var(--ps-diff-add,#2ea043)}
+.ps-cm-wrap .cm-line.cm-diff-mod{box-shadow:inset 3px 0 0 var(--ps-diff-mod,#3b82f6)}
+.ps-cm-wrap .cm-line.cm-diff-del{box-shadow:inset 3px 0 0 var(--ps-diff-del,#e5484d)}
+.ps-diff-body{flex:1;min-height:0;overflow:auto;padding:5px 9px;font-size:12px}
+.ps-cm-stale{color:var(--dsw-alias-state-error-primary);font-size:11px;padding:2px 0}
+.ps-cm-diff-change{border-bottom:.5px solid var(--dsw-alias-border-l1);padding:5px 0;display:flex;flex-direction:column;min-height:0}
+.ps-cm-diff-actions{display:flex;gap:4px;padding:3px 0 2px}
+.ps-diff-lines{flex:1;min-height:80px;overflow:auto;margin:3px 0;font:11px/1.5 ${MONO};background:var(--dsw-alias-bg-layer-1);border-radius:5px;padding:4px}
+.ps-cm-status{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--dsw-alias-label-secondary);font-size:12px;background:var(--dsw-alias-bg-base)}
+.ps-cm-status.error{color:var(--dsw-alias-state-error-primary)}
 .ps-gutter{flex:none;min-width:44px;overflow:hidden;padding:8px 6px 8px 10px;text-align:right;font:13px/20px ${MONO};color:var(--dsw-alias-label-secondary);user-select:none;border-right:.5px solid var(--dsw-alias-border-l1);opacity:.75}
 .ps-gutter-inner{will-change:transform}
 .ps-code{flex:1;min-width:0;border:0;outline:0;resize:none;background:transparent;font:13px/20px ${MONO};padding:8px 18px 8px 48px;tab-size:2;white-space:pre;overflow:auto;position:relative;z-index:1;overscroll-behavior:contain;overflow-anchor:none}
@@ -936,6 +966,7 @@ body.ps-resizing *{cursor:inherit!important}
       autosave: true,
       autosaveDelay: 850,
       thinking: "last",
+      engine: "textarea",
       diagnostics: false,
       vim: false,
       keys: {
@@ -1344,7 +1375,7 @@ body.ps-resizing *{cursor:inherit!important}
     }
 
     const CITE_COMMANDS = /^(?:cite|citep|citet|citealp|citeauthor|citeyear|parencite|textcite|autocite|footcite|nocite)\*?$/u;
-    const REF_COMMANDS = /^(?:ref|eqref|autoref|cref|Cref|pageref|nameref|labelcref|vref)$/u;
+    const REF_COMMANDS = /^(?:ref|eqref|autoref|cref|Cref|pageref|nameref|labelcref|vref|pref)$/u;
 
     const BRACKET_PAIRS = { "{": "}", "[": "]", "(": ")" };
     const BRACKET_OPEN = new Set(Object.keys(BRACKET_PAIRS));
@@ -1667,7 +1698,7 @@ body.ps-resizing *{cursor:inherit!important}
       return [];
     }
 
-    function EditorPane(props) {
+    function TextareaEditor(props) {
       const {
         t, tabs, activePath, tab, cursor, compile, status, onSelectTab, onCloseTab,
         onEdit, editorRef, gutterInnerRef, editorApiRef, onScroll, onCursor, onInsertText,
@@ -1908,9 +1939,17 @@ body.ps-resizing *{cursor:inherit!important}
 
       const applyVim = useCallback((next, caret) => {
         if (!tab) return;
+        // Apply to the live textarea first so the next key in a fast sequence
+        // (dd then p, yyp, …) reads the new buffer and caret, not the old ones.
+        const textarea = editorRef.current;
+        if (textarea) {
+          caretMemory.current = caret;
+          textarea.value = next;
+          textarea.setSelectionRange(caret, caret);
+        }
         onEdit(tab.path, next, caret);
         requestAnimationFrame(() => setCaret(caret));
-      }, [onEdit, setCaret, tab]);
+      }, [editorRef, onEdit, setCaret, tab]);
 
       const applyVimOperator = useCallback((operator, from, to) => {
         const textarea = editorRef.current;
@@ -3144,6 +3183,565 @@ body.ps-resizing *{cursor:inherit!important}
         }, t("discussWithAgent"))) : null);
     }
 
+    let codeMirrorPromise = null;
+    function loadCodeMirror() {
+      if (!codeMirrorPromise) codeMirrorPromise = import(apiUrl("asset", { name: "codemirror.js" })).catch((error) => { console.error("[paper-studio] CodeMirror load failed", error); return null; });
+      return codeMirrorPromise;
+    }
+
+    function CodeMirrorPane(props) {
+      const {
+        t, tabs, activePath, tab, cursor, compile, status, onSelectTab, onCloseTab,
+        onEdit, onCompile, editorApiRef, syntax, onSave, onToggleWrap, notify, symbols,
+        onDiscuss, onAddChatContext, chatEnabled, changes, onKeepChange, onDiscardChange, onCloseReview, misspelled,
+      } = props;
+      const theme = syntax || DEFAULT_SYNTAX;
+      const hostRef = useRef(null);
+      const viewRef = useRef(null);
+      const liveRef = useRef({});
+      const [module, setModule] = useState(null);
+      const [error, setError] = useState("");
+      const [cmMenu, setCmMenu] = useState(null);
+      const moduleRef = useRef(null);
+      const [diffBox, setDiffBox] = useState(null);
+      const anchorLineRef = useRef(null);
+      const firstChangeLineRef = useRef(null);
+      const lastContentRef = useRef("");
+      liveRef.current = { ...props, theme };
+
+      useEffect(() => {
+        if (changes && changes.length > 0) {
+          const match = /^@@ -(\d+)/u.exec(changes[0].hunk ? changes[0].hunk.header || "" : "");
+          firstChangeLineRef.current = match ? Number(match[1]) : 1;
+        }
+        if (!changes || changes.length === 0) { setDiffBox(null); return; }
+        setDiffBox((current) => {
+          if (current) return current;
+          const view = viewRef.current;
+          let left = Math.max(10, (window.innerWidth || 1200) - 470);
+          let top = 110;
+          const change = changes[0];
+          const match = change && change.hunk ? /^@@ -(\d+)/u.exec(change.hunk.header || "") : null;
+          if (view && match) {
+            const line = view.state.doc.line(Math.max(1, Math.min(view.state.doc.lines, Number(match[1]))));
+            const coords = view.coordsAtPos(line.from);
+            if (coords) {
+              left = Math.max(10, Math.min(coords.left, (window.innerWidth || 1200) - 450));
+              top = Math.max(10, Math.min(coords.top, (window.innerHeight || 800) - 320));
+            }
+          }
+          return { left, top, width: 430, height: 300 };
+        });
+      }, [changes ? changes.length : 0]);
+
+      useEffect(() => {
+        const view = viewRef.current;
+        if (!view || !tab) return;
+        if (changes && changes.length === 0 && firstChangeLineRef.current && lastContentRef.current !== tab.content) {
+          const line = view.state.doc.line(Math.max(1, Math.min(view.state.doc.lines, firstChangeLineRef.current)));
+          const EditorViewClass = moduleRef.current ? moduleRef.current.EditorView : null;
+          requestAnimationFrame(() => { if (EditorViewClass) view.dispatch({ effects: EditorViewClass.scrollIntoView(line.from, { y: "center" }) }); });
+        }
+      }, [changes ? changes.length : 0]);
+
+      useEffect(() => {
+        if (!cmMenu) return undefined;
+        const close = () => setCmMenu(null);
+        window.addEventListener("pointerdown", close);
+        return () => window.removeEventListener("pointerdown", close);
+      }, [cmMenu]);
+
+      useEffect(() => {
+        let alive = true;
+        loadCodeMirror().then((loaded) => {
+          if (!alive) return;
+          if (!loaded) setError("Could not load the CodeMirror bundle.");
+          else setModule(loaded);
+        });
+        return () => { alive = false; };
+      }, []);
+
+      useEffect(() => {
+        if (!module || !hostRef.current || !tab) return undefined;
+        const {
+          EditorState, EditorView, lineNumbers, highlightActiveLine, highlightActiveLineGutter,
+          drawSelection, dropCursor, history, keymap, defaultKeymap, historyKeymap, indentWithTab,
+          syntaxHighlighting, defaultHighlightStyle, StreamLanguage, stex, vim, Vim,
+          Decoration, ViewPlugin, RangeSetBuilder, HighlightStyle, tags,
+          bracketMatching, autocompletion, completionKeymap, closeBrackets,
+        } = module;
+        let cursorTimer = 0;
+        let pendingCursor = null;
+        const completionSource = (context) => {
+          const position = context.pos;
+          const text = context.state.doc.toString();
+          const pluginContext = completionContext(text, position);
+          if (!pluginContext) return null;
+          const live = liveRef.current;
+          const items = completionItems(pluginContext.kind, pluginContext.query, live.symbols || {});
+          if (!items.length) return null;
+          const braces = ["citation", "label", "package", "image", "file", "bibfile"].includes(pluginContext.kind);
+          return {
+            from: pluginContext.start,
+            to: pluginContext.end,
+            options: items.map((item) => ({
+              label: pluginContext.kind === "command" ? item.insert : item.label,
+              detail: item.detail,
+              apply: (view, completion, from, to) => {
+                let insert = item.insert;
+                let caret = from + insert.length;
+                if (item.template && item.template.text) {
+                  insert = item.template.text;
+                  caret = from + item.template.caret;
+                } else if (item.suffix && view.state.sliceDoc(to, to + 1) !== "{") {
+                  insert += item.suffix;
+                  caret = from + (item.caret ?? insert.length);
+                } else if (braces && view.state.sliceDoc(to, to + 1) !== "}") {
+                  insert += "}";
+                  caret += 1;
+                }
+                view.dispatch({ changes: { from, to, insert }, selection: { anchor: caret } });
+              },
+            })),
+          };
+        };
+        const latexHighlight = HighlightStyle.define([
+          { tag: tags.keyword, color: "var(--ps-hl-command, #8b5cf6)" },
+          { tag: tags.controlKeyword, color: "var(--ps-hl-command, #8b5cf6)" },
+          { tag: tags.atom, color: "var(--ps-hl-command, #8b5cf6)" },
+          { tag: tags.comment, color: "var(--ps-hl-comment, #94a3b8)", fontStyle: "italic" },
+          { tag: tags.bracket, color: "var(--ps-hl-brace, #94a3b8)" },
+          { tag: tags.number, color: "var(--ps-hl-math, #059669)" },
+          { tag: tags.string, color: "var(--ps-hl-math, #059669)" },
+        ]);
+        const diffPlugin = ViewPlugin.fromClass(class {
+          constructor(view) { this.decorations = buildDiff(view); }
+          update(update) {
+            if (update.docChanged || update.viewportChanged) this.decorations = buildDiff(update.view);
+          }
+        }, { decorations: (value) => value.decorations });
+        const buildDiff = (view) => {
+          const live = liveRef.current;
+          const base = live.tab && (live.tab.base !== undefined && live.tab.base !== null ? live.tab.base : live.tab.saved);
+          const builder = new RangeSetBuilder();
+          if (base === undefined || base === null) return builder.finish();
+          const kinds = diffLineKinds(base, view.state.doc.toString());
+          for (const range of view.visibleRanges) {
+            let position = range.from;
+            while (position <= range.to) {
+              const line = view.state.doc.lineAt(position);
+              const kind = kinds.get(line.number - 1);
+              if (kind) builder.add(line.from, line.from, Decoration.line({ class: `cm-diff-${kind}` }));
+              if (line.to >= view.state.doc.length) break;
+              position = line.to + 1;
+            }
+          }
+          return builder.finish();
+        };
+        const bandCategory = (environment) => {
+          if (/^figure\*?$/u.test(environment)) return "figure";
+          if (/^(?:equation|align|alignat|gather|multline|eqnarray|displaymath|math|split|cases)\*?$/u.test(environment)) return "math";
+          return null;
+        };
+        const buildBands = (view) => {
+          const builder = new RangeSetBuilder();
+          const document = view.state.doc;
+          const stack = [];
+          const topCategory = () => {
+            for (let index = stack.length - 1; index >= 0; index -= 1) {
+              const category = bandCategory(stack[index]);
+              if (category) return category;
+            }
+            return null;
+          };
+          for (let number = 1; number <= document.lines; number += 1) {
+            const line = document.line(number);
+            const before = topCategory();
+            for (const match of line.text.matchAll(/\\(begin|end)\{([^}]+)\}/gu)) {
+              if (match[1] === "begin") stack.push(match[2]);
+              else {
+                const at = stack.lastIndexOf(match[2]);
+                if (at !== -1) stack.length = at;
+              }
+            }
+            const after = topCategory();
+            const category = before || after;
+            if (category) builder.add(line.from, line.from, Decoration.line({ class: `cm-band-${category}` }));
+          }
+          return builder.finish();
+        };
+        const bandPlugin = ViewPlugin.fromClass(class {
+          constructor(view) { this.decorations = buildBands(view); }
+          update(update) { if (update.docChanged) this.decorations = buildBands(update.view); }
+        }, { decorations: (value) => value.decorations });
+        const buildSpell = (view) => {
+          const words = liveRef.current.misspelled;
+          const builder = new RangeSetBuilder();
+          if (!words || words.size === 0) return builder.finish();
+          for (const range of view.visibleRanges) {
+            let position = range.from;
+            while (position <= range.to) {
+              const line = view.state.doc.lineAt(position);
+              for (const match of line.text.matchAll(/[\p{L}][\p{L}'\u2019-]*/gu)) {
+                if (!words.has(match[0].toLowerCase())) continue;
+                builder.add(line.from + match.index, line.from + match.index + match[0].length, Decoration.mark({ class: "cm-misspell" }));
+              }
+              if (line.to >= view.state.doc.length) break;
+              position = line.to + 1;
+            }
+          }
+          return builder.finish();
+        };
+        const spellPlugin = ViewPlugin.fromClass(class {
+          constructor(view) { this.decorations = buildSpell(view); }
+          update(update) { if (update.docChanged || update.viewportChanged) this.decorations = buildSpell(update.view); }
+        }, { decorations: (value) => value.decorations });
+        const normalArrows = EditorView.domEventHandlers({
+          keydown: (event, view) => {
+            if (event.metaKey || event.ctrlKey || event.altKey) return false;
+            if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) return false;
+            if (!view.dom.querySelector(".cm-fat-cursor")) return false;
+            event.preventDefault();
+            if (hostRef.current) hostRef.current.__cmDirectArrows = (hostRef.current.__cmDirectArrows || 0) + 1;
+            const selection = view.state.selection.main;
+            const line = view.state.doc.lineAt(selection.head);
+            let target = selection.head;
+            if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+              const targetNumber = Math.max(1, Math.min(view.state.doc.lines, line.number + (event.key === "ArrowUp" ? -1 : 1)));
+              const targetLine = view.state.doc.line(targetNumber);
+              target = targetLine.from + Math.min(selection.head - line.from, targetLine.length);
+            } else {
+              target = Math.max(0, Math.min(view.state.doc.length, selection.head + (event.key === "ArrowLeft" ? -1 : 1)));
+            }
+            view.dispatch({
+              selection: { anchor: selection.empty ? target : selection.anchor, head: target },
+              effects: EditorView.scrollIntoView(target, { y: "nearest" }),
+            });
+            return true;
+          },
+        });
+        const extensions = [];
+        if (theme.vim) extensions.push(normalArrows, vim());
+        extensions.push(
+          lineNumbers(),
+          highlightActiveLineGutter(),
+          highlightActiveLine(),
+          drawSelection(),
+          dropCursor(),
+          history(),
+          bracketMatching(),
+          autocompletion({ override: [completionSource], activateOnTyping: true, closeOnBlur: true }),
+          EditorView.domEventHandlers({
+            contextmenu: (event, view) => {
+              event.preventDefault();
+              const selection = view.state.selection.main;
+              const text = view.state.sliceDoc(selection.from, selection.to) || view.state.doc.lineAt(selection.from).text;
+              if (!text.trim()) return true;
+              setCmMenu({
+                x: event.clientX, y: event.clientY, text, view,
+                startLine: view.state.doc.lineAt(selection.from).number,
+                endLine: view.state.doc.lineAt(selection.to).number,
+              });
+              return true;
+            },
+          }),
+          syntaxHighlighting(latexHighlight),
+          diffPlugin,
+          bandPlugin,
+          spellPlugin,
+          EditorState.tabSize.of(2),
+          keymap.of([
+            { key: "Mod-s", preventDefault: true, run: () => { const live = liveRef.current; if (live.onSave && live.tab) live.onSave(live.tab.path); return true; } },
+            { key: "Mod-Enter", preventDefault: true, run: () => { const live = liveRef.current; if (live.onCompile) live.onCompile(); return true; } },
+            ...defaultKeymap,
+            ...historyKeymap,
+            ...completionKeymap,
+            indentWithTab,
+          ]),
+          StreamLanguage.define(stex),
+          EditorView.updateListener.of((update) => {
+            const live = liveRef.current;
+            if (!live.tab) return;
+            if (update.docChanged) live.onEdit(live.tab.path, update.state.doc.toString(), update.state.selection.main.head);
+            if (update.selectionSet || update.docChanged) {
+              const head = update.state.selection.main.head;
+              pendingCursor = {
+                selectionStart: head,
+                selectionEnd: update.state.selection.main.to,
+                value: update.state.doc.toString(),
+                focus: () => update.view.focus(),
+              };
+              if (!cursorTimer) {
+                cursorTimer = setTimeout(() => {
+                  cursorTimer = 0;
+                  const current = liveRef.current;
+                  if (pendingCursor && current.onCursor) current.onCursor({ currentTarget: pendingCursor });
+                  pendingCursor = null;
+                }, 90);
+              }
+            }
+          }),
+          EditorView.theme({
+            "&": { height: "100%", fontSize: "13px", backgroundColor: "transparent", color: "var(--dsw-alias-label-primary)" },
+            ".cm-scroller": { fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace", lineHeight: "20px", overflow: "auto" },
+            ".cm-content": { caretColor: "var(--dsw-alias-label-primary)", padding: "8px 0" },
+            ".cm-line": { padding: "0 18px 0 6px" },
+            ".cm-gutters": { backgroundColor: "transparent", color: "var(--dsw-alias-label-secondary)", borderRight: "0.5px solid var(--dsw-alias-border-l1)" },
+            ".cm-activeLine": { backgroundColor: "color-mix(in srgb, var(--dsw-alias-brand-primary) 7%, transparent)" },
+            ".cm-activeLineGutter": { backgroundColor: "color-mix(in srgb, var(--dsw-alias-brand-primary) 9%, transparent)" },
+          }),
+        );
+        if (theme.wrap) extensions.push(EditorView.lineWrapping);
+        moduleRef.current = module;
+        const view = new EditorView({
+          state: EditorState.create({ doc: tab.content, extensions }),
+          parent: hostRef.current,
+        });
+        viewRef.current = view;
+        hostRef.current.__cmView = view;
+        hostRef.current.__cmVim = typeof vim;
+        const lineBlock = (lineNumber) => {
+          const number = Math.max(1, Math.min(view.state.doc.lines, Number(lineNumber) || 1));
+          return view.state.doc.line(number);
+        };
+        editorApiRef.current = {
+          __cm: view,
+          revealLine: (lineNumber) => {
+            const line = lineBlock(lineNumber);
+            view.dispatch({ selection: { anchor: line.from }, effects: EditorView.scrollIntoView(line.from, { y: "center" }) });
+            view.focus();
+            return true;
+          },
+          scrollToLine: (lineNumber) => {
+            const line = lineBlock(lineNumber);
+            view.dispatch({ effects: EditorView.scrollIntoView(line.from, { y: "center" }) });
+            return true;
+          },
+          revealLineTop: (lineNumber) => {
+            const line = lineBlock(lineNumber);
+            view.dispatch({ effects: EditorView.scrollIntoView(line.from, { y: "start" }) });
+            return true;
+          },
+          firstVisibleLine: () => {
+            const block = view.lineBlockAtHeight(view.scrollDOM.scrollTop);
+            return view.state.doc.lineAt(block.from).number;
+          },
+          selection: () => ({ start: view.state.selection.main.from, end: view.state.selection.main.to }),
+          selectRange: (start, end) => {
+            const length = view.state.doc.length;
+            const from = Math.max(0, Math.min(length, start));
+            const to = Math.max(from, Math.min(length, end));
+            view.dispatch({ selection: { anchor: from, head: to } });
+            view.focus();
+          },
+          focus: () => view.focus(),
+        };
+        view.focus();
+        return () => {
+          if (cursorTimer) clearTimeout(cursorTimer);
+          if (editorApiRef.current && editorApiRef.current.__cm === view) editorApiRef.current = null;
+          view.destroy();
+          viewRef.current = null;
+        };
+      }, [module, tab ? tab.path : "", theme.vim, theme.wrap, editorApiRef]);
+
+      useEffect(() => {
+        const view = viewRef.current;
+        if (!view || !tab) return;
+        const current = view.state.doc.toString();
+        if (current === tab.content) return;
+        const block = view.lineBlockAtHeight(view.scrollDOM.scrollTop);
+        const topLine = view.state.doc.lineAt(block.from).number;
+        const anchor = anchorLineRef.current;
+        view.dispatch({ changes: { from: 0, to: current.length, insert: tab.content } });
+        const lineNumber = Math.max(1, Math.min(view.state.doc.lines, anchor || topLine));
+        const line = view.state.doc.line(lineNumber);
+        const EditorViewClass = moduleRef.current ? moduleRef.current.EditorView : null;
+        if (EditorViewClass) view.dispatch({ effects: EditorViewClass.scrollIntoView(line.from, { y: anchor ? "center" : "start" }) });
+        anchorLineRef.current = null;
+        lastContentRef.current = tab.content;
+      }, [tab ? tab.content : ""]);
+
+      const lineCount = tab ? tab.content.split("\n").length : 0;
+      const tabBar = h("div", { className: "ps-tabs", role: "tablist" }, tabs.map((item) => h("div", {
+        key: item.path, role: "tab", title: item.path,
+        className: `ps-tab${activePath === item.path ? " active" : ""}`,
+        "aria-selected": activePath === item.path,
+        onClick: () => onSelectTab(item.path),
+      },
+      h("span", { className: "ps-tab-name" }, item.path.split("/").pop()),
+      item.dirty ? h("span", { className: "ps-dirty" }) : null,
+      h("button", {
+        className: "ps-tab-close", type: "button", "aria-label": "close",
+        onClick: (event) => { event.stopPropagation(); onCloseTab(item.path); },
+      }, h(Icon.close)))), h("div", { className: "ps-spacer" }));
+
+      return h("section", { className: "ps-pane ps-editor", "aria-label": "editor" },
+        tabBar,
+        h("div", { className: "ps-code-wrap" },
+          h("div", { className: "ps-cm-wrap", ref: hostRef }),
+          !module && !error ? h("div", { className: "ps-cm-status" }, "Loading CodeMirror…") : null,
+          error ? h("div", { className: "ps-cm-status error" }, error) : null),
+        h("div", { className: "ps-code-foot" },
+          h("span", { className: "ps-grow", title: tab ? tab.path : "" }, tab ? tab.path : t("noTab")),
+          h("button", { className: "ps-btn", type: "button", onClick: onToggleWrap, title: t("wrapLines"), "aria-pressed": theme.wrap }, theme.wrap ? t("wrapShort") : t("wrapLinesShort")),
+          h("span", { className: "ps-build-tag", title: `client ${CLIENT_BUILD}` }, `b${CLIENT_BUILD.slice(11, 16)}`),
+          theme.vim ? h("span", { className: "ps-vim" }, "CM Vim") : null,
+          h("span", null, `${cursor.line}:${cursor.col}`),
+          h("span", null, `${lineCount} ${t("linesShort")}`),
+          h("button", { className: "ps-btn icon", type: "button", title: t("save"), "aria-label": t("save"), onClick: () => { if (tab) onSave(tab.path); } }, h(Icon.save)),
+          h("span", { className: "ps-status" }, status && status.kind === "saved" ? t("saved") : "")),
+        cmMenu ? h("div", {
+          className: "ps-cm-menu",
+          style: {
+            left: Math.max(6, Math.min(cmMenu.x, (window.innerWidth || 1200) - 230)),
+            top: Math.max(6, Math.min(cmMenu.y, (window.innerHeight || 800) - 120)),
+          },
+          onPointerDown: (event) => event.stopPropagation(),
+        },
+        h("button", {
+          className: "ps-ctx-item", type: "button",
+          onClick: () => { cmMenu.view.focus(); void navigator.clipboard.writeText(cmMenu.text); setCmMenu(null); },
+        }, "Copy"),
+        h("button", {
+          className: "ps-ctx-item", type: "button",
+          onClick: () => {
+            void navigator.clipboard.writeText(cmMenu.text);
+            const view = cmMenu.view;
+            const selection = view.state.selection.main;
+            if (!selection.empty) view.dispatch({ changes: { from: selection.from, to: selection.to } });
+            setCmMenu(null);
+          },
+        }, "Cut"),
+        h("button", {
+          className: "ps-ctx-item", type: "button",
+          onClick: () => {
+            const view = cmMenu.view;
+            void navigator.clipboard.readText().then((text) => { view.dispatch(view.replaceSelection(text)); view.focus(); });
+            setCmMenu(null);
+          },
+        }, "Paste"),
+        h("div", { className: "ps-ctx-sep" }),
+        h("button", {
+          className: "ps-ctx-item", type: "button",
+          onClick: () => {
+            const menu = cmMenu;
+            setCmMenu(null);
+            if (onDiscuss && tab) onDiscuss({ text: menu.text, file: tab.path, startLine: menu.startLine, endLine: menu.endLine });
+          },
+        }, "Discuss with agent…"),
+        chatEnabled ? h("button", {
+          className: "ps-ctx-item", type: "button",
+          onClick: () => {
+            const menu = cmMenu;
+            setCmMenu(null);
+            if (onAddChatContext && tab) onAddChatContext({ text: menu.text, file: tab.path, startLine: menu.startLine, endLine: menu.endLine });
+          },
+        }, "Add selection to current chat") : null) : null,
+        changes && changes.length > 0 && diffBox ? h("div", {
+          className: "ps-diff-pop",
+          style: {
+            position: "fixed", left: `${diffBox.left}px`, top: `${diffBox.top}px`,
+            width: `${diffBox.width}px`, height: `${diffBox.height}px`, fontSize: "12px",
+          },
+        },
+        h("div", {
+          className: "ps-diff-pop-head",
+          onPointerDown: (event) => {
+            if (event.target.closest("button")) return;
+            event.preventDefault();
+            const startX = event.clientX;
+            const startY = event.clientY;
+            const origin = { ...diffBox };
+            const move = (moveEvent) => setDiffBox({
+              ...origin,
+              left: Math.max(0, origin.left + moveEvent.clientX - startX),
+              top: Math.max(0, origin.top + moveEvent.clientY - startY),
+            });
+            const stop = () => {
+              window.removeEventListener("pointermove", move);
+              window.removeEventListener("pointerup", stop);
+            };
+            window.addEventListener("pointermove", move);
+            window.addEventListener("pointerup", stop);
+          },
+        },
+        h("span", null, `${changes.length} suggested change${changes.length === 1 ? "" : "s"}`),
+        h("span", { className: "ps-grow" }),
+        h("button", {
+          className: "ps-btn", type: "button", title: "Ask an agent to re-read and repropose",
+          onClick: () => {
+            const change = changes[0];
+            if (onDiscuss && tab) onDiscuss({
+              text: `The proposed diff for ${change.file || tab.path} (${change.hunk ? change.hunk.header : "hunk"}) no longer matches the current file. Re-read that section and propose a fresh diff.`,
+              file: change.file || tab.path,
+              startLine: change.hunk ? Number((/^@@ -(\d+)/u.exec(change.hunk.header || "") || [])[1] || 1) : 1,
+            });
+          },
+        }, "Repropose"),
+        h("button", {
+          className: "ps-btn icon", type: "button", title: t("close"),
+          onClick: () => { if (onCloseReview) onCloseReview(); },
+        }, h(Icon.close))),
+        h("div", { className: "ps-diff-body" },
+          changes.map((change) => {
+            const stale = Boolean(tab && applySuggestion(tab.content, { hunks: [change.hunk] }) === null);
+            return h("div", { className: "ps-cm-diff-change", key: change.id },
+              h("div", { className: "ps-diff-file" }, change.file || ""),
+              stale ? h("div", { className: "ps-cm-stale" }, "Diff no longer matches this file — use Repropose.") : null,
+              h("pre", { className: "ps-diff-lines" },
+                (change.hunk ? change.hunk.lines : []).slice(0, 80).map((line, index) => h("div", {
+                  key: index,
+                  className: `ps-diff-line ${line.type === "+" ? "add" : line.type === "-" ? "del" : "ctx"}`,
+                }, line.text || " "))),
+              h("div", { className: "ps-cm-diff-actions" },
+                h("button", {
+                  className: "ps-btn primary", type: "button", disabled: stale,
+                  onClick: () => {
+                    const match = /^@@ -(\d+)/u.exec(change.hunk ? change.hunk.header || "" : "");
+                    anchorLineRef.current = match ? Number(match[1]) : 1;
+                    onKeepChange(change);
+                  },
+                }, t("keep")),
+                h("button", { className: "ps-btn", type: "button", onClick: () => onDiscardChange(change.id) }, t("discard"))));
+          })),
+        h("div", {
+          className: "ps-diff-resize",
+          onPointerDown: (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const startX = event.clientX;
+            const startY = event.clientY;
+            const origin = { ...diffBox };
+            const move = (moveEvent) => setDiffBox({
+              ...origin,
+              width: Math.max(280, Math.min(900, origin.width + moveEvent.clientX - startX)),
+              height: Math.max(140, Math.min(700, origin.height + moveEvent.clientY - startY)),
+            });
+            const stop = () => {
+              window.removeEventListener("pointermove", move);
+              window.removeEventListener("pointerup", stop);
+            };
+            window.addEventListener("pointermove", move);
+            window.addEventListener("pointerup", stop);
+          },
+        })) : null);
+    }
+
+    function normalizeSymbols(data) {
+      return {
+        labels: data.labels || [],
+        citations: data.citations || [],
+        files: data.files || [],
+        commands: data.commands || [],
+        environments: data.environments || [],
+      };
+    }
+
+    function EditorPane(props) {
+      return (props.syntax && props.syntax.engine === "codemirror") ? h(CodeMirrorPane, props) : h(TextareaEditor, props);
+    }
+
     function Dock(props) {
       const {
         t, tab, onTab, onClose, compile, terminal, stage, elapsed, compiling,
@@ -4141,7 +4739,11 @@ body.ps-resizing *{cursor:inherit!important}
             onChange: (event) => onSelectChat(event.target.value),
           }, chats.map((item) => h("option", { key: item.id, value: item.id }, `${item.title || t("newChat")}${item.messages ? ` · ${item.messages}` : ""}`))),
           h("button", { className: "ps-btn icon", type: "button", title: t("newChat"), onClick: onNewChat }, h(Icon.plus)),
-          h("button", { className: "ps-btn icon ps-chat-prompt", type: "button", title: t("memoryTitle"), onClick: () => onShowMemory && onShowMemory() }, "🧠"),
+          h("button", {
+            className: "ps-btn icon ps-chat-prompt", type: "button",
+            title: `${t("brainTitle")}${chat && chat.reasoningEffort ? ` · ${chat.reasoningEffort}` : ""}`,
+            onClick: () => onShowMemory && onShowMemory(),
+          }, "🧠"),
           h("button", { className: "ps-btn icon ps-chat-prompt", type: "button", title: t("viewPrompt"), onClick: () => onShowPrompt && onShowPrompt() }, "ℹ"),
           h("button", { className: "ps-btn icon ps-chat-delete", type: "button", title: t("deleteChat"), onClick: () => onDeleteChat && onDeleteChat() }, "🗑"),
           h("button", { className: "ps-btn icon", type: "button", title: t("close"), onClick: onClose }, h(Icon.close))),
@@ -4402,22 +5004,29 @@ body.ps-resizing *{cursor:inherit!important}
           : Math.max(0, Math.min(lines[endIndex].length, endColumn));
         const endOffset = lines.slice(0, endIndex).reduce((sum, text) => sum + text.length + 1, 0) + endColumnValue;
         setCursor({ line: index + 1, col: startColumn + 1 });
-        // Let React commit the tab, then override the browser's own
-        // "reveal the selection" scroll with a centered position.
-        requestAnimationFrame(() => {
+        // Let React commit the tab (and CodeMirror mount), then select.
+        const attempt = (tries) => {
+          const api = editorApiRef.current;
+          if (api && api.__cm && api.selectRange) {
+            api.selectRange(offset + startColumn, Math.max(offset + startColumn, endOffset));
+            if (api.scrollToLine) api.scrollToLine(index + 1);
+            return;
+          }
           const textarea = editorRef.current;
-          if (!textarea) return;
-          textarea.focus();
-          const selectionStart = offset + startColumn;
-          const selectionEnd = Math.max(selectionStart, endOffset);
-          textarea.setSelectionRange(selectionStart, selectionEnd);
-          if (editorApiRef.current) editorApiRef.current.revealLine(index + 1);
-          // The browser may scroll to reveal the new selection on the next
-          // frame; re-apply the centered position once more.
-          requestAnimationFrame(() => {
+          if (textarea) {
+            textarea.focus();
+            const selectionStart = offset + startColumn;
+            const selectionEnd = Math.max(selectionStart, endOffset);
+            textarea.setSelectionRange(selectionStart, selectionEnd);
             if (editorApiRef.current) editorApiRef.current.revealLine(index + 1);
-          });
-        });
+            requestAnimationFrame(() => {
+              if (editorApiRef.current) editorApiRef.current.revealLine(index + 1);
+            });
+            return;
+          }
+          if (tries < 30) requestAnimationFrame(() => attempt(tries + 1));
+        };
+        requestAnimationFrame(() => attempt(0));
       }, []);
 
       const refreshBaseline = useCallback((path) => {
@@ -4511,7 +5120,7 @@ body.ps-resizing *{cursor:inherit!important}
           }).catch(() => {});
           request("symbols", { query: { project: id } }).then((data) => {
             if (projectIdRef.current !== id) return;
-            setSymbols({ labels: data.labels || [], citations: data.citations || [], files: data.files || [] });
+            setSymbols(normalizeSymbols(data));
           }).catch(() => {});
           setStatus({ kind: "idle" });
         } catch (error) {
@@ -4886,7 +5495,8 @@ body.ps-resizing *{cursor:inherit!important}
       const openChatMemory = useCallback(() => {
         if (!chat) return;
         setDialog({
-          kind: "memory", draft: chat.memory || "", chatId: chat.id,
+          kind: "memory", draft: chat.memory || "", effort: chat.reasoningEffort || "default",
+          chatId: chat.id,
           agentId: chatAgent ? chatAgent.id : chat.agentId, agentName: chatAgent ? chatAgent.name : "",
         });
       }, [chat, chatAgent]);
@@ -5289,7 +5899,7 @@ body.ps-resizing *{cursor:inherit!important}
         try {
           const data = await request("symbols", { query: { project: id } });
           if (projectIdRef.current !== id) return;
-          setSymbols({ labels: data.labels || [], citations: data.citations || [], files: data.files || [] });
+          setSymbols(normalizeSymbols(data));
         } catch {
           // Completion is an enhancement; failing to index must not disturb editing.
         }
@@ -5946,9 +6556,20 @@ body.ps-resizing *{cursor:inherit!important}
           actions = h(React.Fragment, null,
             h("button", { className: "ps-btn", type: "button", onClick: () => setDialog(null) }, t("cancel")));
         } else if (dialog.kind === "memory") {
-          title = t("memoryTitle");
+          title = t("brainTitle");
           body = [
             h("div", { className: "ps-hint", key: "hint" }, `${dialog.agentName || ""} · ${t("memoryHint")}`),
+            h("label", { className: "ps-field-row", key: "effort" },
+              h("span", null, t("thinkingEffort")),
+              h("select", {
+                className: "ps-select", value: dialog.effort || "default",
+                onChange: (event) => setDialog({ ...dialog, effort: event.target.value }),
+              },
+              h("option", { value: "default" }, t("effortDefault")),
+              h("option", { value: "off" }, t("effortOff")),
+              h("option", { value: "low" }, t("effortLow")),
+              h("option", { value: "high" }, t("effortHigh")),
+              h("option", { value: "max" }, t("effortMax")))),
             h("textarea", {
               className: "ps-memory-area", key: "area", spellCheck: false,
               value: dialog.draft,
@@ -5963,7 +6584,13 @@ body.ps-resizing *{cursor:inherit!important}
                   await request("chat/memory", { method: "POST", body: {
                     project: projectIdRef.current, agentId: dialog.agentId, chatId: dialog.chatId, markdown: dialog.draft,
                   } });
-                  setChat((current) => (current && current.id === dialog.chatId ? { ...current, memory: dialog.draft.trim() } : current));
+                  await request("chat/thinking", { method: "POST", body: {
+                    project: projectIdRef.current, agentId: dialog.agentId, chatId: dialog.chatId,
+                    effort: dialog.effort === "default" ? "" : dialog.effort,
+                  } });
+                  setChat((current) => (current && current.id === dialog.chatId
+                    ? { ...current, memory: dialog.draft.trim(), ...(dialog.effort && dialog.effort !== "default" ? { reasoningEffort: dialog.effort } : { reasoningEffort: undefined }) }
+                    : current));
                   notify(t("memorySaved"));
                   setDialog(null);
                 } catch (error) {
@@ -6097,6 +6724,16 @@ body.ps-resizing *{cursor:inherit!important}
               color(t("colorTable"), "bgTable"),
               color(t("colorTheorem"), "bgTheorem"),
               color(t("colorCode"), "bgCode")),
+            h("div", { className: "ps-color-group", key: "engine" },
+              h("h3", null, t("editorEngine")),
+              h("label", { className: "ps-color-row" },
+                h("span", { className: "ps-color-label" }, t("editorEngine")),
+                h("select", {
+                  className: "ps-select", value: draft.engine === "codemirror" ? "codemirror" : "textarea",
+                  onChange: (event) => updateDraft({ engine: event.target.value }),
+                },
+                h("option", { value: "textarea" }, t("engineTextarea")),
+                h("option", { value: "codemirror" }, t("engineCodeMirror"))))),
             h("div", { className: "ps-color-group", key: "diff" },
               h("h3", null, t("diffGutter")),
               h("label", { className: "ps-color-row" },
@@ -6733,7 +7370,7 @@ body.ps-resizing *{cursor:inherit!important}
     return {
       inject: ["slots", "locale", "layout"],
       /** Pure helpers exercised by test/client.test.mjs (no browser needed). */
-      __internals: { Studio, EditorPane, Dock, FolderPicker, PdfPage, GitView, Explosion, ChatPane, parseDiffSuggestions, applySuggestion, stripDiffBlocks, collectChanges, diffChangeKey, parseChoiceBlocks, stripChoiceBlocks, splitMath, diffLineKinds, highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject, shouldCompileAfterSave },
+      __internals: { Studio, EditorPane, Dock, FolderPicker, PdfPage, GitView, Explosion, ChatPane, parseDiffSuggestions, applySuggestion, stripDiffBlocks, collectChanges, diffChangeKey, parseChoiceBlocks, stripChoiceBlocks, splitMath, diffLineKinds, normalizeSymbols, highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject, shouldCompileAfterSave },
       apply(ctx) {
         ctx.effect(() => {
           const style = document.createElement("style");

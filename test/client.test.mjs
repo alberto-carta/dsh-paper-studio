@@ -26,7 +26,7 @@ const plugin = definition.factory((id) => {
   if (id === "react") return React;
   throw new Error(`unexpected require: ${id}`);
 });
-const { highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject, shouldCompileAfterSave, parseDiffSuggestions, applySuggestion, collectChanges, diffChangeKey, parseChoiceBlocks, stripChoiceBlocks, splitMath, diffLineKinds } = plugin.__internals;
+const { highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject, shouldCompileAfterSave, parseDiffSuggestions, applySuggestion, collectChanges, diffChangeKey, parseChoiceBlocks, stripChoiceBlocks, splitMath, diffLineKinds, normalizeSymbols } = plugin.__internals;
 
 test("highlighter marks commands, braces and comments and escapes HTML", () => {
   const html = highlightLatex("\\section{Intro} % note <b>\nText $x^2$ here");
@@ -264,4 +264,17 @@ test("citation completion continues after a comma", () => {
     citations: [{ key: "smith2020", title: "A", year: "2020" }, { key: "doe2021", title: "B", year: "2021" }],
   });
   assert.equal(items[0].insert, "doe2021");
+});
+
+test("symbol loading keeps custom commands and environments", () => {
+  const symbols = normalizeSymbols({
+    labels: [{ key: "intro" }], citations: [{ key: "smith" }], files: ["main.tex"],
+    commands: [{ name: "pref", arity: 1 }, { name: "acarta", arity: 1 }],
+    environments: [{ name: "mynote" }],
+  });
+  assert.equal(symbols.commands.length, 2);
+  assert.equal(symbols.environments.length, 1);
+  assert.equal(symbols.labels[0].key, "intro");
+  const items = completionItems("command", "pre", symbols);
+  assert.equal(items[0].label, "\\pref");
 });
