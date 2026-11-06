@@ -2050,6 +2050,35 @@ async function importAgents(project, input) {
   return { imported };
 }
 
+/** The full PDF selection inside the paragraph around `line`, else its start. */
+async function paragraphWordSelection(project, file, line, text) {
+  const content = await projectText(project, file, 500000);
+  if (!content) return { line, column: 0, endLine: line, endColumn: 0 };
+  const lines = content.split("\n");
+  const index = Math.max(0, Math.min(lines.length - 1, Number(line) - 1));
+  let start = index;
+  while (start > 0 && lines[start - 1].trim() !== "") start -= 1;
+  let end = index;
+  while (end < lines.length - 1 && lines[end + 1].trim() !== "") end += 1;
+  const paragraph = lines.slice(start, end + 1).join("\n");
+  const selected = String(text || "").replace(/\s+/gu, " ").trim();
+  if (selected.length > 0) {
+    const escaped = selected.split(" ").map((word) => word.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")).join("\\s+");
+    const match = new RegExp(escaped, "u").exec(paragraph);
+    if (match) {
+      const prefix = paragraph.slice(0, match.index);
+      const startLine = start + (prefix.match(/\n/gu) || []).length;
+      const lastNewline = prefix.lastIndexOf("\n");
+      const column = match.index - lastNewline - 1;
+      const endLine = startLine + (match[0].match(/\n/gu) || []).length;
+      const lastMatchNewline = match[0].lastIndexOf("\n");
+      const endColumn = lastMatchNewline === -1 ? column + match[0].length : match[0].length - lastMatchNewline - 1;
+      return { line: startLine + 1, column, endLine: endLine + 1, endColumn };
+    }
+  }
+  return { line: start + 1, column: 0, endLine: start + 1, endColumn: 0 };
+}
+
 async function locateInPdf(project, options) {
   const { page, x, y, current } = options || {};
   const cache = await ensureCompiled(project);
@@ -2083,15 +2112,19 @@ async function locateInPdf(project, options) {
         const refined = text.length > 0 ? await refineTextLine(project, file, syncLine, text) : null;
         // Only a nearby match may override SyncTeX; otherwise its paragraph start
         // is the more trustworthy answer.
-        if (refined !== null) return { ok: true, file, line: refined, method: "synctex+text" };
-        return { ok: true, file, line: syncLine, method: "synctex" };
+        const chosen = refined !== null ? refined : syncLine;
+        const selection = await paragraphWordSelection(project, file, chosen, options.text);
+        return { ok: true, file, line: selection.line, column: selection.column, endLine: selection.endLine, endColumn: selection.endColumn, method: refined !== null ? "synctex+text" : "synctex" };
       }
     }
   }
 
   if (typeof options.text === "string" && options.text.trim().length > 0) {
     const found = await findTextInSources(project, options.text, current);
-    if (found) return { ok: true, file: found.file, line: found.line, method: "text", text: options.text };
+    if (found) {
+      const selection = await paragraphWordSelection(project, found.file, found.line, options.text);
+      return { ok: true, file: found.file, line: selection.line, column: selection.column, endLine: selection.endLine, endColumn: selection.endColumn, method: "text", text: options.text };
+    }
   }
 
   const bbox = await run(
@@ -2124,7 +2157,10 @@ async function locateInPdf(project, options) {
     // for the next useful word instead of giving up on the click.
     if (needle.length < 2) continue;
     const found = await findInSources(project, needle, current);
-    if (found) return { ok: true, file: found.file, line: found.line, method: "text", word: needle };
+    if (found) {
+      const selection = await paragraphWordSelection(project, found.file, found.line, options.text);
+      return { ok: true, file: found.file, line: selection.line, column: selection.column, endLine: selection.endLine, endColumn: selection.endColumn, method: "text" };
+    }
     return { ok: false, word: needle, reason: "That text is not in the .tex sources." };
   }
   return { ok: false, reason: "No source position at that point." };
@@ -2440,9 +2476,9 @@ const ops = {
     return deleteAgentFile(project, id, scope);
   },
 
-  async locate({ project: reference, page, x, y, current }) {
+  async locate({ project: reference, page, x, y, text, current }) {
     const project = projectRef(reference);
-    return locateInPdf(project, { page, x, y, current });
+    return locateInPdf(project, { page, x, y, text, current });
   },
 
   async compile({ project: reference, force }) {
@@ -3231,6 +3267,7 @@ export const __test = {
   compileProject,
   collectSymbols,
   locateInPdf,
+  paragraphWordSelection,
   findInSources,
   findTextInSources,
   refineTextLine,

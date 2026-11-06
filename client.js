@@ -2,13 +2,15 @@ window.__ModuleLoader__.load({
   id: "@local/paper-studio",
   factory(require) {
     const React = require("react");
+let flushSync = null;
+try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = null; }
     const h = React.createElement;
     const { useCallback, useEffect, useMemo, useRef, useState } = React;
     const useLayoutEffectSafe = React.useLayoutEffect || useEffect;
 
     const PANEL_ID = "paper-studio";
     /** Shown in Settings so the loaded client can be matched to the source file. */
-    const CLIENT_BUILD = "2026-11-06T04:55";
+    const CLIENT_BUILD = "2026-11-06T07:10";
     const NS = "paperStudio";
     const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
 
@@ -1370,7 +1372,9 @@ body.ps-resizing *{cursor:inherit!important}
       const target = open ? BRACKET_PAIRS[char] : Object.keys(BRACKET_PAIRS).find((key) => BRACKET_PAIRS[key] === char);
       const step = open ? 1 : -1;
       let depth = 0;
+      let steps = 0;
       for (let cursor = index; cursor >= 0 && cursor < text.length; cursor += step) {
+        if (++steps > 4000) return null;
         if (bracketEscaped(text, cursor)) continue;
         if (text[cursor] === char) depth += 1;
         else if (text[cursor] === target) {
@@ -1548,7 +1552,12 @@ body.ps-resizing *{cursor:inherit!important}
         const command = brace[1];
         const query = brace[2];
         const start = position - query.length;
-        if (CITE_COMMANDS.test(command)) return { kind: "citation", query, start, end: position };
+        if (CITE_COMMANDS.test(command)) {
+          const lastComma = query.lastIndexOf(",");
+          const segment = query.slice(lastComma + 1);
+          const leading = segment.length - segment.replace(/^\s+/u, "").length;
+          return { kind: "citation", query: segment.trim(), start: position - segment.length + leading, end: position };
+        }
         if (REF_COMMANDS.test(command)) return { kind: "label", query, start, end: position };
         if (command === "begin" || command === "end") return { kind: "environment", query, start, end: position };
         if (command === "usepackage" || command === "documentclass" || command === "RequirePackage") return { kind: "package", query, start, end: position };
@@ -1638,7 +1647,20 @@ body.ps-resizing *{cursor:inherit!important}
       }
       if (kind === "package") return pack(COMPLETION_PACKAGES, () => "package");
       if (kind === "label") return pack(symbols.labels || [], (entry) => `${entry.file}${entry.line ? `:${entry.line}` : ""}`);
-      if (kind === "citation") return pack(symbols.citations || [], (entry) => [entry.year, entry.title].filter(Boolean).join(" · ").slice(0, 70));
+      if (kind === "citation") {
+        const entries = symbols.citations || [];
+        const starts = [];
+        const contains = [];
+        for (const entry of entries) {
+          const key = String(entry.key || "").toLowerCase();
+          if (needle.length === 0 || key.startsWith(needle)) starts.push(entry);
+          else if (key.includes(needle) || String(entry.title || "").toLowerCase().includes(needle)) contains.push(entry);
+          if (starts.length >= 60 && contains.length >= 60) break;
+        }
+        if (starts.length === 0 && contains.length === 0) return [];
+        const detail = (entry) => [entry.year, entry.title].filter(Boolean).join(" · ").slice(0, 70);
+        return [...starts, ...contains].slice(0, 60).map((entry) => ({ label: entry.key, insert: entry.key, detail: detail(entry) }));
+      }
       if (kind === "image") return pack((symbols.files || []).filter((file) => /\.(?:png|jpe?g|pdf|eps|svg)$/iu.test(file)), () => "image");
       if (kind === "bibfile") return pack((symbols.files || []).filter((file) => /\.bib$/iu.test(file)), () => "bib");
       if (kind === "file") return pack((symbols.files || []).filter((file) => /\.tex$/iu.test(file)), () => "tex");
@@ -1659,6 +1681,7 @@ body.ps-resizing *{cursor:inherit!important}
       const highlightInnerRef = useRef(null);
       const matchLayerRef = useRef(null);
       const caretMemory = useRef(0);
+      const scrollMemoryRef = useRef({ top: 0, scrollHeight: 0, clientHeight: 0, width: 0 });
       const [completion, setCompletion] = useState(null);
       const lineCount = useMemo(() => (tab ? tab.content.split("\n").length : 0), [tab ? tab.content : ""]);
       const lines = useMemo(
@@ -1809,6 +1832,7 @@ body.ps-resizing *{cursor:inherit!important}
       const [vimVisualType, setVimVisualType] = useState("char");
       const [exLine, setExLine] = useState(null);
       const [caretBox, setCaretBox] = useState(null);
+      const [, setVimCursorTick] = useState(0);
       const [diagnostics, setDiagnostics] = useState("");
       const [matches, setMatches] = useState([]);
       const [diffPop, setDiffPop] = useState(null);
@@ -1873,6 +1897,7 @@ body.ps-resizing *{cursor:inherit!important}
           textarea.focus();
           textarea.setSelectionRange(Math.min(vimAnchor.current, target), Math.max(vimAnchor.current, target));
           onCursor({ currentTarget: textarea });
+          setVimCursorTick((value) => value + 1);
           return;
         }
         setCaret(target);
@@ -2199,7 +2224,7 @@ body.ps-resizing *{cursor:inherit!important}
         applyWrapWidth();
       }, [theme.wrap, applyWrapWidth, activePath, tab ? tab.path : ""]);
 
-      useEffect(() => {
+      useLayoutEffectSafe(() => {
         if (!theme.vim || vimMode === "insert") {
           setCaretBox(null);
           return;
@@ -2209,21 +2234,54 @@ body.ps-resizing *{cursor:inherit!important}
           setCaretBox(null);
           return;
         }
-        if (theme.wrap) {
-          setCaretBox(caretCoordinates(textarea, textarea.selectionStart, true));
+        const active = vimMode === "visual" ? vimCursor.current : textarea.selectionStart;
+        const before = String(textarea.value).slice(0, active);
+        const lineNumber = before.split("\n").length;
+        const column = active - before.lastIndexOf("\n") - 1;
+        const style = window.getComputedStyle(textarea);
+        const padTop = Number.parseFloat(style.paddingTop) || 8;
+        const padLeft = Number.parseFloat(style.paddingLeft) || 48;
+        const lineHeight = Number.parseFloat(style.lineHeight) || 20;
+        const charWidth = measureMono(style.font || `${style.fontSize} ${style.fontFamily}`);
+        const inner = highlightInnerRef.current;
+        const lineEl = inner ? inner.querySelector(`[data-line="${lineNumber}"]`) : null;
+        if (lineEl) {
+          const walker = document.createTreeWalker(lineEl, NodeFilter.SHOW_TEXT);
+          let node = walker.nextNode();
+          let offset = column;
+          while (node && offset > node.data.length) {
+            offset -= node.data.length;
+            node = walker.nextNode();
+          }
+          const rect = document.createRange();
+          if (node) {
+            rect.setStart(node, Math.max(0, Math.min(node.data.length, offset)));
+            rect.setEnd(node, Math.max(0, Math.min(node.data.length, offset + 1)));
+          } else {
+            rect.selectNodeContents(lineEl);
+          }
+          const lineRect = lineEl.getBoundingClientRect();
+          const box = rect.getBoundingClientRect();
+          setCaretBox({
+            left: padLeft + lineEl.offsetLeft + (box.width || box.height ? box.left - lineRect.left : 0),
+            top: padTop + lineEl.offsetTop + (box.width || box.height ? box.top - lineRect.top : 0),
+            width: Math.max(charWidth, box.width || 0),
+            height: box.height || lineHeight,
+          });
           return;
         }
-        const point = caretPoint(textarea, textarea.selectionStart);
-        const style = window.getComputedStyle(textarea);
-        const height = Number.parseFloat(style.lineHeight) || 20;
-        const width = measureMono(style.font || `${style.fontSize} ${style.fontFamily}`);
+        if (theme.wrap) {
+          setCaretBox(caretCoordinates(textarea, active, true));
+          return;
+        }
+        const point = caretPoint(textarea, active);
         setCaretBox({
           left: point.x + textarea.scrollLeft,
-          top: point.y + textarea.scrollTop - height,
-          width,
-          height,
+          top: point.y + textarea.scrollTop - lineHeight,
+          width: charWidth,
+          height: lineHeight,
         });
-      }, [theme.vim, theme.wrap, vimMode, cursor.line, cursor.col, activePath, tab ? tab.content : ""]);
+      }, [theme.vim, theme.wrap, vimMode, cursor.line, cursor.col, activePath, tab ? tab.content : "", vimAnchor.current, vimCursor.current]);
 
       useEffect(() => {
         const wrap = wrapRef.current;
@@ -2270,13 +2328,51 @@ body.ps-resizing *{cursor:inherit!important}
             setViewport({ top: textarea.scrollTop, height: textarea.clientHeight });
           });
         };
-        const onNativeScroll = () => { syncHighlight(); measure(); };
+        const remember = () => {
+          scrollMemoryRef.current = {
+            top: textarea.scrollTop,
+            scrollHeight: textarea.scrollHeight,
+            clientHeight: textarea.clientHeight,
+            width: textarea.clientWidth,
+          };
+        };
+        const onNativeScroll = () => { syncHighlight(); measure(); remember(); };
         textarea.addEventListener("scroll", onNativeScroll, { passive: true });
         measure();
         return () => {
           if (frame) cancelAnimationFrame(frame);
           textarea.removeEventListener("scroll", onNativeScroll);
         };
+      }, [syncHighlight, theme.wrap, tab ? tab.path : ""]);
+
+      useEffect(() => {
+        const textarea = editorRef.current;
+        if (!textarea || typeof ResizeObserver === "undefined") return undefined;
+        const observer = new ResizeObserver(() => {
+          const previous = scrollMemoryRef.current;
+          if (previous.width > 0 && previous.width !== textarea.clientWidth) {
+            const fraction = previous.top / Math.max(1, previous.scrollHeight - previous.clientHeight);
+            requestAnimationFrame(() => {
+              textarea.scrollTop = fraction * Math.max(0, textarea.scrollHeight - textarea.clientHeight);
+              syncHighlight();
+              scrollMemoryRef.current = {
+                top: textarea.scrollTop,
+                scrollHeight: textarea.scrollHeight,
+                clientHeight: textarea.clientHeight,
+                width: textarea.clientWidth,
+              };
+            });
+          } else {
+            scrollMemoryRef.current = {
+              top: textarea.scrollTop,
+              scrollHeight: textarea.scrollHeight,
+              clientHeight: textarea.clientHeight,
+              width: textarea.clientWidth,
+            };
+          }
+        });
+        observer.observe(textarea);
+        return () => observer.disconnect();
       }, [syncHighlight, theme.wrap, tab ? tab.path : ""]);
 
       useLayoutEffectSafe(() => {
@@ -2344,20 +2440,35 @@ body.ps-resizing *{cursor:inherit!important}
       useLayoutEffectSafe(() => { syncHighlight(); }, [activePath, syncHighlight, theme.wrap]);
 
       useLayoutEffectSafe(() => {
+        const timer = setTimeout(() => {
         const textarea = editorRef.current;
         if (!textarea || !tab) { setMatches((previous) => (previous.length > 0 ? [] : previous)); return; }
         const pair = bracketMatch(tab.content, textarea.selectionStart);
         if (!pair) { setMatches((previous) => (previous.length > 0 ? [] : previous)); return; }
         const boxes = [];
+        const inner = highlightInnerRef.current;
         for (const index of [pair.open, pair.close]) {
           if (index < 0) continue;
           const point = caretCoordinates(textarea, index, theme.wrap);
+          const lineIndex = tab.content.slice(0, index).split("\n").length;
+          const lineEl = inner ? inner.querySelector(`[data-line="${lineIndex}"]`) : null;
+          let top = point.top;
+          if (lineEl) {
+            const padTop = Number.parseFloat(window.getComputedStyle(textarea).paddingTop) || 8;
+            const lineTop = padTop + lineEl.offsetTop;
+            const lineBottom = lineTop + lineEl.offsetHeight;
+            top = theme.wrap
+              ? Math.max(lineTop, Math.min(Math.max(lineTop, lineBottom - point.height), point.top))
+              : lineTop;
+          }
           boxes.push({
-            left: point.left, top: point.top, width: Math.max(5, point.width), height: point.height,
+            left: point.left, top, width: Math.max(5, point.width), height: point.height,
             unmatched: pair.open < 0 || pair.close < 0,
           });
         }
         setMatches(boxes);
+        }, 70);
+        return () => clearTimeout(timer);
       }, [cursor.line, cursor.col, tab ? tab.content : "", theme.wrap]);
 
       useLayoutEffectSafe(() => {
@@ -2410,6 +2521,33 @@ body.ps-resizing *{cursor:inherit!important}
         return () => observer.disconnect();
       }, [theme.wrap, syncHighlight, onCursor, applyWrapWidth, activePath, tab ? tab.path : ""]);
 
+      const firstVisibleLine = useCallback(() => {
+        const textarea = editorRef.current;
+        if (!textarea) return 1;
+        const inner = highlightInnerRef.current;
+        if (theme.wrap && inner) {
+          const scroll = textarea.scrollTop;
+          for (const element of inner.children) {
+            if (element.offsetTop + element.offsetHeight > scroll) return Number(element.dataset.line) || 1;
+          }
+          return 1;
+        }
+        return Math.max(1, Math.floor(textarea.scrollTop / 20) + 1);
+      }, [theme.wrap]);
+
+      const revealLineTop = useCallback((lineNumber) => {
+        const textarea = editorRef.current;
+        if (!textarea) return false;
+        const lines = String(textarea.value).split("\n");
+        const index = Math.max(0, Math.min(lines.length - 1, (Number(lineNumber) || 1) - 1));
+        let offset = 0;
+        for (let position = 0; position < index; position += 1) offset += lines[position].length + 1;
+        const point = caretCoordinates(textarea, offset, theme.wrap);
+        textarea.scrollTop = Math.max(0, point.top - 4);
+        syncHighlight();
+        return true;
+      }, [editorRef, syncHighlight, theme.wrap]);
+
       const revealLine = useCallback((lineNumber) => {
         const textarea = editorRef.current;
         if (!textarea) return false;
@@ -2429,7 +2567,7 @@ body.ps-resizing *{cursor:inherit!important}
 
       useEffect(() => {
         if (!editorApiRef) return undefined;
-        editorApiRef.current = { revealLine };
+        editorApiRef.current = { revealLine, firstVisibleLine, revealLineTop };
         return () => {
           if (editorApiRef.current && editorApiRef.current.revealLine === revealLine) editorApiRef.current = null;
         };
@@ -2737,7 +2875,14 @@ body.ps-resizing *{cursor:inherit!important}
             onContextMenu: (event) => {
               event.preventDefault();
               const target = event.currentTarget;
-              setMenu({ x: event.clientX, y: event.clientY, selected: target.selectionStart !== target.selectionEnd });
+              const margin = 8;
+              const width = 210;
+              const height = 320;
+              setMenu({
+                x: Math.max(margin, Math.min(event.clientX, window.innerWidth - width - margin)),
+                y: Math.max(margin, Math.min(event.clientY, window.innerHeight - height - margin)),
+                selected: target.selectionStart !== target.selectionEnd,
+              });
             },
             onBlur: closeCompletion,
           }),
@@ -4007,6 +4152,17 @@ body.ps-resizing *{cursor:inherit!important}
       const [expanded, setExpanded] = useState(() => new Set(["sections"]));
       const [explorerOpen, setExplorerOpen] = useState(() => readUi().explorer !== false);
       const [pdfOpen, setPdfOpen] = useState(() => readUi().pdf !== false);
+      const togglePdfOpen = useCallback(() => {
+        const api = editorApiRef.current;
+        const first = api && api.firstVisibleLine ? api.firstVisibleLine() : null;
+        setPdfOpen((value) => !value);
+        if (first) {
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            const current = editorApiRef.current;
+            if (current && current.revealLineTop) current.revealLineTop(first);
+          }));
+        }
+      }, []);
 
       const [zoom, setZoom] = useState(() => Number(readUi().zoom) || 100);
       const [pdf, setPdf] = useState({ rev: null, pages: 0, mode: "none" });
@@ -4156,20 +4312,28 @@ body.ps-resizing *{cursor:inherit!important}
         setTreeInfo({ truncated: Boolean(data.truncated) });
       }, []);
 
-      const jumpToLine = useCallback((path, line) => {
+      const jumpToLine = useCallback((path, line, column, endLine, endColumn) => {
         const tab = tabsRef.current.find((item) => item.path === path);
         if (!tab || !line) return;
         const lines = tab.content.split("\n");
         const index = Math.max(0, Math.min(lines.length - 1, line - 1));
         const offset = lines.slice(0, index).reduce((sum, text) => sum + text.length + 1, 0);
-        setCursor({ line: index + 1, col: 1 });
+        const startColumn = column === undefined || column === null ? 0 : Math.max(0, Math.min(lines[index].length, column));
+        const endIndex = Math.max(index, Math.min(lines.length - 1, (Number(endLine) || Number(line)) - 1));
+        const endColumnValue = endColumn === undefined || endColumn === null
+          ? lines[endIndex].length
+          : Math.max(0, Math.min(lines[endIndex].length, endColumn));
+        const endOffset = lines.slice(0, endIndex).reduce((sum, text) => sum + text.length + 1, 0) + endColumnValue;
+        setCursor({ line: index + 1, col: startColumn + 1 });
         // Let React commit the tab, then override the browser's own
         // "reveal the selection" scroll with a centered position.
         requestAnimationFrame(() => {
           const textarea = editorRef.current;
           if (!textarea) return;
           textarea.focus();
-          textarea.setSelectionRange(offset, offset + lines[index].length);
+          const selectionStart = offset + startColumn;
+          const selectionEnd = Math.max(selectionStart, endOffset);
+          textarea.setSelectionRange(selectionStart, selectionEnd);
           if (editorApiRef.current) editorApiRef.current.revealLine(index + 1);
           // The browser may scroll to reveal the new selection on the next
           // frame; re-apply the centered position once more.
@@ -4189,7 +4353,7 @@ body.ps-resizing *{cursor:inherit!important}
           .catch(() => {});
       }, []);
 
-      const openFile = useCallback(async (path, line) => {
+      const openFile = useCallback(async (path, line, selection) => {
         const id = projectIdRef.current;
         if (!id || !path) return;
         const existing = tabsRef.current.find((item) => item.path === path);
@@ -4198,8 +4362,8 @@ body.ps-resizing *{cursor:inherit!important}
           setActive(path);
           activeRef.current = path;
           if (line) {
-            if (alreadyActive) jumpToLine(path, line);
-            else pendingLine.current = { path, line };
+            if (alreadyActive) jumpToLine(path, line, selection && selection.column, selection && selection.endLine, selection && selection.endColumn);
+            else pendingLine.current = { path, line, ...(selection || {}) };
           }
           void refreshBaseline(path);
           return;
@@ -4211,7 +4375,7 @@ body.ps-resizing *{cursor:inherit!important}
           setTabs((list) => [...list.filter((item) => item.path !== path), tab]);
           setActive(path);
           activeRef.current = path;
-          if (line) pendingLine.current = { path, line };
+          if (line) pendingLine.current = { path, line, ...(selection || {}) };
           void refreshBaseline(path);
         } catch (error) {
           notify(error.message, "err");
@@ -4981,7 +5145,7 @@ body.ps-resizing *{cursor:inherit!important}
       useEffect(() => {
         const pending = pendingLine.current;
         if (!pending || pending.path !== active) return;
-        jumpToLine(pending.path, pending.line);
+        jumpToLine(pending.path, pending.line, pending.column, pending.endLine, pending.endColumn);
         pendingLine.current = null;
       }, [active, tabs, jumpToLine]);
 
@@ -5378,7 +5542,7 @@ body.ps-resizing *{cursor:inherit!important}
             body: { project: id, page, x, y, text, current: activeRef.current || undefined },
           });
           if (result && result.file) {
-            await openFile(result.file, result.line);
+            await openFile(result.file, result.line, { column: result.column, endLine: result.endLine, endColumn: result.endColumn });
             notify(`${result.file}:${result.line}`);
           } else {
             notify((result && result.reason) || t("locateFailed"), "err");
@@ -6208,7 +6372,7 @@ body.ps-resizing *{cursor:inherit!important}
           }, h(Icon.panels)),
           h("button", {
             className: `ps-btn icon${pdfOpen ? " active" : ""}`, type: "button", title: t("pdf"), "aria-label": t("pdf"),
-            "aria-pressed": pdfOpen, onClick: () => setPdfOpen((value) => !value),
+            "aria-pressed": pdfOpen, onClick: togglePdfOpen,
           }, h(Icon.pdf)),
           h("button", {
             className: `ps-btn${dock ? " active" : ""}`, type: "button", disabled: !project,
@@ -6405,7 +6569,14 @@ body.ps-resizing *{cursor:inherit!important}
               ? h("div", {
                 className: "ps-pdf-scroll",
                 onPointerEnter: () => setPdfTextLayer(true),
-                onPointerDown: () => setPdfTextLayer(true),
+                onPointerDown: (event) => {
+                  if (pdfTextLayerRef.current) return;
+                  if (flushSync) flushSync(() => setPdfTextLayer(true));
+                  else {
+                    event.preventDefault();
+                    setPdfTextLayer(true);
+                  }
+                },
                 onFocus: () => setPdfTextLayer(true),
               },
                 h("div", { className: "ps-pages", style: { "--ps-zoom": `${zoom}%` } },

@@ -253,3 +253,15 @@ test("diff gutter classifies additions, modifications and deletions", () => {
   assert.deepEqual([...diffLineKinds("a\nb", "a\nb\nc").entries()], [[2, "add"]]);
   assert.equal(diffLineKinds("same", "same").size, 0);
 });
+
+test("citation completion continues after a comma", () => {
+  const text = "\\cite{smith2020, doe2021";
+  const context = completionContext(text, text.length);
+  assert.equal(context.kind, "citation");
+  assert.equal(context.query, "doe2021");
+  assert.equal(text.slice(context.start, context.end), "doe2021");
+  const items = completionItems("citation", "doe2021", {
+    citations: [{ key: "smith2020", title: "A", year: "2020" }, { key: "doe2021", title: "B", year: "2021" }],
+  });
+  assert.equal(items[0].insert, "doe2021");
+});

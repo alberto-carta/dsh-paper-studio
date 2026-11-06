@@ -441,6 +441,24 @@ test("git HEAD content is available for diff baselines", async () => {
   }
 });
 
+test("PDF selection maps the full phrase inside its paragraph", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "ps-word-"));
+  try {
+    await writeFile(join(dir, "main.tex"), "First paragraph line.\nSecond targetword here.\n\nAnother paragraph.\n", "utf8");
+    const project = { path: dir };
+    const hit = await __test.paragraphWordSelection(project, "main.tex", 2, "Second targetword here");
+    assert.equal(hit.line, 2);
+    assert.equal(hit.column, 0);
+    assert.equal(hit.endLine, 2);
+    assert.equal(hit.endColumn, 22);
+    const miss = await __test.paragraphWordSelection(project, "main.tex", 2, "absent phrase here");
+    assert.equal(miss.line, 1);
+    assert.equal(miss.column, 0);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test("literature is discovered from the main file's bibliography", async () => {
   const dir = await mkdtemp(join(tmpdir(), "ps-bib-"));
   try {
