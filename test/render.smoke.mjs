@@ -60,58 +60,34 @@ assert.match(empty, /ps-head/u);
 // which squeezed the editor into a 5px strip.
 assert.doesNotMatch(empty, /ps-split/u);
 
-// 2. Editor with LaTeX highlighting and the completion popup closed.
+// 2. Editor shell now uses CodeMirror; SSR renders tabs/footer while the
+// client-only CM view loads.
 const syntax = {
   command: "#8b5cf6", environment: "#d97706", math: "#059669", comment: "#94a3b8", brace: "#94a3b8",
   bgFigure: "#3b82f6", bgMath: "#10b981", bgTable: "#f59e0b", bgTheorem: "#8b5cf6", bgCode: "#6b7280",
   backgrounds: true, currentLine: true, currentLineColor: "#8b5cf6",
+  engine: "codemirror",
 };
 const tab = {
   path: "main.tex",
   content: "\\section{Intro}\n\\begin{figure}\nText $x^2$ % a note\n\\end{figure}\n",
-  dirty: false,
-  saving: false,
-  conflict: null,
+  dirty: false, saving: false, conflict: null,
 };
 const editor = renderToStaticMarkup(h(EditorPane, {
-  t,
-  tabs: [tab],
-  activePath: "main.tex",
-  tab,
-  cursor: { line: 1, col: 1 },
-  compile: null,
-  status: { kind: "idle" },
-  onSelectTab() {}, onCloseTab() {}, onEdit() {}, onScroll() {}, onCursor() {}, onInsertText() {},
-  onReloadDisk() {}, onKeepMine() {},
-  editorRef: { current: null },
-  gutterInnerRef: { current: null },
-  symbols: { labels: [], citations: [], files: [] },
-  syntax,
-}));
-assert.match(editor, /ps-highlight/u);
-assert.match(editor, /ps-hl-cmd/u);
-assert.match(editor, /ps-code-area/u);
-assert.match(editor, /data-line="1"/u, "line numbers travel with the text");
-assert.match(editor, /ps-hl-line/u, "one wrapper per source line");
-assert.match(editor, /data-bg="figure"/u, "figure block is shaded");
-assert.match(editor, /ps-hl-line current/u, "cursor line is boxed");
-assert.match(editor, /--ps-hl-command:#8b5cf6/u, "theme variables reach the layer");
-
-// Wrapped mode: textarea soft-wraps, the gutter (aligned to logical lines) is hidden.
-const wrapped = renderToStaticMarkup(h(EditorPane, {
   t, tabs: [tab], activePath: "main.tex", tab, cursor: { line: 1, col: 1 },
   compile: null, status: { kind: "idle" },
   onSelectTab() {}, onCloseTab() {}, onEdit() {}, onScroll() {}, onCursor() {}, onInsertText() {},
   onReloadDisk() {}, onKeepMine() {},
   editorRef: { current: null }, gutterInnerRef: { current: null },
   symbols: { labels: [], citations: [], files: [] },
-  syntax: { ...syntax, wrap: true },
+  syntax,
 }));
-assert.match(wrapped, /ps-code wrap/u);
-assert.match(wrapped, /ps-highlight wrap/u);
-assert.doesNotMatch(wrapped, /ps-gutter/u);
+assert.match(editor, /ps-cm-wrap/u);
+assert.match(editor, /Loading CodeMirror/u);
+assert.match(editor, /ps-tabs/u);
+assert.match(editor, /main\.tex/u);
 
-// Vim mode shows its mode badge.
+// Vim is advertised in the CM footer.
 const vim = renderToStaticMarkup(h(EditorPane, {
   t, tabs: [tab], activePath: "main.tex", tab, cursor: { line: 1, col: 1 },
   compile: null, status: { kind: "idle" },
@@ -121,7 +97,7 @@ const vim = renderToStaticMarkup(h(EditorPane, {
   symbols: { labels: [], citations: [], files: [] },
   syntax: { ...syntax, vim: true },
 }));
-assert.match(vim, /ps-vim[^>]*>NORMAL</u);
+assert.match(vim, /CM Vim/u);
 
 // 3. Terminal tab with streamed commands and output.
 const terminal = renderToStaticMarkup(h(Dock, {
@@ -254,20 +230,6 @@ const diffSuggestion = {
     { type: "+", text: "new line" },
   ] }],
 };
-const editorDiff = renderToStaticMarkup(h(EditorPane, {
-  t, tabs: [tab], activePath: "main.tex", tab, cursor: { line: 1, col: 1 },
-  compile: null, status: { kind: "idle" },
-  onSelectTab() {}, onCloseTab() {}, onEdit() {}, onScroll() {}, onCursor() {}, onInsertText() {},
-  onReloadDisk() {}, onKeepMine() {},
-  editorRef: { current: null }, gutterInnerRef: { current: null },
-  symbols: { labels: [], citations: [], files: [] }, syntax,
-  changes: [{ id: "1", file: "main.tex", hunk: diffSuggestion.hunks[0] }], onKeepChange() {}, onDiscardChange() {}, onCloseReview() {},
-}));
-assert.match(editorDiff, /ps-diff-pop/u);
-assert.match(editorDiff, /ps-diff-target/u);
-assert.match(editorDiff, /ps-diff-line add/u);
-assert.match(editorDiff, /ps-diff-line del/u);
-
 const chatWithDiff = renderToStaticMarkup(h(ChatPane, {
   t, agent: { id: "a", name: "Proof", scope: "global" },
   chat: { id: "c1", title: "T", messages: [{ role: "assistant", content: "Proposed:\n```diff\n--- a/main.tex\n+++ b/main.tex\n@@ -1,2 +1,2 @@\n-old\n+new\n```" }] },
