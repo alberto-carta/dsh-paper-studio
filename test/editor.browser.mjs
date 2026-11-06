@@ -40,12 +40,16 @@ const plugin = window.__pluginDefinition.factory((id) => {
   if (id === "react") return React;
   throw new Error("unexpected module " + id);
 });
-const { EditorPane, DEFAULT_SYNTAX } = plugin.__internals;
+const { EditorPane, DEFAULT_SYNTAX, CSS } = plugin.__internals;
+const style = document.createElement("style");
+style.textContent = CSS;
+document.head.append(style);
 const h = React.createElement;
 
 function Host() {
   const [tab, setTab] = React.useState({ path: "main.tex", content: "alpha beta gamma\\nsecond line\\n", saved: "", mtime: 0, dirty: false, saving: false, conflict: null });
   const [changes, setChanges] = React.useState([]);
+  const [cursor, setCursor] = React.useState({ line: 1, col: 1 });
   const apiRef = React.useRef(null);
   const history = React.useRef({ past: [], future: [] });
   const symbols = React.useMemo(() => ({ labels: [{ key: "intro", file: "main.tex", line: 1 }], citations: [], files: [], commands: [{ name: "pref", arity: 1 }, { name: "acarta", arity: 1 }], environments: [] }), []);
@@ -71,6 +75,13 @@ function Host() {
       return { ...current, content: history.current.future.pop() };
     });
   }, []);
+  const onCursor = React.useCallback((event) => {
+    const target = event.currentTarget || event.target;
+    const value = target.value || "";
+    const position = target.selectionStart || 0;
+    const before = value.slice(0, position);
+    setCursor({ line: before.split("\\n").length, col: position - before.lastIndexOf("\\n") });
+  }, []);
   const noop = React.useCallback(() => {}, []);
   React.useEffect(() => {
     window.__setContent = (content) => setTab((current) => ({ ...current, content }));
@@ -79,11 +90,11 @@ function Host() {
   }, []);
   return h(EditorPane, {
     t: (key) => key,
-    tabs: [tab], activePath: tab.path, tab, cursor: { line: 1, col: 1 },
+    tabs: [tab], activePath: tab.path, tab, cursor,
     compile: null, status: { kind: "idle" },
     onSelectTab: noop, onCloseTab: noop, onEdit,
     editorRef: { current: null }, gutterInnerRef: { current: null }, editorApiRef: apiRef,
-    onScroll: noop, onCursor: noop, onInsertText: noop,
+    onScroll: noop, onCursor, onInsertText: noop,
     onReloadDisk: noop, onKeepMine: noop,
     symbols, misspelled, changes,
     onKeepChange: noop, onDiscardChange: noop, onCloseReview: noop,
@@ -232,6 +243,12 @@ await check("CM paints bands and first-paint colours", async () => {
   await page.waitForTimeout(250);
   assert.ok((await page.locator(".cm-band-figure").count()) > 0, "figure band");
   assert.ok((await page.locator(".cm-band-math").count()) > 0, "equation band");
+  const backgrounds = await page.evaluate(() => ({
+    figure: getComputedStyle(document.querySelector(".cm-band-figure")).backgroundColor,
+    math: getComputedStyle(document.querySelector(".cm-band-math")).backgroundColor,
+  }));
+  assert.notEqual(backgrounds.figure, "rgba(0, 0, 0, 0)", `figure background ${backgrounds.figure}`);
+  assert.notEqual(backgrounds.math, "rgba(0, 0, 0, 0)", `equation background ${backgrounds.math}`);
   const colours = await page.evaluate(() => {
     const result = {};
     for (const span of document.querySelectorAll(".cm-line span")) {
@@ -262,6 +279,42 @@ await check("CM flags stale diffs", async () => {
   assert.ok((await page.locator(".ps-cm-stale").count()) > 0);
   await page.evaluate(() => window.__setChanges([]));
   await page.waitForTimeout(150);
+});
+
+await check("equation preview sits outside the line being typed", async () => {
+  await setContent("\\begin{equation}\nx^2 + y^2\n\\end{equation}\n");
+  await page.evaluate(() => {
+    const view = document.querySelector(".ps-cm-wrap").__cmView;
+    const line = view.state.doc.line(2);
+    window.__editorApi.current.selectRange(line.from + 2, line.from + 2);
+  });
+  await page.waitForTimeout(450);
+  assert.ok((await page.locator(".ps-math-preview").count()) > 0, "preview appears");
+  const boxes = await page.evaluate(() => {
+    const preview = document.querySelector(".ps-math-preview").getBoundingClientRect();
+    const line = document.querySelector(".cm-activeLine").getBoundingClientRect();
+    return { preview: { top: preview.top, bottom: preview.bottom }, line: { top: line.top, bottom: line.bottom } };
+  });
+  assert.ok(boxes.preview.top >= boxes.line.bottom - 1 || boxes.preview.bottom <= boxes.line.top + 1,
+    `preview ${JSON.stringify(boxes.preview)} overlaps line ${JSON.stringify(boxes.line)}`);
+});
+
+await check("inline math preview appears and clears outside math", async () => {
+  await setContent("before $a^2+b^2$ after\n");
+  await page.evaluate(() => {
+    const view = document.querySelector(".ps-cm-wrap").__cmView;
+    const line = view.state.doc.line(1);
+    window.__editorApi.current.selectRange(line.from + 11, line.from + 11);
+  });
+  await page.waitForTimeout(450);
+  assert.ok((await page.locator(".ps-math-preview").count()) > 0, "inline preview");
+  await page.evaluate(() => {
+    const view = document.querySelector(".ps-cm-wrap").__cmView;
+    const line = view.state.doc.line(1);
+    window.__editorApi.current.selectRange(line.from + 1, line.from + 1);
+  });
+  await page.waitForTimeout(350);
+  assert.equal(await page.locator(".ps-math-preview").count(), 0, "preview clears outside math");
 });
 
 await check("CM vim u and r undo/redo", async () => {

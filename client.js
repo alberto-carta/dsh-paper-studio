@@ -10,7 +10,7 @@ try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = 
 
     const PANEL_ID = "paper-studio";
     /** Shown in Settings so the loaded client can be matched to the source file. */
-    const CLIENT_BUILD = "2026-11-06T23:40";
+    const CLIENT_BUILD = "2026-11-07T02:00";
     const NS = "paperStudio";
     const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
 
@@ -428,9 +428,11 @@ try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = 
 .ps-cm-menu{position:fixed;z-index:90;min-width:200px;padding:4px;border-radius:8px;background:var(--dsw-alias-bg-overlay);border:.5px solid var(--dsw-alias-border-l2);box-shadow:0 10px 26px rgba(0,0,0,.28)}
 .ps-cm-wrap .cm-misspell{text-decoration:underline wavy #e5484d;text-decoration-skip-ink:none}
 .ps-cm-wrap .cm-activeLine{outline:1px solid var(--ps-current-line, #8b5cf6);outline-offset:-1px}
+.ps-math-preview{position:fixed;z-index:60;max-width:420px;max-height:230px;overflow:auto;pointer-events:none;padding:10px 14px;border-radius:8px;background:var(--dsw-alias-bg-elevated,#fff);border:.5px solid var(--dsw-alias-border-l1,#ddd);box-shadow:0 8px 24px rgba(0,0,0,.16);font-size:15px}
+.ps-math-preview-body{white-space:nowrap}
 .ps-cm-wrap .cm-line.cm-review-target{background:color-mix(in srgb,var(--dsw-alias-state-error-primary,#e5484d) 13%,transparent)}
-.ps-cm-wrap .cm-line.cm-band-figure{background:color-mix(in srgb,var(--ps-bg-figure,#3b82f6) 12%,transparent)}
-.ps-cm-wrap .cm-line.cm-band-math{background:color-mix(in srgb,var(--ps-bg-math,#f59e0b) 14%,transparent)}
+.ps-cm-wrap .cm-line.cm-band-figure{background:var(--ps-bg-figure,rgba(59,130,246,.12))}
+.ps-cm-wrap .cm-line.cm-band-math{background:var(--ps-bg-math,rgba(245,158,11,.14))}
 .ps-cm-wrap .cm-line.cm-diff-add{box-shadow:inset 3px 0 0 var(--ps-diff-add,#2ea043)}
 .ps-cm-wrap .cm-line.cm-diff-mod{box-shadow:inset 3px 0 0 var(--ps-diff-mod,#3b82f6)}
 .ps-cm-wrap .cm-line.cm-diff-del{box-shadow:inset 3px 0 0 var(--ps-diff-del,#e5484d)}
@@ -952,7 +954,7 @@ body.ps-resizing *{cursor:inherit!important}
       comment: "#94a3b8",
       brace: "#94a3b8",
       bgFigure: "#3b82f6",
-      bgMath: "#10b981",
+      bgMath: "#f59e0b",
       bgTable: "#f59e0b",
       bgTheorem: "#8b5cf6",
       bgCode: "#6b7280",
@@ -1000,6 +1002,8 @@ body.ps-resizing *{cursor:inherit!important}
         const raw = window.localStorage.getItem(SYNTAX_KEY);
         if (!raw) return { ...DEFAULT_SYNTAX };
         const stored = JSON.parse(raw);
+        // The old default equation colour was green; move it to amber.
+        if (stored.bgMath === "#10b981") stored.bgMath = "#f59e0b";
         return { ...DEFAULT_SYNTAX, ...stored, keys: { ...DEFAULT_SYNTAX.keys, ...(stored.keys || {}) } };
       } catch {
         return { ...DEFAULT_SYNTAX };
@@ -1700,6 +1704,63 @@ body.ps-resizing *{cursor:inherit!important}
       return [];
     }
 
+
+    const MATH_ENV = /^(?:equation|align|alignat|gather|multline|eqnarray|displaymath|math|split|cases)\*?$/u;
+
+    /** The math expression around a caret, for the equation preview. */
+    function equationAtCursor(content, lineNumber, column) {
+      const text = String(content || "");
+      if (!text) return null;
+      const lines = text.split("\n");
+      const lineIndex = Math.max(0, Math.min(lines.length - 1, (Number(lineNumber) || 1) - 1));
+      const lineStart = lines.slice(0, lineIndex).reduce((total, line) => total + line.length + 1, 0);
+      const offset = lineStart + Math.max(0, Math.min(lines[lineIndex].length, (Number(column) || 1) - 1));
+      const before = text.slice(0, offset);
+      let environment = null;
+      let beginAt = -1;
+      for (const match of before.matchAll(/\\begin\{([^}]+)\}/gu)) {
+        if (MATH_ENV.test(match[1])) { environment = match[1]; beginAt = match.index; }
+      }
+      if (environment && beginAt >= 0) {
+        const lastEnd = before.lastIndexOf("\\end{" + environment + "}");
+        if (beginAt > lastEnd) {
+          const inside = text.slice(beginAt + ("\\begin{" + environment + "}").length);
+          const end = inside.search(new RegExp("\\\\end\\{" + environment.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&") + "\\}"));
+          let body = (end >= 0 ? inside.slice(0, end) : inside.split("\n").slice(0, 40).join("\n")).replace(/\\label\{[^}]*\}/gu, "").trim();
+          if (!body) return null;
+          if (/^(?:align|alignat|gather|eqnarray)\*?$/u.test(environment) && /&/u.test(body)) body = "\\begin{aligned}" + body + "\\end{aligned}";
+          return { text: body, display: true };
+        }
+      }
+      const line = lines[lineIndex];
+      const dollars = [];
+      for (let index = 0; index < line.length; index += 1) {
+        if (line[index] !== "$") continue;
+        if (index > 0 && line[index - 1] === "\\") continue;
+        if (line[index + 1] === "$") { dollars.push({ at: index, width: 2 }); index += 1; }
+        else dollars.push({ at: index, width: 1 });
+      }
+      for (let index = 0; index + 1 < dollars.length; index += 1) {
+        const open = dollars[index];
+        const close = dollars[index + 1];
+        if (open.width !== close.width || open.at !== index) { /* fall through */ }
+        if (open.width !== close.width) continue;
+        const innerStart = lineStart + open.at + open.width;
+        const innerEnd = lineStart + close.at;
+        if (offset < innerStart || offset > innerEnd) continue;
+        const body = line.slice(open.at + open.width, close.at).trim();
+        if (body) return { text: body, display: open.width === 2 };
+      }
+      const bracketOpen = before.lastIndexOf("\\[");
+      if (bracketOpen >= 0 && bracketOpen > before.lastIndexOf("\\]")) {
+        const rest = text.slice(bracketOpen + 2);
+        const end = rest.indexOf("\\]");
+        const body = (end >= 0 ? rest.slice(0, end) : rest.split("\n").slice(0, 40).join("\n")).trim();
+        if (body) return { text: body, display: true };
+      }
+      return null;
+    }
+
     let codeMirrorPromise = null;
 
     function loadCodeMirror() {
@@ -1712,7 +1773,7 @@ body.ps-resizing *{cursor:inherit!important}
         t, tabs, activePath, tab, cursor, compile, status, onSelectTab, onCloseTab,
         onEdit, onCompile, editorApiRef, syntax, onSave, onToggleWrap, notify, symbols,
         onDiscuss, onAddChatContext, chatEnabled, changes, onKeepChange, onDiscardChange, onCloseReview, misspelled, onRetryChange,
-        onScroll, getScroll, onUndo, onRedo,
+        onScroll, getScroll, onUndo, onRedo, initialCaret,
       } = props;
       const theme = syntax || DEFAULT_SYNTAX;
       const hostRef = useRef(null);
@@ -1723,12 +1784,37 @@ body.ps-resizing *{cursor:inherit!important}
       const [cmMenu, setCmMenu] = useState(null);
       const moduleRef = useRef(null);
       const [diffBox, setDiffBox] = useState(null);
+      const [mathPreview, setMathPreview] = useState(null);
+      const [katex, setKatex] = useState(null);
       const anchorLineRef = useRef(null);
       const tintEffectRef = useRef(null);
       const firstChangeLineRef = useRef(null);
       const lastContentRef = useRef("");
       const suppressEditRef = useRef(false);
       liveRef.current = { ...props, theme };
+
+      useEffect(() => {
+        if (!tab) { setMathPreview(null); return; }
+        const found = equationAtCursor(tab.content, cursor ? cursor.line : 1, cursor ? cursor.col : 1);
+        if (!found) { setMathPreview(null); return; }
+        const view = viewRef.current;
+        if (!view) { setMathPreview(null); return; }
+        const lineNumber = Math.max(1, Math.min(view.state.doc.lines, cursor ? cursor.line : 1));
+        const line = view.state.doc.line(lineNumber);
+        const offset = line.from + Math.max(0, Math.min(line.length, (cursor ? cursor.col : 1) - 1));
+        const coords = view.coordsAtPos(offset);
+        if (!coords) { setMathPreview(null); return; }
+        const height = 230;
+        let top = coords.bottom + 8;
+        if (top + height > (window.innerHeight || 800) - 8) top = Math.max(8, coords.top - height - 8);
+        setMathPreview({
+          text: found.text,
+          display: found.display,
+          top,
+          left: Math.max(8, Math.min(coords.left, (window.innerWidth || 1200) - 420)),
+        });
+        if (!katex) loadKatex().then((loaded) => { if (loaded) setKatex(loaded); });
+      }, [tab ? tab.content : "", cursor ? cursor.line : 0, cursor ? cursor.col : 0, katex]);
 
       useEffect(() => {
         const view = viewRef.current;
@@ -2040,6 +2126,7 @@ body.ps-resizing *{cursor:inherit!important}
             if (update.selectionSet || update.docChanged) {
               const head = update.state.selection.main.head;
               pendingCursor = {
+                path: live.tab.path,
                 selectionStart: head,
                 selectionEnd: update.state.selection.main.to,
                 value: update.state.doc.toString(),
@@ -2126,6 +2213,10 @@ body.ps-resizing *{cursor:inherit!important}
           },
           focus: () => view.focus(),
         };
+        const initial = Math.max(0, Math.min(view.state.doc.length, Number(initialCaret) || 0));
+        if (initial > 0) {
+          view.dispatch({ selection: { anchor: initial }, effects: EditorView.scrollIntoView(initial, { y: "center" }) });
+        }
         view.focus();
         if (theme.vim && Vim && Vim.defineEx) {
           try {
@@ -2190,6 +2281,13 @@ body.ps-resizing *{cursor:inherit!important}
           h("div", { className: "ps-cm-wrap", ref: hostRef }),
           !module && !error ? h("div", { className: "ps-cm-status" }, "Loading CodeMirror…") : null,
           error ? h("div", { className: "ps-cm-status error" }, error) : null),
+        mathPreview && katex && katex.katex ? h("div", {
+          className: "ps-math-preview",
+          style: { left: `${mathPreview.left}px`, top: `${mathPreview.top}px` },
+        }, h("div", {
+          className: "ps-math-preview-body",
+          dangerouslySetInnerHTML: { __html: katex.katex.renderToString(mathPreview.text, { displayMode: mathPreview.display, throwOnError: false, output: "mathml" }) },
+        })) : null,
         h("div", { className: "ps-code-foot" },
           h("span", { className: "ps-grow", title: tab ? tab.path : "" }, tab ? tab.path : t("noTab")),
           h("button", { className: "ps-btn", type: "button", onClick: onToggleWrap, title: t("wrapLines"), "aria-pressed": theme.wrap }, theme.wrap ? t("wrapShort") : t("wrapLinesShort")),
@@ -3543,6 +3641,7 @@ body.ps-resizing *{cursor:inherit!important}
       const saveChains = useRef(new Map());
       const mtimeByPath = useRef({});
       const scrollByPath = useRef({});
+      const cursorByPath = useRef(readUi().cursors || {});
       const pendingLine = useRef(null);
       const autoCompileRef = useRef(Boolean(syntax.autoCompile));
       const compileOnSaveRef = useRef(syntax.compileOnSave !== false);
@@ -4462,19 +4561,20 @@ body.ps-resizing *{cursor:inherit!important}
             explorerWidth,
             pdfPct,
             explorerTab,
+            cursors: cursorByPath.current,
           });
         }, 300);
         return () => clearTimeout(timer);
-      }, [tabs, active, explorerOpen, pdfOpen, zoom, dock, dockHeight, explorerWidth, pdfPct, explorerTab]);
+      }, [tabs, active, explorerOpen, pdfOpen, zoom, dock, dockHeight, explorerWidth, pdfPct, explorerTab, cursor]);
 
       // Cursor refresh when switching files.
       useEffect(() => {
-        setCursor({ line: 1, col: 1 });
-        const textarea = editorRef.current;
-        if (!textarea) return;
-        const saved = scrollByPath.current[active] || 0;
-        textarea.scrollTop = saved;
-        if (gutterInnerRef.current) gutterInnerRef.current.style.transform = `translateY(${-saved}px)`;
+        const tab = tabsRef.current.find((item) => item.path === active);
+        const caret = cursorByPath.current[active] || 0;
+        const content = tab ? tab.content : "";
+        const position = Math.max(0, Math.min(content.length, caret));
+        const before = content.slice(0, position);
+        setCursor({ line: before.split("\n").length, col: position - before.lastIndexOf("\n") });
       }, [active]);
 
       useEffect(() => {
@@ -4843,6 +4943,8 @@ body.ps-resizing *{cursor:inherit!important}
         const textarea = event.currentTarget || event.target;
         if (!textarea) return;
         const position = typeof textarea.selectionStart === "number" ? textarea.selectionStart : 0;
+        const path = textarea.path || activeRef.current;
+        if (path) cursorByPath.current[path] = position;
         const before = String(textarea.value || "").slice(0, position);
         const index = before.lastIndexOf("\n");
         setCursor({ line: before.split("\n").length, col: position - index });
@@ -5846,7 +5948,7 @@ body.ps-resizing *{cursor:inherit!important}
             onEdit,
             onCompile: runCompile,
             editorRef, gutterInnerRef, editorApiRef,
-            onScroll, getScroll, onCursor,
+            onScroll, getScroll, onCursor, initialCaret: cursorByPath.current[active] || 0,
             onInsertText: insertText,
             onReloadDisk: reloadDisk,
             onKeepMine: keepMine,
@@ -6010,7 +6112,7 @@ body.ps-resizing *{cursor:inherit!important}
     return {
       inject: ["slots", "locale", "layout"],
       /** Pure helpers exercised by test/client.test.mjs (no browser needed). */
-      __internals: { Studio, EditorPane, Dock, FolderPicker, PdfPage, GitView, Explosion, ChatPane, parseDiffSuggestions, applySuggestion, stripDiffBlocks, collectChanges, diffChangeKey, parseChoiceBlocks, stripChoiceBlocks, splitMath, diffLineKinds, normalizeSymbols, rebaseHunk, highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject, shouldCompileAfterSave },
+      __internals: { CSS, Studio, EditorPane, Dock, FolderPicker, PdfPage, GitView, Explosion, ChatPane, parseDiffSuggestions, applySuggestion, stripDiffBlocks, collectChanges, diffChangeKey, parseChoiceBlocks, stripChoiceBlocks, splitMath, diffLineKinds, normalizeSymbols, rebaseHunk, equationAtCursor, highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject, shouldCompileAfterSave },
       apply(ctx) {
         ctx.effect(() => {
           const style = document.createElement("style");

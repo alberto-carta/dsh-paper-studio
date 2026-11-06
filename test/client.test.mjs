@@ -26,7 +26,7 @@ const plugin = definition.factory((id) => {
   if (id === "react") return React;
   throw new Error(`unexpected require: ${id}`);
 });
-const { highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject, shouldCompileAfterSave, parseDiffSuggestions, applySuggestion, collectChanges, diffChangeKey, parseChoiceBlocks, stripChoiceBlocks, splitMath, diffLineKinds, normalizeSymbols, rebaseHunk } = plugin.__internals;
+const { highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject, shouldCompileAfterSave, parseDiffSuggestions, applySuggestion, collectChanges, diffChangeKey, parseChoiceBlocks, stripChoiceBlocks, splitMath, diffLineKinds, normalizeSymbols, rebaseHunk, equationAtCursor } = plugin.__internals;
 
 test("highlighter marks commands, braces and comments and escapes HTML", () => {
   const html = highlightLatex("\\section{Intro} % note <b>\nText $x^2$ here");
@@ -302,4 +302,17 @@ test("two-column reading order keeps each column contiguous", () => {
     { text: "R2", xMin: 350, xMax: 400, yMin: 30, yMax: 40 },
   ];
   assert.deepEqual(orderPageWords(words, 600, 800).map((word) => word.text), ["L1", "L2", "R1", "R2"]);
+});
+
+test("equation preview finds display and inline math at the caret", () => {
+  const display = "\\begin{equation}\nx^2+y^2\n\\end{equation}\n";
+  assert.deepEqual(equationAtCursor(display, 2, 3), { text: "x^2+y^2", display: true });
+  assert.equal(equationAtCursor("plain text\n", 1, 3), null);
+  const inline = "before $a^2+b^2$ after\n";
+  assert.deepEqual(equationAtCursor(inline, 1, 11), { text: "a^2+b^2", display: false });
+  assert.equal(equationAtCursor(inline, 1, 1), null);
+});
+
+test("equation shading defaults to amber", () => {
+  assert.equal(DEFAULT_SYNTAX.bgMath, "#f59e0b");
 });
