@@ -50,9 +50,10 @@ function Host() {
   const [tab, setTab] = React.useState({ path: "main.tex", content: "alpha beta gamma\\nsecond line\\n", base: "", saved: "", mtime: 0, dirty: false, saving: false, conflict: null });
   const [changes, setChanges] = React.useState([]);
   const [cursor, setCursor] = React.useState({ line: 1, col: 1 });
+  const [vim, setVim] = React.useState(true);
   const apiRef = React.useRef(null);
   const history = React.useRef({ past: [], future: [] });
-  const symbols = React.useMemo(() => ({ labels: [{ key: "intro", file: "main.tex", line: 1 }], citations: [], files: [], commands: [{ name: "pref", arity: 1 }, { name: "acarta", arity: 1 }], environments: [] }), []);
+  const symbols = React.useMemo(() => ({ labels: [{ key: "intro", file: "main.tex", line: 1 }], citations: [], files: [], commands: [{ name: "pref", arity: 1 }, { name: "acarta", arity: 1 }], environments: [], packages: ["physics"] }), []);
   const misspelled = React.useMemo(() => new Set(), []);
   const onEdit = React.useCallback((path, content) => {
     setTab((current) => {
@@ -89,6 +90,7 @@ function Host() {
     window.__searchHunk = searchHunk;
     window.__setChanges = (value) => setChanges(value);
     window.__editorApi = apiRef;
+    window.__setVim = setVim;
   }, []);
   return h(EditorPane, {
     t: (key) => key,
@@ -102,7 +104,7 @@ function Host() {
     onKeepChange: noop, onDiscardChange: noop, onCloseReview: noop,
     onSave: () => { window.__saved = (window.__saved || 0) + 1; },
     onUndo, onRedo, notify: noop,
-    syntax: { ...DEFAULT_SYNTAX, engine: "codemirror", vim: true, diagnostics: true },
+    syntax: { ...DEFAULT_SYNTAX, engine: "codemirror", vim, diagnostics: true },
   });
 }
 ReactDOM.createRoot(document.getElementById("root")).render(h(Host));
@@ -178,6 +180,27 @@ await check("CM completes custom commands, braces and labels", async () => {
   await page.waitForTimeout(250);
   const labels = await page.locator(".cm-tooltip-autocomplete li").allInnerTexts();
   assert.ok(labels.some((text) => text.includes("intro")), `labels ${labels.join(",")}`);
+});
+
+await check("math completion prioritizes math and package commands", async () => {
+  await setContent("$");
+  await focus();
+  await page.evaluate(() => window.__editorApi.current.selectRange(1, 1));
+  await page.keyboard.press("i");
+  await page.keyboard.type("\\qty", { delay: 25 });
+  await page.waitForTimeout(300);
+  const options = await page.locator(".cm-tooltip-autocomplete li").allInnerTexts();
+  assert.ok(options.some((text) => text.includes("qty")), `math options ${options.join(",")}`);
+  await page.keyboard.press("Escape");
+  await setContent("$");
+  await focus();
+  await page.evaluate(() => window.__editorApi.current.selectRange(1, 1));
+  await page.keyboard.press("i");
+  await page.keyboard.type("\\si", { delay: 25 });
+  await page.waitForTimeout(300);
+  const mathOptions = await page.locator(".cm-tooltip-autocomplete li").allInnerTexts();
+  assert.ok(mathOptions.some((text) => text.includes("simeq")), `math commands ${mathOptions.join(",")}`);
+  await page.keyboard.press("Escape");
 });
 
 await check("CM keeps a selected word when revealing its line", async () => {
@@ -271,10 +294,11 @@ await check("deleted lines use an arrow instead of a red bar", async () => {
   assert.ok((await page.locator(".cm-diff-del").count()) > 0, "deleted marker");
   const styles = await page.evaluate(() => {
     const line = document.querySelector(".cm-diff-del");
-    return { shadow: getComputedStyle(line).boxShadow, arrow: getComputedStyle(line, "::before").content };
+    const arrow = document.querySelector(".cm-diff-arrow");
+    return { shadow: getComputedStyle(line).boxShadow, arrow: arrow ? arrow.textContent : "" };
   });
   assert.equal(styles.shadow, "none", `shadow ${styles.shadow}`);
-  assert.ok(styles.arrow && styles.arrow !== "none", `arrow ${styles.arrow}`);
+  assert.equal(styles.arrow, "▶", `arrow ${styles.arrow}`);
   await page.evaluate(() => window.__setBase(""));
 });
 
@@ -348,6 +372,43 @@ await check("inline math preview appears and clears outside math", async () => {
   });
   await page.waitForTimeout(350);
   assert.equal(await page.locator(".ps-math-preview").count(), 0, "preview clears outside math");
+});
+
+await check("Ctrl-B / Ctrl-I wrap text in insert mode", async () => {
+  await setContent("hello\n");
+  await focus();
+  await page.keyboard.press("i");
+  await page.evaluate(() => window.__editorApi.current.selectRange(0, 5));
+  await page.keyboard.press("Control+b");
+  await page.waitForTimeout(100);
+  assert.equal(await content(), "\\textbf{hello}\n");
+  await page.evaluate(() => {
+    const view = document.querySelector(".ps-cm-wrap").__cmView;
+    const end = view.state.doc.line(1).to;
+    view.dispatch({ selection: { anchor: end } });
+  });
+  await page.keyboard.press("Control+i");
+  await page.waitForTimeout(100);
+  assert.equal(await content(), "\\textbf{hello}\\textit{}\n");
+});
+
+await check("Ctrl-B works with Vim disabled and from the context menu", async () => {
+  await page.evaluate(() => window.__setVim(false));
+  await setContent("hello\n");
+  await focus();
+  await page.evaluate(() => window.__editorApi.current.selectRange(0, 5));
+  await page.keyboard.press("Control+b");
+  await page.waitForTimeout(100);
+  assert.equal(await content(), "\\textbf{hello}\n");
+  await setContent("hello\n");
+  await page.evaluate(() => window.__editorApi.current.selectRange(0, 5));
+  const box = await page.locator(".cm-content").boundingBox();
+  await page.mouse.click(box.x + 20, box.y + 10, { button: "right" });
+  await page.waitForTimeout(100);
+  await page.getByText("Bold", { exact: true }).click();
+  await page.waitForTimeout(100);
+  assert.equal(await content(), "\\textbf{hello}\n");
+  await page.evaluate(() => window.__setVim(true));
 });
 
 await check("CM vim u and r undo/redo", async () => {

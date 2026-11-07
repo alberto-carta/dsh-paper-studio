@@ -2909,6 +2909,7 @@ async function collectSymbols(project) {
   const commands = [];
   const environments = [];
   const files = [];
+  const packages = new Set();
   const seenCommands = new Set();
   const seenEnvironments = new Set();
   const seenLabels = new Set();
@@ -2935,6 +2936,9 @@ async function collectSymbols(project) {
       const text = await readFile(join(project.path, child), "utf8").catch(() => "");
       if (/\.tex$/iu.test(entry.name)) {
         const lineOf = (index) => text.slice(0, index).split("\n").length;
+        for (const found of text.matchAll(/\\(?:usepackage|RequirePackage)(?:\[[^\]]*\])?\{([^}]+)\}/gu)) {
+          for (const name of found[1].split(",")) if (name.trim()) packages.add(name.trim());
+        }
         const labelRe = /\\label\s*\{([^{}]+)\}/gu;
         let match;
         while ((match = labelRe.exec(text))) {
@@ -2987,6 +2991,7 @@ async function collectSymbols(project) {
     citations: citations.slice(0, 2000),
     commands: commands.slice(0, 1000),
     environments: environments.slice(0, 500),
+    packages: [...packages].sort(),
     files: files.slice(0, 2000),
   };
   symbolsCache.set(project.id, { at: Date.now(), value });

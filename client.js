@@ -10,7 +10,7 @@ try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = 
 
     const PANEL_ID = "paper-studio";
     /** Shown in Settings so the loaded client can be matched to the source file. */
-    const CLIENT_BUILD = "2026-11-07T11:35";
+    const CLIENT_BUILD = "2026-11-07T16:50";
     const NS = "paperStudio";
     const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
 
@@ -312,6 +312,7 @@ try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = 
         cleanTree: "Working tree clean",
         showDiff: "Show diff",
         hideDiff: "Hide diff",
+        reviewDiff: "Review diff",
         noChanges: "No changes",
         nukeHeading: "Reset to origin",
         nukeTitle: "Are you sure to clear and re-pull from SOURCE?",
@@ -444,8 +445,9 @@ try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = 
 .ps-cm-wrap .cm-line.cm-band-math{background:var(--ps-bg-math,rgba(245,158,11,.14))}
 .ps-cm-wrap .cm-line.cm-diff-add{box-shadow:inset 3px 0 0 var(--ps-diff-add,#2ea043)}
 .ps-cm-wrap .cm-line.cm-diff-mod{box-shadow:inset 3px 0 0 var(--ps-diff-mod,#3b82f6)}
-.ps-cm-wrap .cm-line.cm-diff-del{box-shadow:none;position:relative}
-.ps-cm-wrap .cm-line.cm-diff-del::before{content:"◀";position:absolute;left:-14px;top:0;color:var(--ps-diff-del,#e5484d);font-size:10px;line-height:20px}
+.ps-cm-wrap .cm-line.cm-diff-del{box-shadow:none}
+.cm-diff-arrow-gutter{width:14px}
+.cm-diff-arrow{color:var(--ps-diff-del,#e5484d);font-size:10px;line-height:1;display:block}
 .ps-diff-body{flex:1;min-height:0;overflow:auto;padding:5px 9px;font-size:12px}
 .ps-cm-stale{color:var(--dsw-alias-state-error-primary);font-size:11px;padding:2px 0}
 .ps-cm-diff-change{border-bottom:.5px solid var(--dsw-alias-border-l1);padding:5px 0;display:flex;flex-direction:column;min-height:0}
@@ -676,6 +678,10 @@ try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = 
 .ps-chat-text a{color:var(--dsw-alias-brand-primary);text-decoration:underline}
 .ps-chat-msg.user .ps-chat-text{background:var(--dsw-alias-bg-layer-2);border-radius:7px;padding:5px 7px}
 .ps-chat-thinking{opacity:.7;font-style:italic}
+.ps-chat-queue{display:flex;flex-direction:column;gap:3px;padding:4px 8px 0;max-height:120px;overflow:auto}
+.ps-chat-queue-item{display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:5px;background:var(--dsw-alias-bg-layer-1);font-size:11px}
+.ps-chat-queue-kind{flex:none;font-size:9px;text-transform:uppercase;letter-spacing:.04em;color:var(--dsw-alias-brand-primary);border:.5px solid currentColor;border-radius:999px;padding:0 4px}
+.ps-chat-queue-text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ps-chat-resize{height:7px;margin:0 8px;cursor:ns-resize;border-top:1px solid var(--dsw-alias-border-l1);position:relative;flex:0 0 auto}
 .ps-chat-resize:hover{border-top-color:var(--dsw-alias-brand-primary)}
 .ps-chat-compose{display:flex;gap:4px;padding:6px 8px;border-top:.5px solid var(--dsw-alias-border-l1);align-items:flex-end}
@@ -708,6 +714,31 @@ try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = 
 .ps-pill.ok{color:var(--dsw-alias-state-success-primary);background:color-mix(in srgb,var(--dsw-alias-state-success-primary) 12%,transparent)}
 .ps-pill.warn{color:var(--dsw-alias-state-warn-primary);background:color-mix(in srgb,var(--dsw-alias-state-warn-primary) 14%,transparent)}
 .ps-pill.push{color:var(--dsw-alias-brand-primary);background:color-mix(in srgb,var(--dsw-alias-brand-primary) 12%,transparent)}
+.ps-outline{flex:none;overflow:auto;border-top:.5px solid var(--dsw-alias-border-l1);padding:4px 6px;order:3}
+.ps-outline-resizer{flex:none;height:6px;cursor:ns-resize;border-top:1px solid var(--dsw-alias-border-l1);order:2;margin:0 4px}
+.ps-outline-resizer:hover{border-top-color:var(--dsw-alias-brand-primary)}
+.ps-tree{order:1;flex:1}
+.ps-outline-head{display:flex;align-items:center;gap:6px}
+.ps-outline-head .ps-btn{font-weight:600;padding:2px 4px}
+.ps-outline-toggle{display:flex;align-items:center;gap:3px;font-size:10.5px;color:var(--dsw-alias-label-secondary)}
+.ps-outline-list{display:flex;flex-direction:column;padding:3px 0 4px}
+.ps-outline-item{display:flex;align-items:baseline;gap:6px;width:100%;text-align:left;border:0;background:transparent;color:var(--dsw-alias-label-primary);padding:2px 4px;border-radius:4px;font:11.5px/1.35 inherit;cursor:pointer}
+.ps-outline-item:hover{background:var(--dsw-alias-bg-layer-2)}
+.ps-outline-kind{flex:none;min-width:28px;color:var(--dsw-alias-label-secondary);font-variant-numeric:tabular-nums;font-size:10.5px}
+.ps-outline-item.section .ps-outline-kind,.ps-outline-item.chapter .ps-outline-kind{color:var(--dsw-alias-brand-primary);font-weight:600}
+.ps-outline-item.chapter .ps-outline-text{font-weight:700}
+.ps-outline-item.section .ps-outline-text{font-weight:600}
+.ps-outline-item.subsection{padding-left:12px}
+.ps-outline-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ps-git-review-backdrop{position:fixed;inset:0;z-index:120;display:flex;align-items:center;justify-content:center;padding:4vh 3vw;background:rgba(0,0,0,.42)}
+.ps-git-review{width:min(980px,94vw);height:82vh;display:flex;flex-direction:column;overflow:hidden;border-radius:10px;background:var(--dsw-alias-bg-base);border:.5px solid var(--dsw-alias-border-l2);box-shadow:0 24px 70px rgba(0,0,0,.4)}
+.ps-git-review-head{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:.5px solid var(--dsw-alias-border-l1);font-weight:600}
+.ps-git-review-body{flex:1;min-height:0;overflow:auto;padding:8px 12px 24px}
+.ps-git-review-file{margin:8px 0 16px}
+.ps-git-review-file-head{position:sticky;top:0;z-index:1;padding:5px 6px;background:var(--dsw-alias-bg-base);font:600 12px/1.3 ${MONO};border-bottom:.5px solid var(--dsw-alias-border-l1)}
+.ps-git-review-hunk{border:.5px solid var(--dsw-alias-border-l1);border-radius:6px;margin:6px 0;overflow:hidden}
+.ps-git-review-hunk-head{padding:3px 6px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-secondary);font:11px/1.4 ${MONO}}
+.ps-git-review .ps-diff-line{font:12px/1.55 ${MONO};padding:1px 6px}
 .ps-git-commit-msg{width:100%;box-sizing:border-box;resize:vertical;min-height:54px;font:12px/1.45 inherit;padding:6px 8px;border:.5px solid var(--dsw-alias-border-l1);border-radius:7px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary)}
 .ps-git-commit-row{display:flex;align-items:center;gap:8px;margin:6px 0}
 .ps-git-commit-row .ps-btn{margin-left:auto}
@@ -1610,6 +1641,68 @@ body.ps-resizing *{cursor:inherit!important}
     }
 
     /** What is being completed at `position`, if anything. */
+    const MATH_COMMANDS = (() => {
+      const list = {};
+      const add = (names, arity = 0) => { for (const name of names) list[name] = arity; };
+      add("alpha beta gamma delta epsilon varepsilon zeta eta theta vartheta iota kappa lambda mu nu xi omicron pi varpi rho varrho sigma varsigma tau upsilon phi varphi chi psi omega Gamma Delta Theta Lambda Xi Pi Sigma Upsilon Phi Psi Omega".split(" "));
+      add("simeq approx approxeq neq ne leq geq leqslant geqslant ll gg equiv sim cong propto in notin ni subset subseteq supset supseteq cup cap setminus emptyset varnothing forall exists nexists mid parallel perp".split(" "));
+      add("times cdot div pm mp ast star circ bullet oplus ominus otimes oslash odot sum prod coprod int iint iiint oint bigcup bigcap lim inf sup max min det gcd log ln exp sin cos tan cot sec csc arcsin arccos arctan sinh cosh tanh".split(" "));
+      add("to rightarrow leftarrow leftrightarrow Rightarrow Leftarrow Leftrightarrow mapsto implies iff uparrow downarrow ldots cdots vdots ddots dots partial nabla infty prime hbar ell Re Im aleph wp angle triangle square blacksquare checkmark therefore because qed langle rangle lceil rceil lfloor rfloor vert Vert".split(" "));
+      add(["frac", "dfrac", "tfrac"].flat(), 2);
+      add(["sqrt", "mathcal", "mathbf", "mathrm", "mathit", "mathsf", "mathtt", "mathbb", "mathfrak", "text", "operatorname", "overline", "underline", "overbrace", "underbrace"].flat(), 1);
+      add(["overset", "underset", "stackrel", "binom"].flat(), 2);
+      add("left right big Big bigl bigr".split(" "));
+      return list;
+    })();
+
+    const PACKAGE_MATH_COMMANDS = {
+      amsmath: { dfrac: 2, tfrac: 2, binom: 2, overset: 2, underset: 2, substack: 1, tag: 1, boxed: 1, text: 1, operatorname: 1, DeclareMathOperator: 2, xrightarrow: 1, xleftarrow: 1 },
+      amssymb: { mathbb: 1, mathfrak: 1, leqslant: 0, geqslant: 0, nleqslant: 0, ngeqslant: 0, checkmark: 0, therefore: 0, because: 0, varnothing: 0, nexists: 0, blacksquare: 0 },
+      physics: { qty: 1, dv: 2, pdv: 2, abs: 1, norm: 1, bra: 1, ket: 1, braket: 1, expval: 1, mel: 2, comm: 2, anticom: 2, grad: 0, div: 0, curl: 0, laplacian: 0, vector: 1, vb: 1, va: 1, tr: 0, Tr: 0, order: 1, matrixel: 3 },
+      siunitx: { SI: 2, si: 1, num: 1, unit: 1, ang: 1, qty: 1, complexnum: 1, complexqty: 1 },
+      mathtools: { coloneqq: 0, mathclap: 1, mathllap: 1, mathrlap: 1, prescript: 2, DeclarePairedDelimiter: 3 },
+      bm: { bm: 1 },
+      mhchem: { ce: 1, pu: 1 },
+    };
+
+    /** Whether the caret is inside inline or display math. */
+    function inMathContext(text, position) {
+      const before = String(text || "").slice(0, position);
+      let depth = 0;
+      for (const match of before.matchAll(/\\(begin|end)\{(equation\*?|align\*?|alignat\*?|gather\*?|multline\*?|eqnarray\*?|displaymath|math|split|cases)\}/gu)) {
+        depth += match[1] === "begin" ? 1 : -1;
+      }
+      if (depth > 0) return true;
+      let dollars = 0;
+      let paren = 0;
+      let bracket = 0;
+      for (let index = 0; index < before.length; index += 1) {
+        const character = before[index];
+        if (character === "\\") {
+          const next = before[index + 1];
+          if (next === "(") { paren += 1; index += 1; }
+          else if (next === ")") { paren = Math.max(0, paren - 1); index += 1; }
+          else if (next === "[") { bracket += 1; index += 1; }
+          else if (next === "]") { bracket = Math.max(0, bracket - 1); index += 1; }
+          else index += 1;
+          continue;
+        }
+        if (character === "$") {
+          if (before[index + 1] === "$") { index += 1; }
+          dollars = dollars ? 0 : 1;
+        }
+      }
+      return dollars > 0 || paren > 0 || bracket > 0;
+    }
+
+    function usepackagePackages(text) {
+      const packages = new Set();
+      for (const match of String(text || "").matchAll(/\\(?:usepackage|RequirePackage)(?:\[[^\]]*\])?\{([^}]+)\}/gu)) {
+        for (const name of match[1].split(",")) if (name.trim()) packages.add(name.trim());
+      }
+      return [...packages];
+    }
+
     function completionContext(text, position) {
       const before = text.slice(0, position);
       const brace = /\\([a-zA-Z@]+\*?)\s*(?:\[[^\]]*\]\s*)?\{([^{}]*)$/u.exec(before);
@@ -1638,8 +1731,9 @@ body.ps-resizing *{cursor:inherit!important}
       return null;
     }
 
-    function completionItems(kind, query, symbols) {
+    function completionItems(kind, query, symbols, options = {}) {
       const needle = String(query).toLowerCase();
+      const math = Boolean(options.math);
       const rank = (value) => {
         const lower = String(value).toLowerCase();
         if (needle.length === 0) return 1;
@@ -1658,6 +1752,21 @@ body.ps-resizing *{cursor:inherit!important}
       if (kind === "command") {
         const seen = new Set();
         const merged = [];
+        if (math) {
+          for (const [name, arity] of Object.entries(MATH_COMMANDS)) {
+            if (seen.has(name)) continue;
+            seen.add(name);
+            merged.push({ name, arity, builtin: true, math: true });
+          }
+          const packages = new Set([...(symbols.packages || []), ...(options.packages || [])]);
+          for (const packageName of packages) {
+            for (const [name, arity] of Object.entries(PACKAGE_MATH_COMMANDS[packageName] || {})) {
+              if (seen.has(name)) continue;
+              seen.add(name);
+              merged.push({ name, arity, builtin: true, math: true, package: packageName });
+            }
+          }
+        }
         for (const name of COMPLETION_COMMANDS) {
           if (seen.has(name)) continue;
           seen.add(name);
@@ -1666,12 +1775,12 @@ body.ps-resizing *{cursor:inherit!important}
         for (const entry of (symbols.commands || [])) {
           if (seen.has(entry.name)) continue;
           seen.add(entry.name);
-          merged.push({ name: entry.name, arity: entry.arity || 0, builtin: false, file: entry.file });
+          merged.push({ name: entry.name, arity: entry.arity || 0, builtin: false, file: entry.file, math });
         }
         return merged
           .map((entry) => ({ entry, rank: rank(entry.name) }))
           .filter((item) => item.rank >= 0)
-          .sort((left, right) => left.rank - right.rank || left.entry.name.localeCompare(right.entry.name))
+          .sort((left, right) => left.rank - right.rank || Number(Boolean(right.entry.math)) - Number(Boolean(left.entry.math)) || left.entry.name.localeCompare(right.entry.name))
           .slice(0, 60)
           .map(({ entry }) => {
             const signature = COMMAND_ARGUMENTS[entry.name] ?? (entry.arity > 0 ? "{}".repeat(entry.arity) : "");
@@ -1681,7 +1790,7 @@ body.ps-resizing *{cursor:inherit!important}
               insert: entry.name,
               suffix: signature,
               caret: signature ? entry.name.length + inside : entry.name.length,
-              detail: entry.builtin ? "command" : `\\${entry.name} · ${entry.file}`,
+              detail: entry.math ? (entry.package ? `math · ${entry.package}` : "math command") : (entry.builtin ? "command" : `\\${entry.name} · ${entry.file}`),
             };
           });
       }
@@ -1820,6 +1929,18 @@ body.ps-resizing *{cursor:inherit!important}
       const lastContentRef = useRef("");
       const suppressEditRef = useRef(false);
       liveRef.current = { ...props, theme };
+      const formatSelection = (view, command) => {
+        const selection = view.state.selection.main;
+        if (selection.empty) {
+          const insert = `${command}{}`;
+          const caret = selection.from + command.length + 1;
+          view.dispatch({ changes: { from: selection.from, insert }, selection: { anchor: caret }, scrollIntoView: true });
+        } else {
+          const text = view.state.sliceDoc(selection.from, selection.to);
+          const insert = `${command}{${text}}`;
+          view.dispatch({ changes: { from: selection.from, to: selection.to, insert }, selection: { anchor: selection.from + insert.length }, scrollIntoView: true });
+        }
+      };
 
       useEffect(() => {
         if (!tab) { setMathPreview(null); return; }
@@ -1909,7 +2030,7 @@ body.ps-resizing *{cursor:inherit!important}
           drawSelection, dropCursor, history, keymap, defaultKeymap, historyKeymap, indentWithTab,
           syntaxHighlighting, defaultHighlightStyle, StreamLanguage, stex, vim, Vim,
           Decoration, ViewPlugin, RangeSetBuilder, StateEffect, HighlightStyle, tags, Compartment,
-          bracketMatching, autocompletion, completionKeymap, closeBrackets,
+          bracketMatching, autocompletion, completionKeymap, closeBrackets, gutter, GutterMarker,
         } = module;
         let cursorTimer = 0;
         let pendingCursor = null;
@@ -1919,7 +2040,10 @@ body.ps-resizing *{cursor:inherit!important}
           const pluginContext = completionContext(text, position);
           if (!pluginContext) return null;
           const live = liveRef.current;
-          const items = completionItems(pluginContext.kind, pluginContext.query, live.symbols || {});
+          const items = completionItems(pluginContext.kind, pluginContext.query, live.symbols || {}, {
+            math: pluginContext.kind === "command" && inMathContext(text, position),
+            packages: usepackagePackages(text),
+          });
           if (!items.length) return null;
           const braces = ["citation", "label", "package", "image", "file", "bibfile"].includes(pluginContext.kind);
           return {
@@ -2048,6 +2172,11 @@ body.ps-resizing *{cursor:inherit!important}
         const normalArrows = EditorView.domEventHandlers({
           keydown: (event, view) => {
             const modifier = event.metaKey || event.ctrlKey;
+            if (modifier && !event.altKey && !event.shiftKey && ["i", "I", "b", "B"].includes(event.key) && !view.dom.querySelector(".cm-fat-cursor")) {
+              event.preventDefault();
+              formatSelection(view, event.key.toLowerCase() === "b" ? "\\textbf" : "\\textit");
+              return true;
+            }
             if (modifier && !event.altKey && ["z", "Z", "y", "Y"].includes(event.key)) {
               event.preventDefault();
               const live = liveRef.current;
@@ -2122,8 +2251,35 @@ body.ps-resizing *{cursor:inherit!important}
             }
           }
         }, { decorations: (value) => value.decorations });
-        const extensions = [];
-        if (theme.vim) extensions.push(normalArrows, vim());
+        class DiffArrowMarker extends GutterMarker {
+          toDOM() {
+            const arrow = document.createElement("span");
+            arrow.className = "cm-diff-arrow";
+            arrow.textContent = "▶";
+            return arrow;
+          }
+        }
+        const diffArrowMarker = new DiffArrowMarker();
+        let diffArrowDoc = null;
+        let diffArrowBase;
+        let diffArrowKinds = null;
+        const diffArrowGutter = gutter({
+          class: "cm-diff-arrow-gutter",
+          lineMarker(view, line) {
+            const base = liveRef.current.tab && (liveRef.current.tab.base !== undefined && liveRef.current.tab.base !== null ? liveRef.current.tab.base : liveRef.current.tab.saved);
+            if (base === undefined || base === null) return null;
+            if (diffArrowDoc !== view.state.doc || diffArrowBase !== base) {
+              diffArrowDoc = view.state.doc;
+              diffArrowBase = base;
+              diffArrowKinds = diffLineKinds(base, view.state.doc.toString());
+            }
+            const number = view.state.doc.lineAt(line.from).number;
+            const kind = diffArrowKinds && diffArrowKinds.get(number - 1);
+            return kind === "del" ? new DiffArrowMarker() : null;
+          },
+        });
+        const extensions = [diffArrowGutter, normalArrows];
+        if (theme.vim) extensions.push(vim());
         extensions.push(
           lineNumbers(),
           drawSelection(),
@@ -2344,6 +2500,15 @@ body.ps-resizing *{cursor:inherit!important}
           },
           onPointerDown: (event) => event.stopPropagation(),
         },
+        cmMenu.text.trim() ? h("button", {
+          className: "ps-ctx-item", type: "button",
+          onClick: () => { formatSelection(cmMenu.view, "\\textbf"); setCmMenu(null); },
+        }, "Bold") : null,
+        cmMenu.text.trim() ? h("button", {
+          className: "ps-ctx-item", type: "button",
+          onClick: () => { formatSelection(cmMenu.view, "\\textit"); setCmMenu(null); },
+        }, "Italic") : null,
+        cmMenu.text.trim() ? h("div", { className: "ps-ctx-sep" }) : null,
         h("button", {
           className: "ps-ctx-item", type: "button",
           onClick: () => { cmMenu.view.focus(); void navigator.clipboard.writeText(cmMenu.text); setCmMenu(null); },
@@ -2517,6 +2682,7 @@ body.ps-resizing *{cursor:inherit!important}
         files: data.files || [],
         commands: data.commands || [],
         environments: data.environments || [],
+        packages: data.packages || [],
       };
     }
 
@@ -2701,7 +2867,7 @@ body.ps-resizing *{cursor:inherit!important}
     };
 
     function GitView(props) {
-      const { t, info, diff, diffOpen, busy, onAction, onNewBranch, onNuke, onSwitch, onRefresh, onOpenFile, onToggleDiff, onCommit } = props;
+      const { t, info, diff, diffOpen, busy, onAction, onNewBranch, onNuke, onSwitch, onRefresh, onOpenFile, onToggleDiff, onCommit, onOpenDiff } = props;
       const [message, setMessage] = useState("");
       const data = info.data;
       const stats = useMemo(() => {
@@ -2822,23 +2988,88 @@ body.ps-resizing *{cursor:inherit!important}
               branches.map((branch) => h("option", { key: branch, value: branch }, branch))))),
 
         h("div", { className: "ps-git-diff-head" },
-          h("button", { className: "ps-btn", type: "button", onClick: onToggleDiff }, diffOpen ? t("hideDiff") : t("showDiff")),
+          h("button", { className: "ps-btn primary", type: "button", onClick: onOpenDiff }, t("reviewDiff")),
           stats.files > 0
             ? h("span", { className: "ps-git-stats" },
               `${stats.files} ${t("filesChanged")} \u00b7 `,
               h("span", { className: "plus" }, `+${stats.add}`), " ",
               h("span", { className: "minus" }, `\u2212${stats.del}`))
-            : null),
-        diffOpen
-          ? h("pre", { className: "ps-git-diff" },
-            capped.map((line, index) => h("div", {
-              key: index,
-              className: line.startsWith("+++") || line.startsWith("---")
-                ? ""
-                : line.startsWith("+") ? "add" : line.startsWith("-") ? "del" : line.startsWith("@@") ? "hunk" : "",
-            }, line.length > 0 ? line : " ")),
-            lines.length > capped.length ? h("div", null, `\u2026 ${lines.length - capped.length} more lines`) : null)
-          : null);
+            : null));
+    }
+
+    /** Parse a raw `git diff` patch into files/hunks for the review overlay. */
+    function parseGitPatch(patch) {
+      const files = [];
+      let file = null;
+      let hunk = null;
+      for (const line of String(patch || "").split("\n")) {
+        if (line.startsWith("diff --git ")) {
+          const match = / b\/(.+)$/u.exec(line);
+          file = { path: match ? match[1] : "", hunks: [] };
+          files.push(file);
+          hunk = null;
+          continue;
+        }
+        if (!file) continue;
+        if (line.startsWith("+++ ")) {
+          const path = line.slice(4).replace(/^b\//u, "").trim();
+          if (path && path !== "/dev/null") file.path = path;
+          continue;
+        }
+        if (line.startsWith("@@")) {
+          hunk = { header: line, lines: [] };
+          file.hunks.push(hunk);
+          continue;
+        }
+        if (!hunk || line.startsWith("--- ")) continue;
+        if (line.startsWith("+")) hunk.lines.push({ type: "+", text: line.slice(1) });
+        else if (line.startsWith("-")) hunk.lines.push({ type: "-", text: line.slice(1) });
+        else if (line.startsWith(" ")) hunk.lines.push({ type: " ", text: line.slice(1) });
+        else if (line === "") hunk.lines.push({ type: " ", text: "" });
+      }
+      return files.filter((entry) => entry.hunks.length > 0);
+    }
+
+    function GitDiffPopup({ t, patch, onClose }) {
+      const files = useMemo(() => parseGitPatch(patch), [patch]);
+      useEffect(() => {
+        const onKey = (event) => { if (event.key === "Escape") onClose(); };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+      }, [onClose]);
+      const renderHunk = (hunk) => {
+        const output = [];
+        pairHunkLines(hunk.lines).forEach((entry, index) => {
+          const row = (line, segments, key) => h("div", {
+            key,
+            className: `ps-diff-line ${line.type === "+" ? "add" : line.type === "-" ? "del" : "ctx"}`,
+          }, segments
+            ? segments.map((segment, at) => segment.changed
+              ? h("span", { key: at, className: `ps-diff-word-${line.type === "+" ? "add" : "del"}` }, segment.text)
+              : segment.text)
+            : (line.text || " "));
+          if (entry.kind === "pair") {
+            const diff = inlineWordDiff(entry.oldLine.text, entry.newLine.text);
+            output.push(row(entry.oldLine, diff.old, `o${index}`));
+            output.push(row(entry.newLine, diff.new, `n${index}`));
+          } else output.push(row(entry.line, null, `l${index}`));
+        });
+        return output;
+      };
+      return h("div", { className: "ps-git-review-backdrop", onClick: onClose },
+        h("div", { className: "ps-git-review", onClick: (event) => event.stopPropagation() },
+          h("div", { className: "ps-git-review-head" },
+            h("span", null, t("reviewDiff")),
+            h("span", { className: "ps-git-count" }, `${files.length} files`),
+            h("span", { className: "ps-grow" }),
+            h("button", { className: "ps-btn icon", type: "button", title: t("close"), onClick: onClose }, h(Icon.close))),
+          h("div", { className: "ps-git-review-body" },
+            files.length === 0 ? h("div", { className: "ps-git-empty" }, h(Icon.check), t("cleanTree")) : null,
+            files.map((file) => h("section", { className: "ps-git-review-file", key: file.path || "file" },
+              h("div", { className: "ps-git-review-file-head" }, file.path),
+              file.hunks.map((hunk, hunkIndex) => h("div", { className: "ps-git-review-hunk", key: hunkIndex },
+                h("div", { className: "ps-git-review-hunk-head" }, hunk.header),
+                renderHunk(hunk))))))));
     }
 
     const pageWordCache = new Map();
@@ -3248,13 +3479,50 @@ body.ps-resizing *{cursor:inherit!important}
       return `c${hash.toString(36)}`;
     }
 
+    function changeFingerprint(change) {
+      if (!change) return "";
+      if (change.search !== undefined) return `${change.file || ""}|s|${change.search}|${change.replace}`;
+      return `${change.file || ""}|d|${(change.hunk && change.hunk.lines ? change.hunk.lines : []).map((line) => `${line.type}${line.text}`).join("\n")}`;
+    }
+
+    function changeAlreadyApplied(change, content) {
+      if (!change || !content) return false;
+      if (change.search !== undefined) {
+        if (findSearchRange(content, change.search)) return false;
+        if (!String(change.replace || "").trim()) return true;
+        return String(content).includes(change.replace);
+      }
+      if (!change.hunk) return false;
+      const added = change.hunk.lines.filter((line) => line.type === "+").map((line) => line.text).join("\n");
+      if (added && String(content).includes(added)) return true;
+      const old = change.hunk.lines.filter((line) => line.type !== "+").map((line) => line.text).join("\n");
+      return Boolean(old) && !String(content).includes(old) && applySuggestion(content, { hunks: [change.hunk] }) === null;
+    }
+
+    function sameChange(left, right) {
+      if (!left || !right || left.file !== right.file) return false;
+      if (left.search !== undefined || right.search !== undefined) {
+        return left.search === right.search && left.replace === right.replace;
+      }
+      if (!left.hunk || !right.hunk) return false;
+      const body = (hunk) => hunk.lines.map((line) => `${line.type}${line.text}`).join("\n");
+      return body(left.hunk) === body(right.hunk);
+    }
+
     function collectChanges(messages) {
       const changes = [];
+      const add = (change) => {
+        if (change.search !== undefined && change.search === change.replace) return;
+        if (change.hunk && change.hunk.lines && !change.hunk.lines.some((line) => line.type !== " ")) return;
+        const existing = changes.findIndex((entry) => sameChange(entry, change));
+        if (existing >= 0) changes.splice(existing, 1);
+        changes.push(change);
+      };
       (Array.isArray(messages) ? messages : []).forEach((message) => {
         if (message.role !== "assistant") return;
         parseEditSuggestions(message.content).forEach((suggestion) => {
           suggestion.hunks.forEach((hunk) => {
-            changes.push({
+            add({
               id: diffChangeKey(suggestion.file, hunk),
               file: suggestion.file || "",
               hunk,
@@ -3265,7 +3533,7 @@ body.ps-resizing *{cursor:inherit!important}
         });
         parseDiffSuggestions(message.content).forEach((suggestion) => {
           suggestion.hunks.forEach((hunk) => {
-            changes.push({
+            add({
               id: diffChangeKey(suggestion.file, hunk),
               file: suggestion.file || "",
               hunk,
@@ -3317,6 +3585,76 @@ body.ps-resizing *{cursor:inherit!important}
         lines.splice(at, count, ...newLines);
       }
       return lines.join("\n");
+    }
+
+    /** Section/equation/figure outline for the open LaTeX file. */
+    function buildOutline(content) {
+      const lines = String(content || "").split("\n");
+      const outline = [];
+      const counters = [0, 0, 0, 0];
+      let equationNumber = 0;
+      let figureNumber = 0;
+      const plain = (value) => String(value || "").replace(/\\[a-zA-Z@]+\*?(?:\[[^\]]*\])?\{([^}]*)\}/gu, "$1").replace(/[{}]/gu, "").trim();
+      const readBraced = (line, start) => {
+        let depth = 0;
+        let text = "";
+        for (let index = start; index < line.length; index += 1) {
+          const character = line[index];
+          if (character === "{") { depth += 1; if (depth === 1) continue; }
+          if (character === "}") { depth -= 1; if (depth === 0) return text; }
+          text += character;
+        }
+        return text;
+      };
+      const sectionPattern = /\\(chapter|section|subsection|subsubsection)(\*?)\s*\{/gu;
+      const mathPattern = /\\begin\{(equation|align|gather|multline|eqnarray|alignat)(\*?)\}/u;
+      const floatPattern = /\\begin\{(figure|table)(\*?)\}/u;
+      for (let index = 0; index < lines.length; index += 1) {
+        const line = lines[index];
+        if (!line || line.trimStart().startsWith("%")) continue;
+        for (const match of line.matchAll(sectionPattern)) {
+          const level = ["chapter", "section", "subsection", "subsubsection"].indexOf(match[1]);
+          const starred = match[2] === "*";
+          if (!starred) {
+            counters[level] += 1;
+            for (let lower = level + 1; lower < counters.length; lower += 1) counters[lower] = 0;
+          }
+          const start = match.index + match[0].length;
+          const title = plain(readBraced(line, start));
+          const number = starred ? "" : counters.slice(0, level + 1).filter((value) => value > 0).join(".");
+          outline.push({ kind: level === 0 ? "chapter" : level === 1 ? "section" : "subsection", line: index + 1, number, text: title });
+        }
+        const math = mathPattern.exec(line);
+        if (math) {
+          const starred = math[2] === "*";
+          if (!starred) equationNumber += 1;
+          let snippet = "";
+          let label = "";
+          for (let cursor = index; cursor < Math.min(lines.length, index + 40); cursor += 1) {
+            if (cursor > index && lines[cursor].includes("\\end{" + math[1])) break;
+            if (!snippet && cursor > index && lines[cursor].trim() && !lines[cursor].trim().startsWith("\\label")) snippet = lines[cursor].trim().slice(0, 90);
+            const found = /\\label\{([^}]+)\}/u.exec(lines[cursor]);
+            if (found) label = found[1];
+          }
+          outline.push({ kind: "equation", line: index + 1, number: starred ? "" : String(equationNumber), text: label || snippet || math[1] });
+        }
+        const float = floatPattern.exec(line);
+        if (float) {
+          const starred = float[2] === "*";
+          if (!starred) figureNumber += 1;
+          let caption = "";
+          let label = "";
+          for (let cursor = index; cursor < Math.min(lines.length, index + 80); cursor += 1) {
+            if (cursor > index && lines[cursor].includes("\\end{" + float[1])) break;
+            const found = /\\label\{([^}]+)\}/u.exec(lines[cursor]);
+            if (found) label = found[1];
+            const captionMatch = /\\caption(?:\[[^\]]*\])?\s*\{/u.exec(lines[cursor]);
+            if (captionMatch) caption = plain(readBraced(lines[cursor], captionMatch.index + captionMatch[0].length));
+          }
+          outline.push({ kind: float[1], line: index + 1, number: starred ? "" : String(figureNumber), text: label || caption || float[1] });
+        }
+      }
+      return outline.sort((left, right) => left.line - right.line);
     }
 
     /** Token-level diff for paired removed/added lines. */
@@ -3810,6 +4148,7 @@ body.ps-resizing *{cursor:inherit!important}
         t, agent, chat, chats, input, onInput, onSend, onStop, busy, stream,
         onSelectChat, onNewChat, onClose, changes, onKeepChange, onDiscardChange, onKeepAll, onDiscardAll,
         resolvedChoices, onChoose, onDeleteChat, onShowPrompt, onShowMemory, streamReasoning, thinkingMode,
+        queued, onQueue, onSteer, onRemoveQueued,
       } = props;
       const logRef = useRef(null);
       const [inputHeight, setInputHeight] = useState(() => {
@@ -3902,6 +4241,11 @@ body.ps-resizing *{cursor:inherit!important}
           h("div", { className: "ps-chat-changes-actions" },
             h("button", { className: "ps-btn keep", type: "button", onClick: () => onKeepAll && onKeepAll() }, t("keepAll")),
             h("button", { className: "ps-btn danger", type: "button", onClick: () => onDiscardAll && onDiscardAll() }, t("discardAll")))) : null,
+        queued && queued.length > 0 ? h("div", { className: "ps-chat-queue" },
+          queued.map((item) => h("div", { className: "ps-chat-queue-item", key: item.id },
+            h("span", { className: "ps-chat-queue-kind" }, item.steer ? "steer" : "queued"),
+            h("span", { className: "ps-chat-queue-text", title: item.text }, item.text),
+            h("button", { className: "ps-btn icon", type: "button", title: "Remove", onClick: () => onRemoveQueued && onRemoveQueued(item.id) }, "×")))) : null,
         h("div", {
           className: "ps-chat-resize", title: "Drag to resize the message box",
           onPointerDown: startResize,
@@ -3912,11 +4256,17 @@ body.ps-resizing *{cursor:inherit!important}
             style: { height: `${inputHeight}px` },
             onChange: (event) => onInput(event.target.value),
             onKeyDown: (event) => {
-              if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); onSend(); }
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                if (busy) { if (String(input).trim()) onQueue(String(input)); }
+                else onSend();
+              }
             },
           }),
-          busy
-            ? h("button", { className: "ps-btn danger", type: "button", onClick: onStop }, t("stop"))
+          busy ? h(React.Fragment, null,
+            h("button", { className: "ps-btn danger", type: "button", onClick: onStop }, t("stop")),
+            h("button", { className: "ps-btn", type: "button", disabled: !String(input).trim(), onClick: () => onQueue(String(input)) }, "Queue"),
+            h("button", { className: "ps-btn primary", type: "button", disabled: !String(input).trim(), title: "Stop the current answer and send this instead", onClick: () => onSteer(String(input)) }, "Steer"))
             : h("button", { className: "ps-btn primary", type: "button", disabled: !String(input).trim(), onClick: onSend }, t("send"))));
     }
 
@@ -3972,9 +4322,30 @@ body.ps-resizing *{cursor:inherit!important}
       const [misspelled, setMisspelled] = useState(() => new Set());
       const [missing, setMissing] = useState(null);
       const [explorerTab, setExplorerTab] = useState(() => (readUi().explorerTab === "git" ? "git" : "files"));
+      const [outlineOpen, setOutlineOpen] = useState(() => readUi().outlineOpen !== false);
+      const [outlineMath, setOutlineMath] = useState(() => Boolean(readUi().outlineMath));
+      const [outlineFloats, setOutlineFloats] = useState(() => Boolean(readUi().outlineFloats));
+      const [outlineHeight, setOutlineHeight] = useState(() => Math.max(80, Number(readUi().outlineHeight) || 180));
+      const startOutlineResize = (event) => {
+        event.preventDefault();
+        const startY = event.clientY;
+        const startHeight = outlineHeight;
+        let latest = startHeight;
+        const move = (moveEvent) => {
+          latest = Math.max(72, Math.min((window.innerHeight || 800) * 0.6, startHeight + startY - moveEvent.clientY));
+          setOutlineHeight(latest);
+        };
+        const stop = () => {
+          window.removeEventListener("pointermove", move);
+          window.removeEventListener("pointerup", stop);
+        };
+        window.addEventListener("pointermove", move);
+        window.addEventListener("pointerup", stop);
+      };
       const [gitInfo, setGitInfo] = useState({ data: null, error: "" });
       const [gitDiff, setGitDiff] = useState("");
       const [gitDiffOpen, setGitDiffOpen] = useState(false);
+      const [gitReview, setGitReview] = useState(false);
       const [gitBusy, setGitBusy] = useState("");
       const [boom, setBoom] = useState(0);
       const [syntax, setSyntax] = useState(() => readSyntax());
@@ -3993,6 +4364,7 @@ body.ps-resizing *{cursor:inherit!important}
       const [chatList, setChatList] = useState([]);
       const [chatInput, setChatInput] = useState("");
       const [chatBusy, setChatBusy] = useState(false);
+      const [chatQueue, setChatQueue] = useState([]);
       const [chatStream, setChatStream] = useState("");
       const [chatReasoning, setChatReasoning] = useState("");
       const [changes, setChanges] = useState([]);
@@ -4000,7 +4372,9 @@ body.ps-resizing *{cursor:inherit!important}
       const [resolvedChoices, setResolvedChoices] = useState(new Set());
       const [allChats, setAllChats] = useState(null);
       const resolvedRef = useRef(new Set());
+      const resolvedContentRef = useRef(new Set());
       const resolvedKey = useCallback((chatId, agentId) => `ps-chat-resolved:${projectIdRef.current || ""}:${agentId || (chat && chat.agentId) || (chatAgent && chatAgent.id) || ""}:${chatId || ""}`, [chat, chatAgent]);
+      const resolvedContentKey = useCallback((chatId, agentId) => `${resolvedKey(chatId, agentId)}:content`, [resolvedKey]);
       const chatSourceRef = useRef(null);
       const chatJobRef = useRef("");
       const onEditRef = useRef(null);
@@ -4280,6 +4654,11 @@ body.ps-resizing *{cursor:inherit!important}
         }
       }, []);
 
+      const openGitReview = useCallback(async () => {
+        setGitReview(true);
+        await refreshGit({ diff: true });
+      }, [refreshGit]);
+
       const refreshAgents = useCallback(async () => {
         const id = projectIdRef.current;
         try {
@@ -4482,6 +4861,7 @@ body.ps-resizing *{cursor:inherit!important}
           } });
           setChatAgent(agent);
           resolvedRef.current = new Set();
+          resolvedContentRef.current = new Set();
           setResolvedChoices(new Set());
           setChanges([]);
           setChat({ id: result.chat.id, title: result.chat.title, updatedAt: result.chat.updatedAt, context: context || null, messages: [] });
@@ -4566,11 +4946,38 @@ body.ps-resizing *{cursor:inherit!important}
         return applied;
       }, [notify, openFile, t]);
 
-      const resolveChange = useCallback((change) => {
+      const persistResolved = useCallback(() => {
+        if (!chat) return;
+        try {
+          localStorage.setItem(resolvedKey(chat.id), JSON.stringify([...resolvedRef.current]));
+          localStorage.setItem(resolvedContentKey(chat.id), JSON.stringify([...resolvedContentRef.current]));
+        } catch { /* storage disabled */ }
+      }, [chat, resolvedKey, resolvedContentKey]);
+
+      const rememberResolved = useCallback((change) => {
         resolvedRef.current.add(change.id);
-        try { if (chat) localStorage.setItem(resolvedKey(chat.id), JSON.stringify([...resolvedRef.current])); } catch { /* storage disabled */ }
-        setChanges((list) => list.filter((entry) => entry.id !== change.id));
-      }, [chat, resolvedKey]);
+        resolvedContentRef.current.add(changeFingerprint(change));
+        for (const entry of changes) {
+          if (!sameChange(entry, change)) continue;
+          resolvedRef.current.add(entry.id);
+          resolvedContentRef.current.add(changeFingerprint(entry));
+        }
+        persistResolved();
+      }, [changes, persistResolved]);
+
+      const hideAlreadyApplied = useCallback((list) => list.filter((change) => {
+        const target = change.file
+          ? tabsRef.current.find((item) => item.path === change.file)
+          : tabsRef.current.find((item) => item.path === activeRef.current);
+        return !(target && changeAlreadyApplied(change, target.content));
+      }), []);
+
+      const resolveChange = useCallback((change) => {
+        const ids = new Set([change.id]);
+        for (const entry of changes) if (sameChange(entry, change)) ids.add(entry.id);
+        rememberResolved(change);
+        setChanges((list) => list.filter((entry) => !ids.has(entry.id)));
+      }, [changes, rememberResolved]);
 
       const decisionRef = useRef(() => {});
       const decisionQueueRef = useRef([]);
@@ -4627,14 +5034,14 @@ body.ps-resizing *{cursor:inherit!important}
           }
           const search = content.slice(range.from, range.to);
           hunk = searchHunk(search, change.replace);
-          updated = { ...change, search, hunk, id: diffChangeKey(change.file, hunk) };
+          updated = { ...change, search, hunk };
         } else {
           hunk = rebaseHunk(content, change.hunk);
           if (!hunk) {
             notify("Still could not adapt this diff to the current file.", "err");
             return;
           }
-          updated = { ...change, hunk, id: diffChangeKey(change.file, hunk) };
+          updated = { ...change, hunk };
         }
         setChanges((list) => list.map((entry) => (entry.id === change.id ? updated : entry)));
         notify("Suggestion adapted to the current file.");
@@ -4649,19 +5056,17 @@ body.ps-resizing *{cursor:inherit!important}
           }
         }
         if (applied.length === 0) return;
-        for (const id of applied) resolvedRef.current.add(id);
-        try { if (chat) localStorage.setItem(resolvedKey(chat.id), JSON.stringify([...resolvedRef.current])); } catch { /* storage disabled */ }
+        for (const change of changes) if (applied.includes(change.id)) rememberResolved(change);
         setChanges((list) => list.filter((change) => !applied.includes(change.id)));
-      }, [applyChanges, changes, chat, resolvedKey]);
+      }, [applyChanges, changes, rememberResolved]);
 
       const discardAllChanges = useCallback(() => {
         for (const change of changes) {
           decisionRef.current("discarded", change);
-          resolvedRef.current.add(change.id);
+          rememberResolved(change);
         }
-        try { if (chat) localStorage.setItem(resolvedKey(chat.id), JSON.stringify([...resolvedRef.current])); } catch { /* storage disabled */ }
         setChanges([]);
-      }, [changes, chat, resolvedKey]);
+      }, [changes, rememberResolved]);
 
       const loadResolved = useCallback((chatId, agentId) => {
         try {
@@ -4670,6 +5075,14 @@ body.ps-resizing *{cursor:inherit!important}
           return new Set();
         }
       }, [resolvedKey]);
+
+      const loadResolvedContent = useCallback((chatId, agentId) => {
+        try {
+          return new Set(JSON.parse(localStorage.getItem(resolvedContentKey(chatId, agentId)) || "[]"));
+        } catch {
+          return new Set();
+        }
+      }, [resolvedContentKey]);
 
       const openChatMemory = useCallback(() => {
         if (!chat) return;
@@ -4714,8 +5127,9 @@ body.ps-resizing *{cursor:inherit!important}
         try {
           const data = await request("chat", { query: { project: id, agent: agent.id, chat: chatId } });
           resolvedRef.current = loadResolved(data.id, agent.id);
+          resolvedContentRef.current = loadResolvedContent(data.id, agent.id);
           setResolvedChoices(loadResolvedChoices(data.id));
-          setChanges(collectChanges(data.messages).filter((change) => !resolvedRef.current.has(change.id)));
+          setChanges(hideAlreadyApplied(collectChanges(data.messages).filter((change) => !resolvedRef.current.has(change.id) && !resolvedContentRef.current.has(changeFingerprint(change)))));
           setReviewHidden(false);
           setChatAgent(agent);
           setChat(data);
@@ -4750,8 +5164,9 @@ body.ps-resizing *{cursor:inherit!important}
         try {
           const data = await request("chat", { query: { project: id, agent: chatAgent.id, chat: chatId } });
           resolvedRef.current = loadResolved(data.id, chatAgent.id);
+          resolvedContentRef.current = loadResolvedContent(data.id, chatAgent.id);
           setResolvedChoices(loadResolvedChoices(data.id));
-          setChanges(collectChanges(data.messages).filter((change) => !resolvedRef.current.has(change.id)));
+          setChanges(hideAlreadyApplied(collectChanges(data.messages).filter((change) => !resolvedRef.current.has(change.id) && !resolvedContentRef.current.has(changeFingerprint(change)))));
           setReviewHidden(false);
           setChat(data);
           setChatStream("");
@@ -4820,7 +5235,7 @@ body.ps-resizing *{cursor:inherit!important}
               const fresh = collectChanges([{ role: "assistant", content: acc }])
                 .filter((change) => !resolvedRef.current.has(change.id));
               if (fresh.length > 0) {
-                setChanges((list) => [...list, ...fresh]);
+                setChanges((list) => [...list, ...hideAlreadyApplied(fresh)]);
                 setReviewHidden(false);
                 if (fresh[0].file) void openFile(fresh[0].file);
               }
@@ -4864,6 +5279,27 @@ body.ps-resizing *{cursor:inherit!important}
           notify(error.message, "err");
         }
       }, [chat, chatAgent, chatBusy, chatInput, notify, openFile, refreshChats]);
+
+      const queueChat = useCallback((text, steer = false) => {
+        const value = String(text || "").trim();
+        if (!value || !chat || !chatAgent) return;
+        setChatInput("");
+        if (!chatBusy) { void sendChat(value); return; }
+        const item = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, text: value, steer };
+        setChatQueue((list) => steer ? [item, ...list] : [...list, item]);
+        if (steer) void stopChat();
+      }, [chat, chatAgent, chatBusy, sendChat, stopChat]);
+
+      const removeQueued = useCallback((id) => setChatQueue((list) => list.filter((item) => item.id !== id)), []);
+
+      useEffect(() => {
+        if (chatBusy || !chat || !chatAgent || chatQueue.length === 0) return;
+        const next = chatQueue.find((item) => item.steer) || chatQueue[0];
+        setChatQueue((list) => list.filter((item) => item.id !== next.id));
+        void sendChat(next.text);
+      }, [chatBusy, chat, chatAgent, chatQueue, sendChat]);
+
+      useEffect(() => { setChatQueue([]); }, [chat ? chat.id : null]);
 
       chatBusyRef.current = chatBusy;
       const queueDecision = useCallback((kind, change) => {
@@ -5066,10 +5502,11 @@ body.ps-resizing *{cursor:inherit!important}
             chatId: restored || chatAgent ? (chat ? chat.id : "") : (saved.chatId || ""),
             rightTab: restored ? rightTab : (saved.rightTab || rightTab),
             pdfPages: pdfPagesRef.current,
+            outlineOpen, outlineMath, outlineFloats, outlineHeight,
           });
         }, 300);
         return () => clearTimeout(timer);
-      }, [tabs, active, explorerOpen, pdfOpen, zoom, dock, dockHeight, explorerWidth, pdfPct, explorerTab, cursor, chatAgent, chat, rightTab, pdfPage]);
+      }, [tabs, active, explorerOpen, pdfOpen, zoom, dock, dockHeight, explorerWidth, pdfPct, explorerTab, cursor, chatAgent, chat, rightTab, pdfPage, outlineOpen, outlineMath, outlineFloats, outlineHeight]);
 
       // Cursor refresh when switching files.
       useEffect(() => {
@@ -5173,7 +5610,6 @@ body.ps-resizing *{cursor:inherit!important}
           notify(result.cached
             ? t("cachedBuild")
             : fmt(t("compileOk"), { pages: result.pages, time: formatDuration(result.durationMs) }));
-          if (result.warningsList && result.warningsList.length > 0) setDock("problems");
         } else {
           setDock("problems");
           setStatus({ kind: "error", message: fmt(t("compileFailedWith"), { count: (result.errors || []).length }) });
@@ -5401,12 +5837,13 @@ body.ps-resizing *{cursor:inherit!important}
         if (snapshot.keep) {
           const change = snapshot.keep;
           resolvedRef.current.delete(change.id);
-          try { if (chat) localStorage.setItem(resolvedKey(chat.id), JSON.stringify([...resolvedRef.current])); } catch { /* storage disabled */ }
+          resolvedContentRef.current.delete(changeFingerprint(change));
+          persistResolved();
           setChanges((list) => (list.some((entry) => entry.id === change.id) ? list : [change, ...list]));
           setReviewHidden(false);
         }
         restoreCaret(path, snapshot.caret);
-      }, [chat, resolvedKey, restoreCaret, saveTab, scheduleAutosave]);
+      }, [persistResolved, restoreCaret, saveTab, scheduleAutosave]);
 
       const redo = useCallback((path) => {
         const history = historyRef.current.get(path);
@@ -5420,12 +5857,11 @@ body.ps-resizing *{cursor:inherit!important}
         scheduleAutosave(path);
         if (snapshot.keep) {
           const change = snapshot.keep;
-          resolvedRef.current.add(change.id);
-          try { if (chat) localStorage.setItem(resolvedKey(chat.id), JSON.stringify([...resolvedRef.current])); } catch { /* storage disabled */ }
+          rememberResolved(change);
           setChanges((list) => list.filter((entry) => entry.id !== change.id));
         }
         restoreCaret(path, snapshot.caret);
-      }, [chat, resolvedKey, restoreCaret, saveTab, scheduleAutosave]);
+      }, [rememberResolved, restoreCaret, saveTab, scheduleAutosave]);
 
       const closeTab = useCallback((path) => {
         const tab = tabsRef.current.find((item) => item.path === path);
@@ -5656,6 +6092,10 @@ body.ps-resizing *{cursor:inherit!important}
       }, [tree, expanded]);
 
       const currentTab = active ? tabs.find((item) => item.path === active) ?? null : null;
+      const outline = useMemo(
+        () => currentTab && /\.tex$/iu.test(currentTab.path) ? buildOutline(currentTab.content) : [],
+        [currentTab ? currentTab.path : "", currentTab ? currentTab.content : ""],
+      );
       const activeTabDirty = tabs.some((item) => item.dirty);
       const hasDirty = tabs.some((item) => item.dirty && !item.saving);
       const statusView = (() => {
@@ -6385,6 +6825,38 @@ body.ps-resizing *{cursor:inherit!important}
                 h("button", { className: "ps-btn icon", type: "button", title: t("newFolder"), "aria-label": t("newFolder"), onClick: () => openDialog("newFolder", { path: "" }) }, h(Icon.folder)),
                 h("button", { className: "ps-btn icon", type: "button", title: t("refresh"), "aria-label": t("refresh"), onClick: () => { void refreshTree(); } }, h(Icon.refresh)))
                 : h("button", { className: "ps-btn icon", type: "button", title: t("refresh"), "aria-label": t("refresh"), onClick: () => { void refreshGit({ diff: gitDiffOpen }); } }, h(Icon.refresh))),
+            explorerTab === "files" && currentTab && /\.tex$/iu.test(currentTab.path) && outline.length > 0 ? h("div", { className: "ps-outline", style: { height: `${outlineHeight}px` } },
+              h("div", { className: "ps-outline-head" },
+                h("button", {
+                  className: "ps-btn", type: "button",
+                  onClick: () => setOutlineOpen((value) => !value),
+                }, outlineOpen ? "▾ Outline" : "▸ Outline"),
+                h("label", { className: "ps-outline-toggle" },
+                  h("input", { type: "checkbox", checked: outlineMath, onChange: (event) => setOutlineMath(event.target.checked) }), "Eqs"),
+                h("label", { className: "ps-outline-toggle" },
+                  h("input", { type: "checkbox", checked: outlineFloats, onChange: (event) => setOutlineFloats(event.target.checked) }), "Figs")),
+              outlineOpen ? h("div", { className: "ps-outline-list" },
+                outline
+                  .filter((entry) => ["chapter", "section", "subsection"].includes(entry.kind)
+                    || (entry.kind === "equation" && outlineMath)
+                    || (["figure", "table"].includes(entry.kind) && outlineFloats))
+                  .slice(0, 300)
+                  .map((entry, index) => h("button", {
+                    key: `${entry.kind}-${entry.line}-${index}`,
+                    className: `ps-outline-item ${entry.kind}`,
+                    type: "button",
+                    title: `Line ${entry.line}`,
+                    onClick: () => jumpToLine(currentTab.path, entry.line),
+                  },
+                  h("span", { className: "ps-outline-kind" },
+                    entry.kind === "equation" ? `(${entry.number || "—"})`
+                      : entry.kind === "table" ? `Tab ${entry.number || "—"}`
+                        : entry.kind === "figure" ? `Fig ${entry.number || "—"}`
+                          : entry.number || ""),
+                  h("span", { className: "ps-outline-text" }, entry.text)))) : null) : null,
+            explorerTab === "files" && currentTab && /\.tex$/iu.test(currentTab.path) && outline.length > 0
+              ? h("div", { className: "ps-outline-resizer", title: "Drag to resize the outline", onPointerDown: startOutlineResize })
+              : null,
             explorerTab === "git" ? h(GitView, {
               t,
               info: gitInfo,
@@ -6403,6 +6875,7 @@ body.ps-resizing *{cursor:inherit!important}
               onRefresh: () => { void refreshGit({ diff: gitDiffOpen }); },
               onOpenFile: (path) => { void openFile(path); },
               onToggleDiff: () => setGitDiffOpen((current) => !current),
+              onOpenDiff: () => { void openGitReview(); },
             }) : h("div", { className: "ps-tree", role: "tree" },
               visibleEntries.length === 0
                 ? h("div", { className: "ps-hint", style: { padding: "10px 8px" } }, project.mainFile ? "" : t("emptyFolder"))
@@ -6533,6 +7006,10 @@ body.ps-resizing *{cursor:inherit!important}
                 onShowMemory: openChatMemory,
                 streamReasoning: chatReasoning,
                 thinkingMode: syntax.thinking || "last",
+                queued: chatQueue,
+                onQueue: (text) => queueChat(text, false),
+                onSteer: (text) => queueChat(text, true),
+                onRemoveQueued: removeQueued,
               })
               : pdf.mode === "pages"
               ? h("div", {
@@ -6629,6 +7106,7 @@ body.ps-resizing *{cursor:inherit!important}
 
         treeInfo.truncated ? h("div", { className: "ps-banner" }, h("span", { className: "ps-banner-text" }, t("filesTruncated"))) : null,
 
+        gitReview ? h(GitDiffPopup, { t, patch: gitDiff, onClose: () => setGitReview(false) }) : null,
         renderDialog(),
         toast ? h("div", { className: `ps-toast${toast.kind === "err" ? " err" : ""}`, role: "status" }, toast.message) : null,
         h(Explosion, { nonce: boom, onDone: clearBoom }));
@@ -6638,7 +7116,7 @@ body.ps-resizing *{cursor:inherit!important}
     return {
       inject: ["slots", "locale", "layout"],
       /** Pure helpers exercised by test/client.test.mjs (no browser needed). */
-      __internals: { CSS, Studio, EditorPane, Dock, FolderPicker, PdfPage, GitView, Explosion, ChatPane, parseDiffSuggestions, applySuggestion, stripDiffBlocks, collectChanges, diffChangeKey, parseChoiceBlocks, stripChoiceBlocks, splitMath, diffLineKinds, normalizeSymbols, rebaseHunk, equationAtCursor, inlineWordDiff, pairHunkLines, parseEditSuggestions, findSearchRange, applySearchReplace, searchHunk, highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject, shouldCompileAfterSave },
+      __internals: { CSS, Studio, GitDiffPopup, EditorPane, Dock, FolderPicker, PdfPage, GitView, Explosion, ChatPane, parseDiffSuggestions, applySuggestion, stripDiffBlocks, collectChanges, diffChangeKey, parseChoiceBlocks, stripChoiceBlocks, splitMath, diffLineKinds, normalizeSymbols, rebaseHunk, equationAtCursor, buildOutline, inMathContext, usepackagePackages, changeFingerprint, changeAlreadyApplied, inlineWordDiff, pairHunkLines, parseEditSuggestions, findSearchRange, applySearchReplace, searchHunk, highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject, shouldCompileAfterSave },
       apply(ctx) {
         ctx.effect(() => {
           const style = document.createElement("style");

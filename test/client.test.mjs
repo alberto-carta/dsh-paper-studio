@@ -26,7 +26,7 @@ const plugin = definition.factory((id) => {
   if (id === "react") return React;
   throw new Error(`unexpected require: ${id}`);
 });
-const { highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject, shouldCompileAfterSave, parseDiffSuggestions, applySuggestion, collectChanges, diffChangeKey, parseChoiceBlocks, stripChoiceBlocks, splitMath, diffLineKinds, normalizeSymbols, rebaseHunk, equationAtCursor, inlineWordDiff, pairHunkLines, parseEditSuggestions, findSearchRange, applySearchReplace } = plugin.__internals;
+const { highlightLatex, highlightLines, completionContext, completionItems, escapeHtml, DEFAULT_SYNTAX, syntaxVariables, bindingFromEvent, matchesBinding, orderPageWords, environmentSnippet, bracketMatch, vimTextObject, shouldCompileAfterSave, parseDiffSuggestions, applySuggestion, collectChanges, diffChangeKey, parseChoiceBlocks, stripChoiceBlocks, splitMath, diffLineKinds, normalizeSymbols, rebaseHunk, equationAtCursor, buildOutline, inMathContext, usepackagePackages, changeFingerprint, changeAlreadyApplied, inlineWordDiff, pairHunkLines, parseEditSuggestions, findSearchRange, applySearchReplace } = plugin.__internals;
 
 test("highlighter marks commands, braces and comments and escapes HTML", () => {
   const html = highlightLatex("\\section{Intro} % note <b>\nText $x^2$ here");
@@ -371,4 +371,52 @@ test("inline diff brackets only changed words and pairs hunk lines", () => {
   ]);
   assert.equal(pairs[0].kind, "pair");
   assert.equal(pairs[1].kind, "line");
+});
+
+test("outline lists numbered sections, equations and figures", () => {
+  const outline = buildOutline([
+    "\\section{Intro}",
+    "\\begin{equation}",
+    "x = 1",
+    "\\label{eq:one}",
+    "\\end{equation}",
+    "\\subsection{Setup}",
+    "\\begin{figure}",
+    "\\caption{A figure}",
+    "\\label{fig:one}",
+    "\\end{figure}",
+  ].join("\n"));
+  assert.deepEqual(outline.map((entry) => [entry.kind, entry.number, entry.text]), [
+    ["section", "1", "Intro"],
+    ["equation", "1", "eq:one"],
+    ["subsection", "1.1", "Setup"],
+    ["figure", "1", "fig:one"],
+  ]);
+});
+
+test("math contexts and math-command completion", () => {
+  assert.equal(inMathContext("Cost is $5 and $10", 8), false);
+  assert.equal(inMathContext("Inline $x + ", 12), true);
+  assert.equal(inMathContext("Display \\(x + ", 14), true);
+  assert.equal(inMathContext("\\begin{equation}\nx", 22), true);
+  assert.equal(inMathContext("plain \\alpha", 12), false);
+  const mathItems = completionItems("command", "alp", {}, { math: true });
+  assert.equal(mathItems[0].label, "\\alpha");
+  const plainItems = completionItems("command", "alp", {}, {});
+  assert.ok(plainItems.length > 0);
+  const packageItems = completionItems("command", "qty", { packages: ["physics"] }, { math: true });
+  assert.ok(packageItems.some((item) => item.label === "\\qty"), "physics command");
+  assert.deepEqual(usepackagePackages("\\usepackage{amsmath, physics}"), ["amsmath", "physics"]);
+});
+
+test("duplicate reroll suggestions are collapsed", () => {
+  const block = "```edit\nmain.tex\n<<<<<<< SEARCH\nold\n=======\nnew\n>>>>>>> REPLACE\n```";
+  const changes = collectChanges([{ role: "assistant", content: `${block}\n${block}` }]);
+  assert.equal(changes.length, 1);
+});
+
+test("applied suggestions are detected and fingerprinted by content", () => {
+  assert.equal(changeAlreadyApplied({ file: "main.tex", search: "old", replace: "new" }, "new text"), true);
+  assert.equal(changeAlreadyApplied({ file: "main.tex", search: "old", replace: "new" }, "old text"), false);
+  assert.equal(changeFingerprint({ file: "main.tex", search: "old", replace: "new" }), "main.tex|s|old|new");
 });

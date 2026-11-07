@@ -47,7 +47,7 @@ const plugin = definition.factory((id) => {
   if (id === "react") return React;
   throw new Error(`unexpected require: ${id}`);
 });
-const { Studio, EditorPane, Dock, FolderPicker, PdfPage, GitView, Explosion, ChatPane } = plugin.__internals;
+const { Studio, EditorPane, Dock, FolderPicker, PdfPage, GitView, GitDiffPopup, Explosion, ChatPane } = plugin.__internals;
 
 const t = (key) => key;
 
@@ -187,8 +187,15 @@ const gitHtml = renderToStaticMarkup(h(GitView, {
 assert.match(gitHtml, /origin\/main/u);
 assert.match(gitHtml, /main\.tex/u);
 assert.match(gitHtml, /id_ed25519/u);
-assert.match(gitHtml, /class="add"/u);
-assert.match(gitHtml, /class="del"/u);
+assert.match(gitHtml, /reviewDiff/u);
+assert.match(gitHtml, /stageAll/u);
+assert.match(gitHtml, /ps-git-file-row/u);
+const gitReviewHtml = renderToStaticMarkup(h(GitDiffPopup, {
+  t, patch: "diff --git a/main.tex b/main.tex\n--- a/main.tex\n+++ b/main.tex\n@@ -1 +1 @@\n-old\n+new\n", onClose() {},
+}));
+assert.match(gitReviewHtml, /ps-git-review/u);
+assert.match(gitReviewHtml, /ps-diff-word-add/u);
+assert.match(gitReviewHtml, /ps-diff-word-del/u);
 
 // 8. The reset explosion renders every particle.
 const boomHtml = renderToStaticMarkup(h(Explosion, { nonce: 1, onDone() {} }));
