@@ -263,6 +263,18 @@ await check("CM keeps the top visible line when external content changes", async
   assert.ok(Math.abs(after - before) <= 1, `top ${before} -> ${after}`);
 });
 
+await check("itemize and enumerate environment names are not orange", async () => {
+  await setContent("\\begin{itemize}\n\\item one\n\\end{itemize}\n\\begin{enumerate}\n\\item two\n\\end{enumerate}\n");
+  await page.waitForTimeout(200);
+  assert.ok((await page.locator(".cm-list-env").count()) >= 4, "list environment names marked");
+  const colours = await page.locator(".cm-list-env").evaluateAll((nodes) => nodes.map((node) => getComputedStyle(node).color));
+  assert.ok(colours.every((colour) => colour !== "rgb(217, 119, 6)"), `colours ${colours.join(",")}`);
+  await setContent("\\begin{\\begin{itemize}\n  \\item very important material\n  \\item another line\n\\end{itemize}}");
+  await page.waitForTimeout(200);
+  const prose = await page.locator(".cm-item-text").evaluateAll((nodes) => nodes.map((node) => getComputedStyle(node).color));
+  assert.ok(prose.length > 0 && prose.every((colour) => colour !== "rgb(217, 119, 6)"), `item prose ${prose.join(",")}`);
+});
+
 await check("CM paints bands and first-paint colours", async () => {
   await setContent("\\begin{figure}\nfig\n\\end{figure}\n\\begin{equation}\neq\n\\end{equation}\n\\section{Hello} $x^2$ % note\n");
   await page.waitForTimeout(250);

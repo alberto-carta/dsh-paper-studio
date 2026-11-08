@@ -848,3 +848,41 @@ test("git staging, unstaging and committing", async () => {
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test("compile fingerprint includes image changes", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "ps-fingerprint-"));
+  try {
+    await writeFile(join(dir, "main.tex"), "\\documentclass{article}", "utf8");
+    await writeFile(join(dir, "fig.png"), "one", "utf8");
+    const before = (await __test.projectFingerprint({ path: dir })).hash;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    await writeFile(join(dir, "fig.png"), "two", "utf8");
+    const after = (await __test.projectFingerprint({ path: dir })).hash;
+    assert.notEqual(before, after);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("image reads become request image blocks", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "ps-image-read-"));
+  try {
+    await writeFile(join(dir, "fig.png"), "png-bytes", "utf8");
+    __test.setServiceContext({
+      get(name) {
+        if (name === "attachments") return { saveImage: async (input) => ({ id: "img-1", name: input.name, mediaType: input.mediaType }) };
+        return undefined;
+      },
+    });
+    const image = await __test.projectImage({ path: dir }, { path: "fig.png" });
+    assert.equal(image.attachment.id, "img-1");
+    const messages = __test.chatRequestMessages({
+      messages: [{ role: "user", content: "look", image }],
+    }, "provider", "model");
+    const user = messages[messages.length - 1];
+    assert.ok(user.content.some((block) => block.type === "image"));
+  } finally {
+    __test.setServiceContext(null);
+    await rm(dir, { recursive: true, force: true });
+  }
+});

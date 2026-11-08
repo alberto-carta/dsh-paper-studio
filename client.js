@@ -10,7 +10,7 @@ try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = 
 
     const PANEL_ID = "paper-studio";
     /** Shown in Settings so the loaded client can be matched to the source file. */
-    const CLIENT_BUILD = "2026-11-07T16:50";
+    const CLIENT_BUILD = "2026-11-08T15:10";
     const NS = "paperStudio";
     const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
 
@@ -348,6 +348,10 @@ try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = 
         pdfReloaded: "PDF reloaded",
         pdfMissing: "The compiled PDF is gone; compile again.",
         pdfMissingTitle: "PDF not found",
+        imagePreview: "Image preview",
+        copyPath: "Copy path",
+        pathCopied: "Path copied",
+        openImageInNewTab: "Open image in new tab",
         pdfMissingBody: "The compiled PDF was deleted or has not been built yet. Compile to recreate it.",
         locateFailed: "No matching source found at that point.",
       },
@@ -436,6 +440,8 @@ try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = 
 .ps-cm-wrap .cm-selectionBackground{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 26%,transparent)}
 .ps-cm-wrap .cm-focused .cm-selectionBackground{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 32%,transparent)}
 .ps-cm-menu{position:fixed;z-index:90;min-width:200px;padding:4px;border-radius:8px;background:var(--dsw-alias-bg-overlay);border:.5px solid var(--dsw-alias-border-l2);box-shadow:0 10px 26px rgba(0,0,0,.28)}
+.ps-cm-wrap .cm-list-env,.ps-cm-wrap .cm-list-env span{color:var(--dsw-alias-label-primary)!important}
+.ps-cm-wrap .cm-item-text,.ps-cm-wrap .cm-item-text span{color:var(--dsw-alias-label-primary)!important}
 .ps-cm-wrap .cm-misspell{text-decoration:underline wavy #e5484d;text-decoration-skip-ink:none}
 .ps-cm-wrap .cm-activeLine{outline:1px solid var(--ps-current-line, #8b5cf6);outline-offset:-1px}
 .ps-math-preview{position:fixed;z-index:60;max-width:420px;max-height:230px;overflow:auto;pointer-events:none;padding:10px 14px;border-radius:8px;background:var(--dsw-alias-bg-elevated,#fff);border:.5px solid var(--dsw-alias-border-l1,#ddd);box-shadow:0 8px 24px rgba(0,0,0,.16);font-size:15px}
@@ -730,6 +736,11 @@ try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = 
 .ps-outline-item.section .ps-outline-text{font-weight:600}
 .ps-outline-item.subsection{padding-left:12px}
 .ps-outline-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ps-path-bar{flex:none;display:flex;align-items:center;gap:5px;padding:3px 6px;border-bottom:.5px solid var(--dsw-alias-border-l1);font-size:10.5px;color:var(--dsw-alias-label-secondary)}
+.ps-path-bar code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:10.5px/1.4 ${MONO}}
+.ps-image-path{display:flex;align-items:center;gap:8px;max-width:100%;font-size:11px}
+.ps-image-path code{flex:1;min-width:0;overflow:auto;white-space:nowrap;font:10.5px/1.4 ${MONO}}
+.ps-image-view{display:block;max-width:100%;max-height:62vh;margin:10px auto 0;object-fit:contain;border-radius:6px;background:var(--dsw-alias-bg-layer-1)}
 .ps-git-review-backdrop{position:fixed;inset:0;z-index:120;display:flex;align-items:center;justify-content:center;padding:4vh 3vw;background:rgba(0,0,0,.42)}
 .ps-git-review{width:min(980px,94vw);height:82vh;display:flex;flex-direction:column;overflow:hidden;border-radius:10px;background:var(--dsw-alias-bg-base);border:.5px solid var(--dsw-alias-border-l2);box-shadow:0 24px 70px rgba(0,0,0,.4)}
 .ps-git-review-head{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:.5px solid var(--dsw-alias-border-l1);font-weight:600}
@@ -1973,8 +1984,18 @@ body.ps-resizing *{cursor:inherit!important}
 
       useEffect(() => {
         if (changes && changes.length > 0) {
-          const match = /^@@ -(\d+)/u.exec(changes[0].hunk ? changes[0].hunk.header || "" : "");
-          firstChangeLineRef.current = match ? Number(match[1]) : 1;
+          const first = changes[0];
+          let lineNumber = null;
+          const view = viewRef.current;
+          if (view && first.search !== undefined) {
+            const range = findSearchRange(view.state.doc.toString(), first.search);
+            if (range) lineNumber = view.state.doc.lineAt(range.from).number;
+          }
+          if (lineNumber === null) {
+            const match = /^@@ -(\d+)/u.exec(first.hunk ? first.hunk.header || "" : "");
+            lineNumber = match ? Number(match[1]) : (view ? view.state.doc.lineAt(view.state.selection.main.head).number : 1);
+          }
+          firstChangeLineRef.current = lineNumber;
         }
         if (!changes || changes.length === 0) { setDiffBox(null); return; }
         setDiffBox((current) => {
@@ -2214,6 +2235,60 @@ body.ps-resizing *{cursor:inherit!important}
             return true;
           },
         });
+        const buildListEnv = (view) => {
+          const builder = new RangeSetBuilder();
+          for (const range of view.visibleRanges) {
+            let position = range.from;
+            while (position <= range.to) {
+              const line = view.state.doc.lineAt(position);
+              for (const match of line.text.matchAll(/\\(?:begin|end)\{((?:itemize|enumerate))\}/gu)) {
+                const start = line.from + match.index + match[0].indexOf("{") + 1;
+                builder.add(start, start + match[1].length, Decoration.mark({ class: "cm-list-env" }));
+              }
+              if (line.to >= view.state.doc.length) break;
+              position = line.to + 1;
+            }
+          }
+          return builder.finish();
+        };
+        const buildItemText = (view) => {
+          const builder = new RangeSetBuilder();
+          let inList = false;
+          for (const range of view.visibleRanges) {
+            let position = range.from;
+            while (position <= range.to) {
+              const line = view.state.doc.lineAt(position);
+              if (/\\begin\{(?:itemize|enumerate)\}/u.test(line.text)) inList = true;
+              if (inList) {
+                const item = /\\item\b/u.exec(line.text);
+                let start = item ? item.index + item[0].length : 0;
+                const optional = /^\s*\[[^\]]*\]/u.exec(line.text.slice(start));
+                if (optional) start += optional[0].length;
+                const specials = [...line.text.matchAll(/\\(?:[A-Za-z@]+\*?|.)|(?:\$\$?[\s\S]*?\$\$?|\\\([\s\S]*?\\\))/gu)];
+                let cursor = start;
+                for (const match of specials) {
+                  if (match.index > cursor) builder.add(line.from + cursor, line.from + match.index, Decoration.mark({ class: "cm-item-text" }));
+                  cursor = match.index + match[0].length;
+                }
+                if (cursor < line.text.length) builder.add(line.from + cursor, line.from + line.text.length, Decoration.mark({ class: "cm-item-text" }));
+              }
+              if (/\\end\{(?:itemize|enumerate)\}/u.test(line.text)) inList = false;
+              if (line.to >= view.state.doc.length) break;
+              position = line.to + 1;
+            }
+          }
+          return builder.finish();
+        };
+        const itemTextPlugin = ViewPlugin.fromClass(class {
+          constructor(view) { this.decorations = buildItemText(view); }
+          update(update) { if (update.docChanged || update.viewportChanged) this.decorations = buildItemText(update.view); }
+        }, { decorations: (value) => value.decorations });
+
+        const listEnvPlugin = ViewPlugin.fromClass(class {
+          constructor(view) { this.decorations = buildListEnv(view); }
+          update(update) { if (update.docChanged || update.viewportChanged) this.decorations = buildListEnv(update.view); }
+        }, { decorations: (value) => value.decorations });
+
         const tintEffect = StateEffect.define();
         tintEffectRef.current = tintEffect;
         const buildTint = (view) => {
@@ -2301,6 +2376,8 @@ body.ps-resizing *{cursor:inherit!important}
             },
           }),
           syntaxHighlighting(latexHighlight),
+          listEnvPlugin,
+          itemTextPlugin,
           EditorState.tabSize.of(2),
           keymap.of([
             { key: "Mod-s", preventDefault: true, run: () => { const live = liveRef.current; if (live.onSave && live.tab) live.onSave(live.tab.path); return true; } },
@@ -2645,8 +2722,17 @@ body.ps-resizing *{cursor:inherit!important}
                 h("button", {
                   className: "ps-btn primary", type: "button", disabled: stale,
                   onClick: () => {
-                    const match = /^@@ -(\d+)/u.exec(change.hunk ? change.hunk.header || "" : "");
-                    anchorLineRef.current = match ? Number(match[1]) : 1;
+                    const view = viewRef.current;
+                    let lineNumber = null;
+                    if (view && change.search !== undefined) {
+                      const range = findSearchRange(view.state.doc.toString(), change.search);
+                      if (range) lineNumber = view.state.doc.lineAt(range.from).number;
+                    }
+                    if (lineNumber === null) {
+                      const match = /^@@ -(\d+)/u.exec(change.hunk ? change.hunk.header || "" : "");
+                      lineNumber = match ? Number(match[1]) : (view ? view.state.doc.lineAt(view.state.selection.main.head).number : 1);
+                    }
+                    anchorLineRef.current = lineNumber;
                     onKeepChange(change);
                   },
                 }, t("keep")),
@@ -2693,7 +2779,7 @@ body.ps-resizing *{cursor:inherit!important}
     function Dock(props) {
       const {
         t, tab, onTab, onClose, compile, terminal, stage, elapsed, compiling,
-        onClear, height, onResize, onOpenProblem,
+        onClear, height, onResize, onOpenProblem, gitLog, onClearGit,
       } = props;
       const termRef = useRef(null);
       const lines = useMemo(() => {
@@ -2707,6 +2793,7 @@ body.ps-resizing *{cursor:inherit!important}
         }
         return out.slice(-4000);
       }, [terminal]);
+      const gitLines = useMemo(() => (gitLog || []).slice(-2000), [gitLog]);
       useEffect(() => {
         const node = termRef.current;
         if (node) node.scrollTop = node.scrollHeight;
@@ -2730,10 +2817,12 @@ body.ps-resizing *{cursor:inherit!important}
             t("problems"),
             problems.length > 0 ? h("span", { className: `ps-count${errors.length === 0 ? " warn" : ""}` }, problems.length) : null),
           h("button", { className: `ps-drawer-tab${tab === "terminal" ? " active" : ""}`, type: "button", onClick: () => onTab("terminal") }, t("terminal")),
+          h("button", { className: `ps-drawer-tab${tab === "git" ? " active" : ""}`, type: "button", onClick: () => onTab("git") }, t("gitTab")),
           h("div", { className: "ps-spacer" }),
           compiling ? h("span", { className: "ps-stage" }, `${stage || t("compiling")}${elapsed ? ` · ${elapsed}s` : ""}`) : null,
           !compiling && compile ? h("span", { className: "ps-status", style: { fontSize: 11 } }, compile.cached ? t("upToDate") : formatDuration(compile.durationMs)) : null,
           tab === "terminal" ? h("button", { className: "ps-btn", type: "button", onClick: onClear }, t("clear")) : null,
+          tab === "git" ? h("button", { className: "ps-btn", type: "button", onClick: onClearGit }, t("clear")) : null,
           h("button", { className: "ps-btn icon", type: "button", onClick: onClose, "aria-label": t("close") }, h(Icon.close))),
         tab === "problems"
           ? h("div", { className: "ps-problems" },
@@ -2754,10 +2843,15 @@ body.ps-resizing *{cursor:inherit!important}
                   h("span", { className: "ps-problem-msg" }, problem.message));
                 }))
               : h("div", { className: "ps-status", style: { padding: "10px 6px" } }, t("problemsHint")))
-          : h("pre", { className: "ps-term", ref: termRef },
-            lines.length === 0
-              ? h("span", { className: "ps-term-empty" }, t("terminalEmpty"))
-              : lines.map((line, index) => h("div", { key: index, className: `ps-term-line${line.kind ? ` ${line.kind}` : ""}` }, line.text.length > 0 ? line.text : " "))));
+          : tab === "git"
+            ? h("pre", { className: "ps-term", ref: termRef },
+              gitLines.length === 0
+                ? h("span", { className: "ps-term-empty" }, "No Git commands yet")
+                : gitLines.map((line, index) => h("div", { key: index, className: `ps-term-line${line.kind ? ` ${line.kind}` : ""}` }, line.text.length > 0 ? line.text : " ")))
+            : h("pre", { className: "ps-term", ref: termRef },
+              lines.length === 0
+                ? h("span", { className: "ps-term-empty" }, t("terminalEmpty"))
+                : lines.map((line, index) => h("div", { key: index, className: `ps-term-line${line.kind ? ` ${line.kind}` : ""}` }, line.text.length > 0 ? line.text : " "))));
     }
 
     function FolderPicker(props) {
@@ -4316,6 +4410,7 @@ body.ps-resizing *{cursor:inherit!important}
       const [explorerWidth, setExplorerWidth] = useState(() => Number(readUi().explorerWidth) || 238);
       const [pdfPct, setPdfPct] = useState(() => Number(readUi().pdfPct) || 44);
       const [terminal, setTerminal] = useState([]);
+      const [gitLog, setGitLog] = useState([]);
       const [stage, setStage] = useState("");
       const [elapsed, setElapsed] = useState(0);
       const [symbols, setSymbols] = useState({ labels: [], citations: [], files: [] });
@@ -4528,9 +4623,19 @@ body.ps-resizing *{cursor:inherit!important}
           .catch(() => {});
       }, []);
 
+      const copyPath = useCallback(async (value) => {
+        try {
+          await navigator.clipboard.writeText(value);
+          notify(t("pathCopied"));
+        } catch {
+          notify(t("copyFailed"), "err");
+        }
+      }, [notify, t]);
+
       const openFile = useCallback(async (path, line, selection) => {
         const id = projectIdRef.current;
         if (!id || !path) return;
+        if (/\.(?:png|jpe?g|gif|svg|webp|bmp)$/iu.test(path)) { setDialog({ kind: "image", path }); return; }
         const existing = tabsRef.current.find((item) => item.path === path);
         if (existing) {
           const alreadyActive = activeRef.current === path;
@@ -5397,12 +5502,20 @@ body.ps-resizing *{cursor:inherit!important}
         }
       }, [chat, chatAgent, notify, selectChat, startChat, t]);
 
+      const appendGitLog = useCallback((entry) => {
+        setGitLog((lines) => (lines.length > 2000 ? [...lines.slice(-2000), entry] : [...lines, entry]));
+      }, []);
+
       const runGitAction = useCallback(async (action, extra) => {
         const id = projectIdRef.current;
         if (!id) return;
+        const command = `git ${action}${extra && extra.file ? ` ${extra.file}` : ""}${extra && extra.message ? ` -m "${String(extra.message).replace(/"/gu, '\\"')}"` : ""}`;
+        appendGitLog({ kind: "cmd", text: `$ ${command}` });
         setGitBusy(action);
         try {
           const result = await request("git", { method: "POST", body: { project: id, action, ...(extra || {}) } });
+          const output = String(result && result.output ? result.output : "").trim();
+          if (output) for (const line of output.split(/\r?\n/u)) appendGitLog({ kind: result && result.ok === false ? "err" : "out", text: line });
           if (result && result.ok === false) {
             notify((result.output || "").slice(0, 400) || t("error"), "err");
             await refreshGit({ diff: gitDiffOpen });
@@ -5417,12 +5530,13 @@ body.ps-resizing *{cursor:inherit!important}
           }
           return true;
         } catch (error) {
+          appendGitLog({ kind: "err", text: error.message });
           notify(error.message, "err");
           return false;
         } finally {
           setGitBusy("");
         }
-      }, [gitDiffOpen, notify, openProject, refreshCatalog, refreshGit, t]);
+      }, [appendGitLog, gitDiffOpen, notify, openProject, refreshCatalog, refreshGit, t]);
 
       useEffect(() => {
         if (explorerTab !== "git" || !project) return;
@@ -6641,6 +6755,20 @@ body.ps-resizing *{cursor:inherit!important}
           title = t("locateTitle");
           body = [pathField(t("path"), "path", { placeholder: "~/Documents/Papers/my-paper", hint: t("addFolderHint") })];
           actions = footer(t("locate"));
+        } else if (dialog.kind === "image") {
+          title = t("imagePreview");
+          body = [
+            h("div", { className: "ps-image-path", key: "path" },
+              h("code", { title: `${project.path}/${dialog.path}` }, `${project.path}/${dialog.path}`),
+              h("button", { className: "ps-btn", type: "button", onClick: () => { void copyPath(`${project.path}/${dialog.path}`); } }, t("copyPath"))),
+            h("img", {
+              className: "ps-image-view", key: "image", alt: dialog.path,
+              src: apiUrl("raw", { project: project.id, path: dialog.path }),
+            }),
+          ];
+          actions = h(React.Fragment, null,
+            h("button", { className: "ps-btn", type: "button", onClick: () => window.open(apiUrl("raw", { project: project.id, path: dialog.path }), "_blank", "noopener") }, t("openImageInNewTab")),
+            h("button", { className: "ps-btn", type: "button", onClick: () => setDialog(null) }, t("close")));
         } else if (dialog.kind === "newFile" || dialog.kind === "newFolder") {
           title = dialog.kind === "newFile" ? t("newFile") : t("newFolder");
           body = [field(t("path"), "path", { placeholder: dialog.kind === "newFile" ? "sections/related-work.tex" : "figures", hint: t("newFileHint") })];
@@ -6825,6 +6953,9 @@ body.ps-resizing *{cursor:inherit!important}
                 h("button", { className: "ps-btn icon", type: "button", title: t("newFolder"), "aria-label": t("newFolder"), onClick: () => openDialog("newFolder", { path: "" }) }, h(Icon.folder)),
                 h("button", { className: "ps-btn icon", type: "button", title: t("refresh"), "aria-label": t("refresh"), onClick: () => { void refreshTree(); } }, h(Icon.refresh)))
                 : h("button", { className: "ps-btn icon", type: "button", title: t("refresh"), "aria-label": t("refresh"), onClick: () => { void refreshGit({ diff: gitDiffOpen }); } }, h(Icon.refresh))),
+            project ? h("div", { className: "ps-path-bar" },
+              h("code", { title: project.path }, project.path),
+              h("button", { className: "ps-btn icon", type: "button", title: t("copyPath"), "aria-label": t("copyPath"), onClick: () => { void copyPath(project.path); } }, "⧉")) : null,
             explorerTab === "files" && currentTab && /\.tex$/iu.test(currentTab.path) && outline.length > 0 ? h("div", { className: "ps-outline", style: { height: `${outlineHeight}px` } },
               h("div", { className: "ps-outline-head" },
                 h("button", {
@@ -6890,6 +7021,10 @@ body.ps-resizing *{cursor:inherit!important}
                     "aria-expanded": entry.dir ? isOpen : undefined,
                     style: { paddingLeft: 6 + depth * 12 },
                     title: entry.path,
+                    onContextMenu: (event) => {
+                      event.preventDefault();
+                      void copyPath(`${project.path}/${entry.path}`);
+                    },
                     onClick: () => {
                       if (entry.dir) toggleExpanded(entry.path);
                       else if (["pdf"].includes(extOf(entry.name))) window.open(apiUrl("raw", { project: project.id, path: entry.path }), "_blank", "noopener");
@@ -7076,6 +7211,7 @@ body.ps-resizing *{cursor:inherit!important}
 
           dock && !missing ? h(Dock, {
             t, tab: dock, onTab: setDock, onClose: () => setDock(null),
+            gitLog, onClearGit: () => setGitLog([]),
             compile, terminal, stage, elapsed, compiling,
             onClear: () => setTerminal([]),
             height: dockHeight,
