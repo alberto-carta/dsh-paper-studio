@@ -235,6 +235,15 @@ test("choice blocks parse into options and are stripped from the prose", () => {
   assert.equal(stripChoiceBlocks(text).trim(), "Which version?");
 });
 
+test("multiline choice descriptions do not create extra options", () => {
+  const numbered = "```choices\n1. Concise\n   Short and direct.\n   Still the same option.\n2. Detailed\n   With examples.\n```";
+  assert.equal(parseChoiceBlocks(numbered)[0].options.length, 2);
+  const paragraphs = "```choices\nConcise — short and direct.\nIt continues on a new line.\n\nDetailed — with examples.\n```";
+  const options = parseChoiceBlocks(paragraphs)[0].options;
+  assert.equal(options.length, 2);
+  assert.equal(options[0].label, "Concise");
+});
+
 test("math is split into inline and display segments", () => {
   const parts = splitMath("Inline $x^2$ and display $$y = mc^2$$.");
   assert.equal(parts.filter((part) => part.math).length, 2);
@@ -419,4 +428,11 @@ test("applied suggestions are detected and fingerprinted by content", () => {
   assert.equal(changeAlreadyApplied({ file: "main.tex", search: "old", replace: "new" }, "new text"), true);
   assert.equal(changeAlreadyApplied({ file: "main.tex", search: "old", replace: "new" }, "old text"), false);
   assert.equal(changeFingerprint({ file: "main.tex", search: "old", replace: "new" }), "main.tex|s|old|new");
+});
+
+test("bib edit suggestions are collected for manual review", () => {
+  const block = "```edit\nrefs.bib\n<<<<<<< SEARCH\nold\n=======\nnew\n>>>>>>> REPLACE\n```";
+  const changes = collectChanges([{ role: "assistant", content: block }]);
+  assert.equal(changes.length, 1);
+  assert.equal(changes[0].file, "refs.bib");
 });

@@ -390,7 +390,13 @@ await check("Ctrl-B / Ctrl-I wrap text in insert mode", async () => {
   await setContent("hello\n");
   await focus();
   await page.keyboard.press("i");
-  await page.evaluate(() => window.__editorApi.current.selectRange(0, 5));
+  await page.waitForTimeout(80);
+  await page.evaluate(() => {
+    const view = document.querySelector(".ps-cm-wrap").__cmView;
+    view.dispatch({ selection: { anchor: 0, head: 5 } });
+    view.focus();
+  });
+  await page.waitForTimeout(50);
   await page.keyboard.press("Control+b");
   await page.waitForTimeout(100);
   assert.equal(await content(), "\\textbf{hello}\n");

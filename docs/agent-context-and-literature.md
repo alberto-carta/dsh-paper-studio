@@ -13,20 +13,16 @@
 
 ## 1. Compilation gate
 
-Per-chat setting `compile`: `never` (default), `ask`, `allow`.
+The agent may request a compile with a fenced `compile` block and a short reason.
+The first request in a chat after a Harness restart asks the user:
 
-- `never`: the agent is told it cannot compile. It may ask the user to run Compile.
-- `ask`: the agent may emit a fenced `compile` block with a short reason. The host
-  does not compile; it emits a `compile-request` event with the reason. The chat shows
-  an approval card. Approval runs the normal compile path and appends a structured
-  compile result to the chat, then continues the agent loop if it is still open.
-- `allow`: the agent may compile automatically, at most once per turn. It still
-  receives structured errors/warnings, not raw logs.
+- Allow once
+- Always allow this chat for the current Harness session
+- Deny
 
-No compile is triggered by save, patch application, or Keep/Discard.
-
-Data: `chat.compilePermission`, persisted with the chat. UI lives with Memory &
-thinking in the brain dialog, or as a compact permissions row.
+The agent waits for the decision. `Always allow` is stored in host memory only and
+is cleared when the Harness restarts. Deny refuses that request; the next request
+asks again. No save, patch application, or Keep/Discard triggers a compile.
 
 ## 2. Context management
 
@@ -89,6 +85,10 @@ Suggested BibTeX key            [Copy BibTeX] [Use in .bib]
 - "Use in .bib" proposes an edit to the bibliography file; it never writes directly.
 - Cards go into context as compact metadata by default; the abstract is included only
   when the user asks for it or the agent requests details.
+- Searches only collect candidates. Cards are published only when the agent's final
+  answer contains a fenced `cards` block with one DOI or BibTeX key per line.
+- The agent never writes `.bib` automatically; it may propose a reviewed edit or
+  provide BibTeX/cards for the user to add.
 
 Data:
 - `chat.literature: [{ key, title, authors, year, venue, doi, url, abstract, bibtex }]`.

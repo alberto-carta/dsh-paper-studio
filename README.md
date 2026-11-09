@@ -67,7 +67,7 @@ sits above **Old conversations** across all agents; chats stream in the right pa
   an agent affects only new chats. ℹ shows it.
 - **Memory:** per conversation only, never summarized, editable with 🧠.
 - Long chats compact older turns into a stored summary
-  (`PAPER_STUDIO_CHAT_BUDGET`, default 60k chars).
+  (`PAPER_STUDIO_CHAT_BUDGET`, default 1M chars, about 250k tokens).
 
 ## Chat controls
 

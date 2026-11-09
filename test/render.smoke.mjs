@@ -212,6 +212,7 @@ const chatHtml = renderToStaticMarkup(h(ChatPane, {
   chat: {
     id: "c1", title: "Intro chat",
     context: { file: "main.tex", startLine: 3, endLine: 4, text: "selected paragraph" },
+    literature: [{ key: "ada2024", title: "A useful paper", authors: ["Ada Lovelace"], year: 2024, venue: "Journal", doi: "10.1000/xyz", url: "https://doi.org/10.1000/xyz", bibtex: "@article{ada2024}" }],
     messages: [
       { role: "user", content: "Is this clear?" },
       { role: "assistant", content: "Mostly, but the second sentence runs on." },
@@ -226,6 +227,11 @@ assert.match(chatHtml, /ps-chat-msg/u, "chat messages render");
 assert.match(chatHtml, /main\.tex:3-4/u, "selection context is shown");
 assert.match(chatHtml, /Streaming answer/u, "streaming text renders");
 assert.match(chatHtml, /Proofreader/u, "agent name is shown");
+assert.match(chatHtml, /ps-lit-card/u, "literature card renders");
+assert.match(chatHtml, /A useful paper/u, "literature title renders");
+assert.match(chatHtml, /ps-spinner/u, "working spinner renders");
+assert.match(chatHtml, /ps-context-bar/u, "context usage bar renders");
+assert.match(chatHtml, /250,000/u, "context maximum is explicit");
 console.log("chat pane smoke passed");
 
 // Diff suggestion review inside the editor and in chat.
@@ -245,8 +251,8 @@ const chatWithDiff = renderToStaticMarkup(h(ChatPane, {
   changes: [{ id: "1", file: "main.tex", hunk: diffSuggestion.hunks[0] }], onKeepChange() {}, onDiscardChange() {}, onKeepAll() {}, onDiscardAll() {}, resolvedChoices: new Set(), onChoose() {},
 }));
 assert.match(chatWithDiff, /ps-chat-changes/u);
-assert.match(chatWithDiff, /keepAll/u);
-assert.equal((chatWithDiff.match(/keepAll/gu) || []).length, 1, "one Keep all button");
+assert.match(chatWithDiff, /Keep all/u);
+assert.equal((chatWithDiff.match(/Keep all/gu) || []).length, 1, "one Keep all button");
 console.log("diff review smoke passed");
 
 const chatWithChoice = renderToStaticMarkup(h(ChatPane, {

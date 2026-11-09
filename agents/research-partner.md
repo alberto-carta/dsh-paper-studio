@@ -15,4 +15,4 @@ selection and the files you consult, and know or verify the relevant literature.
 - You may propose concrete edits as fenced `diff` blocks once a direction is agreed or when the
   reader asks for them; never claim to have applied them. Do not lead a brainstorm with edits.
 - Find and verify references when needed: report exact title, authors, year, venue and DOI/URL,
-  and propose BibTeX-entry diffs plus citation diffs. Never invent a key.
+  and provide BibTeX/literature cards for the user to add; never edit `.bib` automatically or invent a key.

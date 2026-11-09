@@ -367,7 +367,7 @@ test("memory blocks contain one durable note per line", () => {
 
 test("long chats summarize older turns and keep the tail", async () => {
   const chat = {
-    messages: Array.from({ length: 30 }, (unused, index) => ({ role: index % 2 === 0 ? "user" : "assistant", content: `message ${index} ${"x".repeat(3000)}` })),
+    messages: Array.from({ length: 30 }, (unused, index) => ({ role: index % 2 === 0 ? "user" : "assistant", content: `message ${index} ${"x".repeat(5000)}` })),
   };
   const events = [];
   const llm = {
@@ -377,7 +377,7 @@ test("long chats summarize older turns and keep the tail", async () => {
     },
   };
   const job = { controller: new AbortController(), emit: (event) => events.push(event) };
-  await __test.summarizeChat(llm, "fake", "fake", chat, 0, job);
+  await __test.summarizeChat(llm, "fake", "fake", chat, 1_000_000, job);
   assert.equal(chat.summary, "Condensed summary");
   assert.ok(chat.summaryCount > 0);
   assert.ok(events.some((event) => event.type === "summary"));
@@ -389,7 +389,7 @@ test("summarizing never rewrites the frozen system prompt", async () => {
   const chat = {
     systemPrompt: "FROZEN SYSTEM PROMPT",
     promptMeta: { agentName: "Frozen agent", capturedAt: "2026-01-01T00:00:00.000Z" },
-    messages: Array.from({ length: 30 }, (unused, index) => ({ role: index % 2 === 0 ? "user" : "assistant", content: `message ${index} ${"x".repeat(3000)}` })),
+    messages: Array.from({ length: 30 }, (unused, index) => ({ role: index % 2 === 0 ? "user" : "assistant", content: `message ${index} ${"x".repeat(5000)}` })),
   };
   const llm = {
     stream: async function* stream() {
@@ -397,7 +397,7 @@ test("summarizing never rewrites the frozen system prompt", async () => {
       yield { type: "finish", reason: { kind: "stop" } };
     },
   };
-  await __test.summarizeChat(llm, "fake", "fake", chat, 0, { controller: new AbortController(), emit() {} });
+  await __test.summarizeChat(llm, "fake", "fake", chat, 1_000_000, { controller: new AbortController(), emit() {} });
   assert.equal(chat.summary, "Condensed summary");
   assert.equal(chat.systemPrompt, "FROZEN SYSTEM PROMPT");
   assert.deepEqual(chat.promptMeta, { agentName: "Frozen agent", capturedAt: "2026-01-01T00:00:00.000Z" });
@@ -885,4 +885,38 @@ test("image reads become request image blocks", async () => {
     __test.setServiceContext(null);
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+test("compile requests and pinned context are parsed", () => {
+  assert.deepEqual(__test.compileRequests("```compile\ncheck references\n```"), ["check references"]);
+  const messages = __test.chatRequestMessages({ pins: [{ path: "main.tex", text: "pinned body" }], messages: [] }, "provider", "model");
+  assert.ok(messages.some((message) => JSON.stringify(message.content).includes("pinned body")));
+});
+
+test("literature blocks parse and create cards", () => {
+  assert.deepEqual(__test.literatureRequests("```literature\nsearch: LaH10 superconductivity\n```"), [{ kind: "search", value: "LaH10 superconductivity" }]);
+  const card = __test.crossrefItem({
+    DOI: "10.1000/xyz", title: ["A paper"], author: [{ given: "Ada", family: "Lovelace" }],
+    issued: { "date-parts": [[2024]] }, "container-title": ["Journal"], abstract: "<jats:p>Abstract</jats:p>",
+  });
+  assert.equal(card.year, 2024);
+  assert.equal(card.doi, "10.1000/xyz");
+  assert.match(card.bibtex, /@article/u);
+});
+
+test("final literature cards are selected explicitly", () => {
+  assert.deepEqual(__test.cardRequests("```cards\n10.1000/abc\nlovelace2024\n```"), ["10.1000/abc", "lovelace2024"]);
+  const candidates = [
+    { doi: "10.1000/abc", key: "ada2024", title: "A" },
+    { doi: "10.1000/def", key: "bob2024", title: "B" },
+  ];
+  assert.deepEqual(__test.selectLiteratureCandidates(candidates, ["10.1000/def"]).map((item) => item.title), ["B"]);
+});
+
+test("literature_card blocks are explicit", () => {
+  assert.deepEqual(__test.literatureCardBlocks("```literature_card\ndoi: 10.1021/acs.jpcc.2c03804\n```"), [{ doi: "10.1021/acs.jpcc.2c03804" }]);
+});
+
+test("grep blocks request a scoped search", () => {
+  assert.deepEqual(__test.grepRequests("```grep\npattern: M\\^I\npath: main.tex\n```"), [{ pattern: "M\\^I", path: "main.tex", glob: "" }]);
 });

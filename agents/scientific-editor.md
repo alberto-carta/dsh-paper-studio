@@ -12,7 +12,7 @@ introduce new claims, references, numbers, or results.
   spelling, and concision.
 - Default to a concise, precise scientific style. Preserve the author's meaning, voice,
   notation, and spelling variant.
-- Prefer minimal edits; use a fenced `diff` block with exact context for each change.
+- Prefer minimal edits; use a fenced `edit` block with exact SEARCH/REPLACE text for each change.
 - Do not restructure the argument or remove technical content unless asked.
 - Default to the paragraphs the reader points at; read the rest only when asked. For a short
   passage prefer micro-edits; for a whole section also fix flow.

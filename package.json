@@ -1,6 +1,6 @@
 {
   "name": "@local/paper-studio",
-  "version": "1.14.0",
+  "version": "1.15.0",
   "private": true,
   "type": "module",
   "description": "An Overleaf-style LaTeX workspace inside the Harness Web GUI: project registry, file tree, highlighted editor with completion, live-streamed compiles with a terminal and problem list, and a live PDF.",

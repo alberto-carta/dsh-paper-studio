@@ -10,7 +10,7 @@ try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = 
 
     const PANEL_ID = "paper-studio";
     /** Shown in Settings so the loaded client can be matched to the source file. */
-    const CLIENT_BUILD = "2026-11-08T15:10";
+    const CLIENT_BUILD = "2026-11-09T05:45";
     const NS = "paperStudio";
     const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
 
@@ -155,7 +155,7 @@ try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = 
         scopeCommon: "common",
         agentBaseHint: "Optionally start from existing agents, then edit the merged prompt.",
         agentBaseMerge: "Merge selected",
-        addToChat: "Add selection to current chat",
+        addToChat: "Pin to current chat",
         contextAdded: "Selection added to the chat",
         suggestedEdit: "Suggested edit",
         keep: "Keep",
@@ -662,6 +662,33 @@ try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = 
 .ps-chat-agent{font-size:11.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:38%}
 .ps-chat-bar .ps-select{flex:1;min-width:0;font-size:11px}
 .ps-chat-log{flex:1;min-height:0;overflow:auto;padding:8px;display:flex;flex-direction:column;gap:8px}
+.ps-context-total{padding:6px 8px;border-radius:6px;background:var(--dsw-alias-bg-layer-1);font-size:11px}
+.ps-context-layer{display:flex;align-items:center;justify-content:space-between;padding:3px 4px;border-bottom:.5px solid var(--dsw-alias-border-l1);font-size:11.5px}
+.ps-context-layer code{font:10.5px/1.4 ${MONO};color:var(--dsw-alias-label-secondary)}
+.ps-context-pins{display:flex;flex-direction:column;gap:2px;padding:4px 0}
+.ps-context-pin{display:flex;align-items:center;justify-content:space-between;padding:3px 5px;border-radius:5px;background:var(--dsw-alias-bg-layer-1);font:10.5px/1.4 ${MONO}}
+.ps-context-actions{display:flex;justify-content:flex-end;padding-top:4px}
+.ps-spinner{display:inline-block;width:11px;height:11px;border:1.5px solid color-mix(in srgb,var(--dsw-alias-brand-primary) 35%,transparent);border-top-color:var(--dsw-alias-brand-primary);border-radius:50%;animation:ps-spin .75s linear infinite;vertical-align:-1px}
+.ps-context-bar{display:flex;align-items:center;gap:6px;padding:4px 9px;border-top:.5px solid var(--dsw-alias-border-l1);font:9.5px/1.2 ${MONO};color:var(--dsw-alias-label-secondary);flex:none}
+.ps-context-bar-label{white-space:nowrap}
+.ps-context-bar-track{flex:1;height:4px;border-radius:2px;background:var(--dsw-alias-bg-layer-2);overflow:hidden}
+.ps-context-bar-fill{height:100%;border-radius:2px;background:var(--dsw-alias-brand-primary);transition:width .25s ease}
+.ps-context-bar-pct{width:30px;text-align:right;white-space:nowrap}
+.ps-chat-tokens{flex:none;font:9.5px/1.2 ${MONO};color:var(--dsw-alias-label-secondary)}
+.ps-lit-card{border:1.5px solid #1e3a8a;border-radius:7px;padding:6px 8px;background:#ffffff;color:#111827;display:flex;flex-direction:column;gap:3px;min-width:0;overflow-wrap:anywhere}
+.ps-lit-title{font-size:12px;font-weight:650;color:#1e3a8a;text-decoration:none}
+.ps-lit-meta{font-size:10.5px;color:#374151}
+.ps-lit-links{display:flex;align-items:center;gap:8px;font:10px/1.3 ${MONO}}
+.ps-lit-links a{color:#1e3a8a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ps-lit-links .ps-btn{margin-left:auto;height:22px;font-size:10px}
+.ps-lit-abstract{font-size:10.5px;color:#374151;white-space:normal;overflow-wrap:anywhere;word-break:break-word}
+.ps-lit-abstract[open]{display:block;max-height:none;overflow:visible}
+.ps-lit-abstract div{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;max-height:none;overflow:visible}
+.ps-lit-nodoi{color:#6b7280;font-style:italic}
+.ps-lit-abstract summary{cursor:pointer}
+.ps-chat-pins{display:flex;flex-direction:column;gap:3px;max-height:130px;overflow:auto;padding:4px 8px 0;flex:none}
+.ps-chat-pin{position:relative;border:.5px solid var(--dsw-alias-brand-primary);border-radius:7px;background:var(--dsw-alias-bg-layer-1);padding:5px 24px 5px 7px}
+.ps-chat-pin .ps-btn{position:absolute;right:2px;top:2px}
 .ps-chat-context{border:.5px solid var(--dsw-alias-border-l1);border-radius:7px;background:var(--dsw-alias-bg-layer-1);padding:5px 7px}
 .ps-chat-context-head{font:9.5px/1.3 ${MONO};color:var(--dsw-alias-label-secondary)}
 .ps-chat-context-text{font-size:11px;color:var(--dsw-alias-label-secondary);white-space:pre-wrap;max-height:80px;overflow:hidden;margin-top:2px}
@@ -684,6 +711,10 @@ try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = 
 .ps-chat-text a{color:var(--dsw-alias-brand-primary);text-decoration:underline}
 .ps-chat-msg.user .ps-chat-text{background:var(--dsw-alias-bg-layer-2);border-radius:7px;padding:5px 7px}
 .ps-chat-thinking{opacity:.7;font-style:italic}
+.ps-compile-approval{margin:6px 8px 0;padding:7px 9px;border:1px solid #b45309;border-radius:7px;background:color-mix(in srgb,#f59e0b 10%,transparent)}
+.ps-compile-approval-title{font-size:11.5px;font-weight:650}
+.ps-compile-approval-reason{font-size:11px;color:var(--dsw-alias-label-secondary);margin:2px 0 6px}
+.ps-compile-approval-actions{display:flex;gap:4px;flex-wrap:wrap}
 .ps-chat-queue{display:flex;flex-direction:column;gap:3px;padding:4px 8px 0;max-height:120px;overflow:auto}
 .ps-chat-queue-item{display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:5px;background:var(--dsw-alias-bg-layer-1);font-size:11px}
 .ps-chat-queue-kind{flex:none;font-size:9px;text-transform:uppercase;letter-spacing:.04em;color:var(--dsw-alias-brand-primary);border:.5px solid currentColor;border-radius:999px;padding:0 4px}
@@ -736,6 +767,7 @@ try { flushSync = require("react-dom").flushSync || null; } catch { flushSync = 
 .ps-outline-item.section .ps-outline-text{font-weight:600}
 .ps-outline-item.subsection{padding-left:12px}
 .ps-outline-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ps-tree-menu{position:fixed;z-index:110;min-width:180px;padding:4px;border-radius:8px;background:var(--dsw-alias-bg-overlay);border:.5px solid var(--dsw-alias-border-l2);box-shadow:0 10px 26px rgba(0,0,0,.28)}
 .ps-path-bar{flex:none;display:flex;align-items:center;gap:5px;padding:3px 6px;border-bottom:.5px solid var(--dsw-alias-border-l1);font-size:10.5px;color:var(--dsw-alias-label-secondary)}
 .ps-path-bar code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:10.5px/1.4 ${MONO}}
 .ps-image-path{display:flex;align-items:center;gap:8px;max-width:100%;font-size:11px}
@@ -1137,6 +1169,27 @@ body.ps-resizing *{cursor:inherit!important}
     }
 
     const UI_KEY = "dsh.paper-studio.ui";
+    const DRAFT_PREFIX = "dsh.paper-studio.draft";
+    const CONTEXT_BUDGET_CHARS = 1_000_000;
+
+    function draftKey(projectId, path) {
+      return `${DRAFT_PREFIX}:${projectId || ""}:${path || ""}`;
+    }
+    function readDraft(projectId, path) {
+      try {
+        const raw = localStorage.getItem(draftKey(projectId, path));
+        const value = raw ? JSON.parse(raw) : null;
+        return value && typeof value.content === "string" ? value : null;
+      } catch {
+        return null;
+      }
+    }
+    function writeDraft(projectId, path, content, mtime) {
+      try { localStorage.setItem(draftKey(projectId, path), JSON.stringify({ content, at: Date.now(), mtime: mtime ?? null })); } catch { /* storage disabled */ }
+    }
+    function clearDraft(projectId, path) {
+      try { localStorage.removeItem(draftKey(projectId, path)); } catch { /* storage disabled */ }
+    }
     function readUi() {
       try {
         const raw = window.localStorage.getItem(UI_KEY);
@@ -1193,13 +1246,17 @@ body.ps-resizing *{cursor:inherit!important}
     function Modal(props) {
       const { title, onClose, children, footer } = props;
       const bodyRef = useRef(null);
+      const mountedAt = useRef(Date.now());
       useEffect(() => {
         const first = bodyRef.current && bodyRef.current.querySelector("input, textarea, select, button");
         if (first && typeof first.focus === "function") first.focus();
       }, []);
       return h("div", {
         className: "ps-backdrop",
-        onMouseDown: (event) => { if (event.target === event.currentTarget) onClose(); },
+        onMouseDown: (event) => {
+          if (Date.now() - mountedAt.current < 250) return;
+          if (event.target === event.currentTarget) onClose();
+        },
       },
       h("div", { className: "ps-modal", role: "dialog", "aria-modal": "true", "aria-label": title },
         h("div", { className: "ps-modal-head" },
@@ -2614,7 +2671,9 @@ body.ps-resizing *{cursor:inherit!important}
           onClick: () => {
             const menu = cmMenu;
             setCmMenu(null);
-            if (onDiscuss && tab) onDiscuss({ text: menu.text, file: tab.path, startLine: menu.startLine, endLine: menu.endLine });
+            if (onDiscuss && tab) {
+              requestAnimationFrame(() => onDiscuss({ text: menu.text, file: tab.path, startLine: menu.startLine, endLine: menu.endLine }));
+            }
           },
         }, "Discuss with agent…"),
         chatEnabled ? h("button", {
@@ -2622,9 +2681,11 @@ body.ps-resizing *{cursor:inherit!important}
           onClick: () => {
             const menu = cmMenu;
             setCmMenu(null);
-            if (onAddChatContext && tab) onAddChatContext({ text: menu.text, file: tab.path, startLine: menu.startLine, endLine: menu.endLine });
+            if (onAddChatContext && tab) {
+              requestAnimationFrame(() => onAddChatContext({ text: menu.text, file: tab.path, startLine: menu.startLine, endLine: menu.endLine }));
+            }
           },
-        }, "Add selection to current chat") : null) : null,
+        }, "Pin to current chat") : null) : null,
         changes && changes.length > 0 && diffBox ? h("div", {
           className: "ps-diff-pop",
           style: {
@@ -3559,6 +3620,12 @@ body.ps-resizing *{cursor:inherit!important}
       return String(content || "").slice(0, Math.max(0, offset)).split("\n").length;
     }
 
+    function stripCardBlocks(text) {
+      return String(text || "")
+        .replace(/```literature_card\s*\n[\s\S]*?```/giu, "")
+        .replace(/```cards?\s*\n[\s\S]*?```/giu, "");
+    }
+
     function stripDiffBlocks(text) {
       return String(text || "")
         .replace(/```(?:edit|aider)\s*\n[\s\S]*?```/giu, "")
@@ -3914,11 +3981,36 @@ body.ps-resizing *{cursor:inherit!important}
       let index = 0;
       while ((match = pattern.exec(String(text || "")))) {
         const body = match[1].endsWith("\n") ? match[1].slice(0, -1) : match[1];
-        const options = body.split("\n")
-          .map((line) => line.trim())
+        const lines = body.split("\n");
+        const marker = /^\s*(?:(\d+)[.)]|[-*\u2022])\s+(.*)$/u;
+        const hasMarker = lines.some((line) => marker.test(line));
+        const groups = [];
+        let current = null;
+        for (const raw of lines) {
+          const line = raw.trimEnd();
+          const found = hasMarker ? marker.exec(line) : null;
+          if (found) {
+            if (current && current.length > 0) groups.push(current);
+            current = [found[2].trim()];
+            continue;
+          }
+          if (!hasMarker && line.trim() === "") {
+            if (current && current.length > 0) groups.push(current);
+            current = null;
+            continue;
+          }
+          if (line.trim() === "" && hasMarker) {
+            if (current && current.length > 0) current.push("");
+            continue;
+          }
+          if (!current) current = [line.trim()];
+          else current.push(line.trim());
+        }
+        if (current && current.length > 0) groups.push(current);
+        const options = groups
+          .map((group) => group.join("\n").replace(/\n{2,}/gu, "\n").trim())
           .filter(Boolean)
-          .map((line) => {
-            const clean = line.replace(/^(?:\d+[.)]|[-*])\s*/u, "");
+          .map((clean) => {
             const [label, ...rest] = clean.split(/\s+[—–]\s+/u);
             return { label: label.trim(), description: rest.join(" — ").trim() };
           })
@@ -3938,7 +4030,9 @@ body.ps-resizing *{cursor:inherit!important}
     }
 
     function stripReadBlocks(text) {
-      return String(text || "").replace(/```read\s*\n[^\n]+\n```/giu, "");
+      return String(text || "")
+        .replace(/```read\s*\n[^\n]+\n```/giu, "")
+        .replace(/```grep\s*\n[\s\S]*?```/giu, "");
     }
 
     function stripChoiceBlocks(text) {
@@ -4242,7 +4336,8 @@ body.ps-resizing *{cursor:inherit!important}
         t, agent, chat, chats, input, onInput, onSend, onStop, busy, stream,
         onSelectChat, onNewChat, onClose, changes, onKeepChange, onDiscardChange, onKeepAll, onDiscardAll,
         resolvedChoices, onChoose, onDeleteChat, onShowPrompt, onShowMemory, streamReasoning, thinkingMode,
-        queued, onQueue, onSteer, onRemoveQueued,
+        queued, onQueue, onSteer, onRemoveQueued, onShowContext, onUnpin, onSteerQueued,
+        compileApproval, onCompileDecision,
       } = props;
       const logRef = useRef(null);
       const [inputHeight, setInputHeight] = useState(() => {
@@ -4269,6 +4364,22 @@ body.ps-resizing *{cursor:inherit!important}
         if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
       }, [chat && chat.messages ? chat.messages.length : 0, stream, busy]);
       const messages = chat && Array.isArray(chat.messages) ? chat.messages : [];
+      const recentMessages = chat && Number(chat.summaryCount) > 0 ? messages.slice(Number(chat.summaryCount)) : messages;
+      const contextChars = (chat ? String(chat.systemPrompt || "").length + String(chat.memory || "").length + String(chat.summary || "").length + String(chat.context && chat.context.text || "").length + (chat.pins || []).reduce((total, pin) => total + String(pin.text || "").length, 0) : 0)
+        + (chat && Array.isArray(chat.literature) ? chat.literature.reduce((total, item) => total + String(item.title || "").length + String(item.abstract || "").length, 0) : 0)
+        + recentMessages.reduce((total, message) => total + String(message.content || "").length, 0) + String(input || "").length;
+      const usedTokens = Math.ceil(contextChars / 4);
+      const maxTokens = Math.ceil(CONTEXT_BUDGET_CHARS / 4);
+      const contextPct = Math.max(0, Math.min(100, Math.round((contextChars / CONTEXT_BUDGET_CHARS) * 100)));
+      let assistantOrdinal = -1;
+      const assistantOrdinals = messages.map((message) => (message.role === "assistant" ? ++assistantOrdinal : null));
+      const renderLiteratureCard = (item, key) => h("div", { className: "ps-lit-card", key },
+        h("a", { className: "ps-lit-title", href: item.url || (item.doi ? `https://doi.org/${item.doi}` : "#"), target: "_blank", rel: "noopener noreferrer" }, item.title || "Untitled"),
+        h("div", { className: "ps-lit-meta" }, `${(item.authors || []).slice(0, 4).join(", ")}${(item.authors || []).length > 4 ? " et al." : ""} · ${item.year || "—"} · ${item.venue || ""}`),
+        h("div", { className: "ps-lit-links" },
+          item.doi ? h("a", { href: `https://doi.org/${item.doi}`, target: "_blank", rel: "noopener noreferrer" }, item.doi) : h("span", { className: "ps-lit-nodoi" }, "DOI not found"),
+          item.doi ? h("button", { className: "ps-btn", type: "button", title: "Copy DOI", onClick: () => { void navigator.clipboard.writeText(item.doi); } }, "Copy DOI") : null),
+        item.abstract ? h("details", { className: "ps-lit-abstract" }, h("summary", null, "Abstract"), h("div", null, item.abstract)) : null);
       return h("div", { className: "ps-chat" },
         h("div", { className: "ps-chat-bar" },
           h("span", { className: "ps-chat-agent", title: agent.name }, agent.name),
@@ -4276,7 +4387,13 @@ body.ps-resizing *{cursor:inherit!important}
             className: "ps-select", value: chat ? chat.id : "", title: t("chatHistory"),
             onChange: (event) => onSelectChat(event.target.value),
           }, chats.map((item) => h("option", { key: item.id, value: item.id }, `${item.title || t("newChat")}${item.messages ? ` · ${item.messages}` : ""}`))),
+          busy ? h("span", { className: "ps-spinner", title: "Working" }) : null,
           h("button", { className: "ps-btn icon", type: "button", title: t("newChat"), onClick: onNewChat }, h(Icon.plus)),
+          h("button", {
+            className: "ps-btn icon ps-chat-prompt", type: "button",
+            title: "Context inspector",
+            onClick: () => onShowContext && onShowContext(),
+          }, "◧"),
           h("button", {
             className: "ps-btn icon ps-chat-prompt", type: "button",
             title: `${t("brainTitle")}${chat && chat.reasoningEffort ? ` · ${chat.reasoningEffort}` : ""}`,
@@ -4293,7 +4410,7 @@ body.ps-resizing *{cursor:inherit!important}
           messages.map((message, index) => {
             const choices = message.role === "assistant" ? parseChoiceBlocks(message.content) : [];
             const text = message.role === "assistant"
-              ? stripMemoryBlocks(stripWebBlocks(stripReadBlocks(stripChoiceBlocks(stripDiffBlocks(message.content)))))
+              ? stripMemoryBlocks(stripWebBlocks(stripReadBlocks(stripChoiceBlocks(stripCardBlocks(stripDiffBlocks(message.content))))))
               : (message.kind === "file" ? "" : message.content);
             return h("div", { key: index, className: `ps-chat-msg ${message.role === "user" ? "user" : "assistant"}` },
               h("div", { className: "ps-chat-who" }, message.role === "user" ? t("you") : agent.name),
@@ -4310,7 +4427,9 @@ body.ps-resizing *{cursor:inherit!important}
                 .map((block) => h(ChoiceCard, {
                   key: block.id, t, options: block.options,
                   onChoose: (value) => onChoose && onChoose(`${index}:${block.id}`, value),
-                })));
+                })),
+              (chat && Array.isArray(chat.literature) ? chat.literature.filter((item) => item.assistantIndex === assistantOrdinals[index]) : [])
+                .map((item, cardIndex) => renderLiteratureCard(item, `lit-${index}-${cardIndex}`)));
           }),
           streamReasoning ? h("div", { className: "ps-chat-msg assistant" },
             h("div", { className: "ps-chat-who" }, agent.name),
@@ -4320,7 +4439,11 @@ body.ps-resizing *{cursor:inherit!important}
             h(RichText, { text: stream })) : null,
           busy && !stream ? h("div", { className: "ps-chat-msg assistant" },
             h("div", { className: "ps-chat-who" }, agent.name),
-            h("div", { className: "ps-chat-text ps-chat-thinking" }, t("thinking"))) : null,
+            h("div", { className: "ps-chat-text ps-chat-thinking" }, h("span", { className: "ps-spinner" }), " ", t("thinking"))) : null,
+          busy && stream ? h("div", { className: "ps-chat-msg assistant" },
+            h("div", { className: "ps-chat-text ps-chat-thinking" }, h("span", { className: "ps-spinner" }), " Working…")) : null,
+          (chat && Array.isArray(chat.literature) ? chat.literature.filter((item) => item.assistantIndex === undefined && item.messageIndex === undefined) : [])
+            .map((item, index) => renderLiteratureCard(item, `legacy-${index}`)),
           messages.length === 0 && !stream && !busy
             ? h("div", { className: "ps-hint", style: { padding: "10px 8px" } }, t("chatStartHint"))
             : null),
@@ -4333,17 +4456,35 @@ body.ps-resizing *{cursor:inherit!important}
               h("button", { className: "ps-btn keep", type: "button", onClick: () => onKeepChange && onKeepChange(change) }, t("keep")),
               h("button", { className: "ps-btn danger", type: "button", onClick: () => onDiscardChange && onDiscardChange(change.id) }, t("discard"))))),
           h("div", { className: "ps-chat-changes-actions" },
-            h("button", { className: "ps-btn keep", type: "button", onClick: () => onKeepAll && onKeepAll() }, t("keepAll")),
-            h("button", { className: "ps-btn danger", type: "button", onClick: () => onDiscardAll && onDiscardAll() }, t("discardAll")))) : null,
+            h("button", { className: "ps-btn keep", type: "button", onClick: () => onKeepAll && onKeepAll() }, "Keep all"),
+            h("button", { className: "ps-btn danger", type: "button", onClick: () => onDiscardAll && onDiscardAll() }, "Discard all"))) : null,
+        compileApproval ? h("div", { className: "ps-compile-approval" },
+          h("div", { className: "ps-compile-approval-title" }, "The agent wants to compile"),
+          h("div", { className: "ps-compile-approval-reason" }, compileApproval.reason || "Check the current document"),
+          h("div", { className: "ps-compile-approval-actions" },
+            h("button", { className: "ps-btn primary", type: "button", onClick: () => onCompileDecision("allow") }, "Allow once"),
+            h("button", { className: "ps-btn", type: "button", onClick: () => onCompileDecision("allow-session") }, "Always allow this chat"),
+            h("button", { className: "ps-btn danger", type: "button", onClick: () => onCompileDecision("deny") }, "Deny"))) : null,
         queued && queued.length > 0 ? h("div", { className: "ps-chat-queue" },
           queued.map((item) => h("div", { className: "ps-chat-queue-item", key: item.id },
             h("span", { className: "ps-chat-queue-kind" }, item.steer ? "steer" : "queued"),
             h("span", { className: "ps-chat-queue-text", title: item.text }, item.text),
+            h("button", { className: "ps-btn", type: "button", onClick: () => onSteerQueued && onSteerQueued(item.id) }, "Steer"),
             h("button", { className: "ps-btn icon", type: "button", title: "Remove", onClick: () => onRemoveQueued && onRemoveQueued(item.id) }, "×")))) : null,
+        (chat && Array.isArray(chat.pins) && chat.pins.length > 0) ? h("div", { className: "ps-chat-pins" },
+          (chat && Array.isArray(chat.pins) ? chat.pins : []).map((pin, index) => h("div", { className: "ps-chat-pin", key: `${pin.path}-${index}` },
+            h("div", { className: "ps-chat-context-head" }, `Pinned ${pin.path || ""}${pin.startLine ? `:${pin.startLine}${pin.endLine && pin.endLine !== pin.startLine ? `-${pin.endLine}` : ""}` : ""}`),
+            h("div", { className: "ps-chat-context-text" }, String(pin.text || "").slice(0, 240)),
+            h("button", { className: "ps-btn icon", type: "button", title: "Unpin", onClick: () => onUnpin && onUnpin(index) }, "×"))),) : null,
         h("div", {
           className: "ps-chat-resize", title: "Drag to resize the message box",
           onPointerDown: startResize,
         }),
+        h("div", { className: "ps-context-bar", title: `${contextChars.toLocaleString()} characters of ${CONTEXT_BUDGET_CHARS.toLocaleString()} budget` },
+          h("span", { className: "ps-context-bar-label" }, `Context ~${usedTokens.toLocaleString()} / ${maxTokens.toLocaleString()} tok`),
+          h("div", { className: "ps-context-bar-track" },
+            h("div", { className: "ps-context-bar-fill", style: { width: `${contextPct}%` } })),
+          h("span", { className: "ps-context-bar-pct" }, `${contextPct}%`)),
         h("div", { className: "ps-chat-compose" },
           h("textarea", {
             className: "ps-chat-input", value: input, placeholder: t("chatPlaceholder"),
@@ -4380,6 +4521,7 @@ body.ps-resizing *{cursor:inherit!important}
       const [tree, setTree] = useState([]);
       const [treeInfo, setTreeInfo] = useState({ truncated: false });
       const [tabs, setTabs] = useState([]);
+      const draftTimers = useRef(new Map());
       const [active, setActive] = useState(null);
       const [cursor, setCursor] = useState({ line: 1, col: 1 });
       const [expanded, setExpanded] = useState(() => new Set(["sections"]));
@@ -4417,10 +4559,18 @@ body.ps-resizing *{cursor:inherit!important}
       const [misspelled, setMisspelled] = useState(() => new Set());
       const [missing, setMissing] = useState(null);
       const [explorerTab, setExplorerTab] = useState(() => (readUi().explorerTab === "git" ? "git" : "files"));
+      const [treeMenu, setTreeMenu] = useState(null);
       const [outlineOpen, setOutlineOpen] = useState(() => readUi().outlineOpen !== false);
       const [outlineMath, setOutlineMath] = useState(() => Boolean(readUi().outlineMath));
       const [outlineFloats, setOutlineFloats] = useState(() => Boolean(readUi().outlineFloats));
       const [outlineHeight, setOutlineHeight] = useState(() => Math.max(80, Number(readUi().outlineHeight) || 180));
+      useEffect(() => {
+        if (!treeMenu) return undefined;
+        const close = () => setTreeMenu(null);
+        window.addEventListener("pointerdown", close);
+        return () => window.removeEventListener("pointerdown", close);
+      }, [treeMenu]);
+
       const startOutlineResize = (event) => {
         event.preventDefault();
         const startY = event.clientY;
@@ -4460,6 +4610,7 @@ body.ps-resizing *{cursor:inherit!important}
       const [chatInput, setChatInput] = useState("");
       const [chatBusy, setChatBusy] = useState(false);
       const [chatQueue, setChatQueue] = useState([]);
+      const [compileApproval, setCompileApproval] = useState(null);
       const [chatStream, setChatStream] = useState("");
       const [chatReasoning, setChatReasoning] = useState("");
       const [changes, setChanges] = useState([]);
@@ -4650,7 +4801,12 @@ body.ps-resizing *{cursor:inherit!important}
         }
         try {
           const file = await request("file", { query: { project: id, path } });
-          const tab = { path, content: file.content, saved: file.content, mtime: file.mtime, dirty: false, saving: false, conflict: null };
+          const draft = readDraft(id, path);
+          const diskChanged = draft && draft.mtime && file.mtime > draft.mtime + 5;
+          if (diskChanged) clearDraft(id, path);
+          const recovered = draft && !diskChanged && draft.content !== file.content ? draft.content : null;
+          const tab = { path, content: recovered ?? file.content, saved: file.content, mtime: file.mtime, dirty: Boolean(recovered), saving: false, conflict: null };
+          if (recovered) notify("Recovered unsaved changes from a previous session.");
           mtimeByPath.current[path] = file.mtime;
           setTabs((list) => [...list.filter((item) => item.path !== path), tab]);
           setActive(path);
@@ -4957,19 +5113,90 @@ body.ps-resizing *{cursor:inherit!important}
         }
       }, []);
 
+      const savePinsFor = useCallback(async (targetChat, targetAgent, pins) => {
+        const id = projectIdRef.current;
+        if (!id || !targetChat || !targetAgent) return [];
+        const result = await request("chat/pins", { method: "POST", body: {
+          project: id, agentId: targetAgent.id, chatId: targetChat.id, pins,
+        } });
+        setChat((current) => (current && current.id === targetChat.id ? { ...current, pins: result.pins } : current));
+        return result.pins || [];
+      }, [chat]);
+
+      const pinContext = useCallback(async (context, targetChat, targetAgent) => {
+        if (!context || !context.text) return;
+        const current = targetChat || chat;
+        const agent = targetAgent || chatAgent;
+        if (!current || !agent) return;
+        const pins = [...(current.pins || [])];
+        if (!pins.some((pin) => pin.path === context.file && pin.startLine === context.startLine && pin.endLine === context.endLine)) {
+          pins.push({ path: context.file || "", startLine: context.startLine, endLine: context.endLine, text: String(context.text).slice(0, 8000) });
+        }
+        await savePinsFor(current, agent, pins);
+      }, [chat, chatAgent, savePinsFor]);
+
+      const removePin = useCallback(async (index) => {
+        if (!chat || !chatAgent) return;
+        const pins = (chat.pins || []).filter((unused, at) => at !== index);
+        await savePinsFor(chat, chatAgent, pins);
+      }, [chat, chatAgent, savePinsFor]);
+
+      const pinCurrentFile = useCallback(async () => {
+        const tab = tabsRef.current.find((item) => item.path === activeRef.current);
+        if (!chat || !chatAgent || !tab) return;
+        const pins = [...(chat.pins || [])];
+        if (!pins.some((pin) => pin.path === tab.path)) {
+          pins.push({ path: tab.path, startLine: 1, endLine: tab.content.split("\n").length, text: tab.content.slice(0, 8000) });
+        }
+        await savePinsFor(chat, chatAgent, pins);
+        notify(t("contextAdded"));
+      }, [chat, chatAgent, notify, savePinsFor, t]);
+
+      const pinPath = useCallback(async (path) => {
+        if (!chat || !chatAgent) {
+          notify("Open a chat first, then pin this file.", "err");
+          return;
+        }
+        try {
+          const pins = [...(chat.pins || [])];
+          if (/\.(?:png|jpe?g|gif|svg|webp|bmp|pdf)$/iu.test(path)) {
+            if (!pins.some((pin) => pin.path === path)) {
+              pins.push({ path, text: `Image/PDF file ${path}. Use a read block to inspect it.` });
+            }
+          } else {
+            const file = await request("file", { query: { project: projectIdRef.current, path } });
+            if (!pins.some((pin) => pin.path === path)) {
+              pins.push({ path, startLine: 1, endLine: String(file.content || "").split("\n").length, text: String(file.content || "").slice(0, 8000) });
+            }
+          }
+          await savePinsFor(chat, chatAgent, pins);
+          notify(t("contextAdded"));
+        } catch (error) {
+          notify(error.message, "err");
+        }
+      }, [chat, chatAgent, notify, savePinsFor, t]);
+
       const startChat = useCallback(async (agent, context) => {
         const id = projectIdRef.current;
         if (!id || !agent) return;
         try {
           const result = await request("chat/create", { method: "POST", body: {
-            project: id, agentId: agent.id, agentScope: agent.scope, context: context || null,
+            project: id, agentId: agent.id, agentScope: agent.scope, context: null,
           } });
           setChatAgent(agent);
           resolvedRef.current = new Set();
           resolvedContentRef.current = new Set();
           setResolvedChoices(new Set());
           setChanges([]);
-          setChat({ id: result.chat.id, title: result.chat.title, updatedAt: result.chat.updatedAt, context: context || null, messages: [] });
+          let pins = [];
+          if (context && context.text) {
+            const saved = await request("chat/pins", { method: "POST", body: {
+              project: id, agentId: agent.id, chatId: result.chat.id,
+              pins: [{ path: context.file || "", startLine: context.startLine, endLine: context.endLine, text: String(context.text).slice(0, 8000) }],
+            } });
+            pins = saved.pins || [];
+          }
+          setChat({ id: result.chat.id, title: result.chat.title, updatedAt: result.chat.updatedAt, context: null, pins, reasoningEffort: result.chat.reasoningEffort || "low", messages: [] });
           setChatInput("");
           setChatStream("");
           setChatReasoning("");
@@ -4984,18 +5211,13 @@ body.ps-resizing *{cursor:inherit!important}
       }, [notify, refreshChats]);
 
       const addChatContext = useCallback(async (context) => {
-        const id = projectIdRef.current;
-        if (!id || !chat || !chatAgent || !context || !context.text) return;
         try {
-          const result = await request("chat/context", { method: "POST", body: {
-            project: id, agentId: chatAgent.id, chatId: chat.id, context,
-          } });
-          setChat(result.chat);
+          await pinContext(context);
           notify(t("contextAdded"));
         } catch (error) {
           notify(error.message, "err");
         }
-      }, [chat, chatAgent, notify, t]);
+      }, [notify, pinContext, t]);
 
       const reviewSuggestion = useCallback((value) => {
         setSuggestion(value);
@@ -5004,7 +5226,7 @@ body.ps-resizing *{cursor:inherit!important}
 
       const discardSuggestion = useCallback(() => setSuggestion(null), []);
 
-      const applyChanges = useCallback((list, tag) => {
+      const applyChanges = useCallback(async (list, tag) => {
         const byFile = new Map();
         for (const change of list) {
           if (!change || (!change.hunk && change.search === undefined)) continue;
@@ -5012,14 +5234,40 @@ body.ps-resizing *{cursor:inherit!important}
           if (!byFile.has(file)) byFile.set(file, []);
           byFile.get(file).push(change);
         }
-        let applied = 0;
+        const appliedIds = new Set();
         for (const [file, entries] of byFile) {
           const tab = file
             ? tabsRef.current.find((item) => item.path === file)
             : tabsRef.current.find((item) => item.path === activeRef.current);
           if (!tab) {
-            if (file) void openFile(file);
-            notify(t("suggestionNoFile"), "err");
+            if (!file) {
+              notify(t("suggestionNoFile"), "err");
+              continue;
+            }
+            try {
+              const data = await request("file", { query: { project: projectIdRef.current, path: file } });
+              let content = data.content;
+              let local = 0;
+              for (const change of entries) {
+                const next = change.search !== undefined
+                  ? applySearchReplace(content, change.search, change.replace)
+                  : applySuggestion(content, { hunks: [change.hunk] });
+                if (next !== null) { content = next; local += 1; appliedIds.add(change.id); }
+              }
+              if (local === 0) {
+                notify(t("suggestionMismatch"), "err");
+                continue;
+              }
+              const saved = await request("file/save", { method: "POST", body: { project: projectIdRef.current, path: file, content, expectedMtime: data.mtime } });
+              if (saved && saved.conflict) {
+                notify(t("fileChanged"), "err");
+                continue;
+              }
+              await openFile(file);
+              notify(t("suggestionApplied"));
+            } catch (error) {
+              notify(error.message, "err");
+            }
             continue;
           }
           let content = tab.content;
@@ -5028,7 +5276,7 @@ body.ps-resizing *{cursor:inherit!important}
             const next = change.search !== undefined
               ? applySearchReplace(content, change.search, change.replace)
               : applySuggestion(content, { hunks: [change.hunk] });
-            if (next !== null) { content = next; local += 1; }
+            if (next !== null) { content = next; local += 1; appliedIds.add(change.id); }
           }
           if (local === 0) {
             notify(t("suggestionMismatch"), "err");
@@ -5046,10 +5294,9 @@ body.ps-resizing *{cursor:inherit!important}
           } else if (onEditRef.current) {
             onEditRef.current(tab.path, content, 0);
           }
-          applied += local;
         }
-        return applied;
-      }, [notify, openFile, t]);
+        return appliedIds;
+      }, [notify, openFile, request, t]);
 
       const persistResolved = useCallback(() => {
         if (!chat) return;
@@ -5093,8 +5340,9 @@ body.ps-resizing *{cursor:inherit!important}
         setChanges((list) => list.map((entry) => (entry.id === id ? { ...entry, ...patch, edited: true } : entry)));
       }, []);
 
-      const keepChange = useCallback((change) => {
-        if (applyChanges([change], { keep: change }) === 0) return;
+      const keepChange = useCallback(async (change) => {
+        const applied = await applyChanges([change], { keep: change });
+        if (!applied.has(change.id)) return;
         decisionRef.current(change.edited ? "modified" : "kept", change);
         resolveChange(change);
         notify(t("suggestionApplied"));
@@ -5152,17 +5400,16 @@ body.ps-resizing *{cursor:inherit!important}
         notify("Suggestion adapted to the current file.");
       }, [notify]);
 
-      const keepAllChanges = useCallback(() => {
-        const applied = [];
-        for (const change of changes) {
-          if (applyChanges([change], { keep: change }) > 0) {
-            applied.push(change.id);
-            decisionRef.current(change.edited ? "modified" : "kept", change);
-          }
+      const keepAllChanges = useCallback(async () => {
+        if (changes.length === 0) return;
+        const applied = await applyChanges(changes, { keep: changes[0] });
+        if (applied.size === 0) return;
+        const landed = changes.filter((change) => applied.has(change.id));
+        for (const change of landed) {
+          decisionRef.current(change.edited ? "modified" : "kept", change);
+          rememberResolved(change);
         }
-        if (applied.length === 0) return;
-        for (const change of changes) if (applied.includes(change.id)) rememberResolved(change);
-        setChanges((list) => list.filter((change) => !applied.includes(change.id)));
+        setChanges((list) => list.filter((change) => !applied.has(change.id)));
       }, [applyChanges, changes, rememberResolved]);
 
       const discardAllChanges = useCallback(() => {
@@ -5226,11 +5473,15 @@ body.ps-resizing *{cursor:inherit!important}
         }
       }, []);
 
-      const openExistingChat = useCallback(async (agent, chatId) => {
+      const openExistingChat = useCallback(async (agent, chatId, options = {}) => {
         const id = projectIdRef.current;
         if (!id || !agent) return;
         try {
           const data = await request("chat", { query: { project: id, agent: agent.id, chat: chatId } });
+          if (Array.isArray(data.literature)) {
+            const assistantCount = Array.isArray(data.messages) ? data.messages.filter((message) => message.role === "assistant").length : 0;
+            data.literature = data.literature.map((item) => (item.assistantIndex === undefined ? { ...item, assistantIndex: Math.max(0, assistantCount - 1) } : item));
+          }
           resolvedRef.current = loadResolved(data.id, agent.id);
           resolvedContentRef.current = loadResolvedContent(data.id, agent.id);
           setResolvedChoices(loadResolvedChoices(data.id));
@@ -5243,7 +5494,7 @@ body.ps-resizing *{cursor:inherit!important}
           setChatBusy(false);
           setRightTab("chat");
           setPdfOpen(true);
-          setDialog(null);
+          if (!options.background) setDialog(null);
           await refreshChats(agent);
         } catch (error) {
           notify(error.message, "err");
@@ -5254,20 +5505,25 @@ body.ps-resizing *{cursor:inherit!important}
       useEffect(() => {
         const id = project ? project.id : null;
         if (!id || !agents || agents.length === 0) return;
+        if (dialog) return;
         if (restoredChatFor.current === id) return;
         restoredChatFor.current = id;
         if (chatAgent) return;
         const ui = readUi();
         if (!ui.chatAgentId || !ui.chatId) return;
         const agent = agents.find((item) => item.id === ui.chatAgentId && item.scope === ui.chatAgentScope);
-        if (agent) void openExistingChat(agent, ui.chatId);
-      }, [project ? project.id : null, agents, chatAgent, openExistingChat]);
+        if (agent) void openExistingChat(agent, ui.chatId, { background: true });
+      }, [project ? project.id : null, agents, chatAgent, dialog, openExistingChat]);
 
       const selectChat = useCallback(async (chatId) => {
         const id = projectIdRef.current;
         if (!id || !chatAgent || !chatId) return;
         try {
           const data = await request("chat", { query: { project: id, agent: chatAgent.id, chat: chatId } });
+          if (Array.isArray(data.literature)) {
+            const assistantCount = Array.isArray(data.messages) ? data.messages.filter((message) => message.role === "assistant").length : 0;
+            data.literature = data.literature.map((item) => (item.assistantIndex === undefined ? { ...item, assistantIndex: Math.max(0, assistantCount - 1) } : item));
+          }
           resolvedRef.current = loadResolved(data.id, chatAgent.id);
           resolvedContentRef.current = loadResolvedContent(data.id, chatAgent.id);
           setResolvedChoices(loadResolvedChoices(data.id));
@@ -5302,10 +5558,28 @@ body.ps-resizing *{cursor:inherit!important}
         setChatReasoning("");
         setChat((current) => (current ? { ...current, messages: [...(current.messages || []), { role: "user", content: message, at: new Date().toISOString() }] } : current));
         try {
+          let context = null;
+          const api = editorApiRef.current;
+          const activeTab = tabsRef.current.find((item) => item.path === activeRef.current);
+          if (api && api.selection && activeTab) {
+            const range = api.selection();
+            if (range && range.end > range.start) {
+              const before = activeTab.content.slice(0, range.start);
+              const selected = activeTab.content.slice(range.start, range.end);
+              const endBefore = activeTab.content.slice(0, range.end);
+              context = {
+                file: activeTab.path,
+                startLine: before.split("\n").length,
+                endLine: endBefore.split("\n").length,
+                text: selected,
+              };
+            }
+          }
           const started = await request("chat/send", { method: "POST", body: {
-            project: id, agentId: chatAgent.id, agentScope: chatAgent.scope, chatId: chat.id, message,
+            project: id, agentId: chatAgent.id, agentScope: chatAgent.scope, chatId: chat.id, message, context,
           } });
           chatJobRef.current = started.jobId;
+          setChat((current) => (current && Array.isArray(current.pins) && current.pins.length > 0 ? { ...current, pins: [] } : current));
           if (chatSourceRef.current) chatSourceRef.current.close();
           const source = new EventSource(apiUrl("chat/events", { job: started.jobId }));
           chatSourceRef.current = source;
@@ -5322,7 +5596,25 @@ body.ps-resizing *{cursor:inherit!important}
             } else if (data.type === "reasoning") {
               reasoningAcc += data.text;
               setChatReasoning(reasoningAcc);
+            } else if (data.type === "literature-search" || data.type === "file" || data.type === "web" || data.type === "grep") {
+              setChatBusy(true);
+            } else if (data.type === "literature" && Array.isArray(data.items)) {
+              setChat((current) => {
+                if (!current) return current;
+                const existing = Array.isArray(current.literature) ? current.literature : [];
+                const merged = [...existing, ...data.items].filter((item, index, list) => list.findIndex((other) => (other.doi || other.title) === (item.doi || item.title) && other.assistantIndex === item.assistantIndex) === index);
+                return { ...current, literature: merged.slice(-50) };
+              });
+            } else if (data.type === "compile") {
+              if (data.ok) notify(data.cached ? t("cachedBuild") : t("compileOk"), "ok");
+              else notify(t("compileFailed"), "err");
+              void refreshPdf();
+            } else if (data.type === "compile-approval") {
+              setCompileApproval({ requestId: data.requestId, reason: data.reason });
+            } else if (data.type === "compile-denied") {
+              notify("Compile request denied.");
             } else if (data.type === "done") {
+              setCompileApproval(null);
               finish();
               setChat((current) => (current ? {
                 ...current,
@@ -5347,8 +5639,10 @@ body.ps-resizing *{cursor:inherit!important}
             } else if (data.type === "memory") {
               notify(t("memoryUpdated"));
             } else if (data.type === "summary") {
+              setChat((current) => (current ? { ...current, summary: data.summary || current.summary, summaryCount: Number(data.summaryCount) || current.summaryCount } : current));
               notify(t("chatSummarized"));
             } else if (data.type === "error" || data.type === "aborted") {
+              setCompileApproval(null);
               finish();
               setChat((current) => (current && acc ? {
                 ...current,
@@ -5396,6 +5690,27 @@ body.ps-resizing *{cursor:inherit!important}
       }, [chat, chatAgent, chatBusy, sendChat, stopChat]);
 
       const removeQueued = useCallback((id) => setChatQueue((list) => list.filter((item) => item.id !== id)), []);
+      const decideCompile = useCallback(async (decision) => {
+        const approval = compileApproval;
+        if (!approval || !chatJobRef.current) return;
+        try {
+          await request("chat/compile-approval", { method: "POST", body: {
+            jobId: chatJobRef.current, requestId: approval.requestId, decision,
+          } });
+          setCompileApproval(null);
+        } catch (error) {
+          notify(error.message, "err");
+        }
+      }, [compileApproval, notify]);
+
+      const steerQueued = useCallback((id) => {
+        setChatQueue((list) => {
+          const item = list.find((entry) => entry.id === id);
+          if (!item) return list;
+          return [{ ...item, steer: true }, ...list.filter((entry) => entry.id !== id)];
+        });
+        void stopChat();
+      }, [stopChat]);
 
       useEffect(() => {
         if (chatBusy || !chat || !chatAgent || chatQueue.length === 0) return;
@@ -5404,13 +5719,26 @@ body.ps-resizing *{cursor:inherit!important}
         void sendChat(next.text);
       }, [chatBusy, chat, chatAgent, chatQueue, sendChat]);
 
-      useEffect(() => { setChatQueue([]); }, [chat ? chat.id : null]);
+      useEffect(() => { setChatQueue([]); setCompileApproval(null); }, [chat ? chat.id : null]);
 
       chatBusyRef.current = chatBusy;
       const queueDecision = useCallback((kind, change) => {
         if (!chat || !chatAgent) return;
-        const head = change && change.hunk ? change.hunk.header || "" : "";
-        decisionQueueRef.current.push({ kind, label: `${change && change.file ? `${change.file} ` : ""}${head}`.trim() });
+        let line = "";
+        let snippet = "";
+        if (change && change.search !== undefined) {
+          snippet = String(change.search).split("\n").find((text) => text.trim()) || "";
+          const tab = tabsRef.current.find((item) => item.path === (change.file || activeRef.current));
+          const range = tab ? findSearchRange(tab.content, change.search) : null;
+          if (range) line = `:${lineNumberAt(tab.content, range.from)}`;
+        } else if (change && change.hunk) {
+          snippet = (change.hunk.lines || []).filter((part) => part.type !== " ").map((part) => part.text).find((text) => String(text).trim()) || "";
+          const match = /^@@ -([0-9]+)/u.exec(change.hunk.header || "");
+          if (match) line = `:${match[1]}`;
+        }
+        const quote = snippet.replace(/\s+/gu, " ").trim().slice(0, 70);
+        const label = `${change && change.file ? change.file : "current file"}${line}${quote ? ` · “${quote}${snippet.length > 70 ? "…" : ""}”` : ""}`;
+        decisionQueueRef.current.push({ kind, label });
         if (decisionTimerRef.current) clearTimeout(decisionTimerRef.current);
         const flush = () => {
           if (!chat || !chatAgent) { decisionQueueRef.current = []; return; }
@@ -5590,6 +5918,38 @@ body.ps-resizing *{cursor:inherit!important}
         });
       }, [pdfOpen, project ? project.id : null, rightTab, pdf.mode, pdf.rev, pdf.pages]);
 
+      // Persist unsaved buffers so a Harness panel remount cannot lose them.
+      useEffect(() => {
+        const id = projectIdRef.current;
+        for (const tab of tabs) {
+          const key = draftKey(id, tab.path);
+          clearTimeout(draftTimers.current.get(key));
+          if (!tab.dirty) {
+            clearDraft(id, tab.path);
+            draftTimers.current.delete(key);
+            continue;
+          }
+          draftTimers.current.set(key, setTimeout(() => {
+            writeDraft(id, tab.path, tab.content, tab.mtime);
+            draftTimers.current.delete(key);
+          }, 250));
+        }
+      }, [tabs]);
+
+      useEffect(() => () => {
+        const id = projectIdRef.current;
+        for (const tab of tabsRef.current) if (tab.dirty) writeDraft(id, tab.path, tab.content, tab.mtime);
+      }, []);
+
+      useEffect(() => {
+        const flush = () => {
+          const id = projectIdRef.current;
+          for (const tab of tabsRef.current) if (tab.dirty) writeDraft(id, tab.path, tab.content, tab.mtime);
+        };
+        window.addEventListener("beforeunload", flush);
+        return () => window.removeEventListener("beforeunload", flush);
+      }, []);
+
       // Persist light UI state.
       useEffect(() => {
         const timer = setTimeout(() => {
@@ -5657,6 +6017,8 @@ body.ps-resizing *{cursor:inherit!important}
             const unchanged = item.content === tab.content;
             return { ...item, saving: false, mtime: result.mtime, saved: tab.content, dirty: unchanged ? false : item.dirty, conflict: null };
           }));
+          const current = tabsRef.current.find((item) => item.path === path);
+          if (!current || current.content === tab.content) clearDraft(id, path);
           setStatus({ kind: "saved", at: Date.now() });
           const manual = Boolean(options && options.manual);
           if (shouldCompileAfterSave({ manual, compileOnSave: compileOnSaveRef.current, autoCompile: autoCompileRef.current })) {
@@ -5982,6 +6344,7 @@ body.ps-resizing *{cursor:inherit!important}
         if (tab && tab.dirty && !window.confirm(t("closeDirty"))) return;
         clearTimeout(saveTimers.current.get(path));
         saveTimers.current.delete(path);
+        clearDraft(projectIdRef.current, path);
         setTabs((list) => {
           const next = list.filter((item) => item.path !== path);
           if (activeRef.current === path) {
@@ -6050,6 +6413,7 @@ body.ps-resizing *{cursor:inherit!important}
         try {
           const file = await request("file", { query: { project: id, path } });
           mtimeByPath.current[path] = file.mtime;
+          clearDraft(id, path);
           setTabs((list) => list.map((item) => (item.path === path ? { ...item, content: file.content, saved: file.content, mtime: file.mtime, dirty: false, conflict: null } : item)));
           notify(t("fileChanged"));
         } catch (error) {
@@ -6755,6 +7119,35 @@ body.ps-resizing *{cursor:inherit!important}
           title = t("locateTitle");
           body = [pathField(t("path"), "path", { placeholder: "~/Documents/Papers/my-paper", hint: t("addFolderHint") })];
           actions = footer(t("locate"));
+        } else if (dialog.kind === "context") {
+          const pins = chat && Array.isArray(chat.pins) ? chat.pins : [];
+          const systemChars = chat ? String(chat.systemPrompt || "").length : 0;
+          const memoryChars = chat ? String(chat.memory || "").length : 0;
+          const summaryChars = chat ? String(chat.summary || "").length : 0;
+          const selectionChars = chat && chat.context ? String(chat.context.text || "").length : 0;
+          const pinChars = pins.reduce((total, pin) => total + String(pin.text || "").length, 0);
+          const messageChars = chat && Array.isArray(chat.messages) ? chat.messages.reduce((total, message) => total + String(message.content || "").length, 0) : 0;
+          const totalChars = systemChars + memoryChars + summaryChars + selectionChars + pinChars + messageChars;
+          const budget = CONTEXT_BUDGET_CHARS;
+          title = "Context";
+          body = [
+            h("div", { className: "ps-context-total", key: "total" },
+              h("b", null, `${totalChars.toLocaleString()} chars`),
+              ` · ~${Math.ceil(totalChars / 4).toLocaleString()} tokens · ${Math.round(totalChars / budget * 100)}% of ${budget.toLocaleString()} budget`),
+            h("div", { className: "ps-context-layer", key: "system" }, h("span", null, "System prompt"), h("code", null, `${systemChars.toLocaleString()}`)),
+            h("div", { className: "ps-context-layer", key: "memory" }, h("span", null, "Memory"), h("code", null, `${memoryChars.toLocaleString()}`)),
+            h("div", { className: "ps-context-layer", key: "summary" }, h("span", null, "Conversation summary"), h("code", null, `${summaryChars.toLocaleString()}`)),
+            h("div", { className: "ps-context-layer", key: "selection" }, h("span", null, "Legacy selection"), h("code", null, `${selectionChars.toLocaleString()}`)),
+            h("div", { className: "ps-context-layer", key: "messages" }, h("span", null, "Messages"), h("code", null, `${messageChars.toLocaleString()}`)),
+            h("div", { className: "ps-context-layer", key: "pins" }, h("span", null, `Pins (${pins.length})`), h("code", null, `${pinChars.toLocaleString()}`)),
+            h("div", { className: "ps-context-layer", key: "literature" }, h("span", null, `Literature (${chat && Array.isArray(chat.literature) ? chat.literature.length : 0})`), h("code", null, `${chat && Array.isArray(chat.literature) ? chat.literature.reduce((total, item) => total + String(item.title || "").length + String(item.abstract || "").length, 0).toLocaleString() : "0"}`)),
+            pins.length > 0 ? h("div", { className: "ps-context-pins", key: "pin-list" }, pins.map((pin, index) => h("div", { className: "ps-context-pin", key: index },
+              h("span", null, `${pin.path || ""}${pin.startLine ? `:${pin.startLine}${pin.endLine && pin.endLine !== pin.startLine ? `-${pin.endLine}` : ""}` : ""}`),
+              h("button", { className: "ps-btn icon", type: "button", title: "Unpin", onClick: () => { void removePin(index); } }, "×")))) : h("div", { className: "ps-hint", key: "no-pins" }, "No pinned context."),
+            h("div", { className: "ps-context-actions", key: "pin-current" },
+              h("button", { className: "ps-btn", type: "button", onClick: () => { void pinCurrentFile(); } }, "Pin current file")),
+          ];
+          actions = h("button", { className: "ps-btn", type: "button", onClick: () => setDialog(null) }, t("close"));
         } else if (dialog.kind === "image") {
           title = t("imagePreview");
           body = [
@@ -7023,7 +7416,7 @@ body.ps-resizing *{cursor:inherit!important}
                     title: entry.path,
                     onContextMenu: (event) => {
                       event.preventDefault();
-                      void copyPath(`${project.path}/${entry.path}`);
+                      setTreeMenu({ x: event.clientX, y: event.clientY, path: entry.path, dir: entry.dir });
                     },
                     onClick: () => {
                       if (entry.dir) toggleExpanded(entry.path);
@@ -7145,6 +7538,11 @@ body.ps-resizing *{cursor:inherit!important}
                 onQueue: (text) => queueChat(text, false),
                 onSteer: (text) => queueChat(text, true),
                 onRemoveQueued: removeQueued,
+                onShowContext: () => setDialog({ kind: "context" }),
+                onUnpin: (index) => { void removePin(index); },
+                onSteerQueued: steerQueued,
+                compileApproval,
+                onCompileDecision: decideCompile,
               })
               : pdf.mode === "pages"
               ? h("div", {
@@ -7242,6 +7640,13 @@ body.ps-resizing *{cursor:inherit!important}
 
         treeInfo.truncated ? h("div", { className: "ps-banner" }, h("span", { className: "ps-banner-text" }, t("filesTruncated"))) : null,
 
+        treeMenu ? h("div", {
+          className: "ps-tree-menu",
+          style: { left: Math.max(6, Math.min(treeMenu.x, (window.innerWidth || 1200) - 210)), top: Math.max(6, Math.min(treeMenu.y, (window.innerHeight || 800) - 120)) },
+          onPointerDown: (event) => event.stopPropagation(),
+        },
+        h("button", { className: "ps-ctx-item", type: "button", onClick: () => { void copyPath(`${project.path}/${treeMenu.path}`); setTreeMenu(null); } }, "Copy path"),
+        !treeMenu.dir ? h("button", { className: "ps-ctx-item", type: "button", onClick: () => { void pinPath(treeMenu.path); setTreeMenu(null); } }, "Pin to chat") : null) : null,
         gitReview ? h(GitDiffPopup, { t, patch: gitDiff, onClose: () => setGitReview(false) }) : null,
         renderDialog(),
         toast ? h("div", { className: `ps-toast${toast.kind === "err" ? " err" : ""}`, role: "status" }, toast.message) : null,
