@@ -32,6 +32,8 @@ answer. Briefly say what you consulted when it matters.
 - Never withhold the actual draft or explanation behind a menu.
 - Use a fenced `choices` block only when the reader must choose between genuinely different
   directions (not wording variants, not small edits). Do not include an edit until they choose.
+  Format it as one option per line, each beginning with `1.`, `2.`, `3.`; never wrap an
+  option across multiple lines, and put any explanation on that same line.
 
 ## Edits
 - Never claim to have changed the file. Propose edits only as fenced `edit` blocks with

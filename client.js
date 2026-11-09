@@ -1929,12 +1929,15 @@ body.ps-resizing *{cursor:inherit!important}
       if (environment && beginAt >= 0) {
         const lastEnd = before.lastIndexOf("\\end{" + environment + "}");
         if (beginAt > lastEnd) {
-          const inside = text.slice(beginAt + ("\\begin{" + environment + "}").length);
+          const prefix = "\\begin{" + environment + "}";
+          const inside = text.slice(beginAt + prefix.length);
           const end = inside.search(new RegExp("\\\\end\\{" + environment.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&") + "\\}"));
           let body = (end >= 0 ? inside.slice(0, end) : inside.split("\n").slice(0, 40).join("\n")).replace(/\\label\{[^}]*\}/gu, "").trim();
           if (!body) return null;
+          const startLine = text.slice(0, beginAt).split("\n").length;
+          const endLine = startLine + Math.max(1, body.split("\n").length);
           if (/^align\*?$/u.test(environment) && /&/u.test(body)) body = "\\begin{aligned}" + body + "\\end{aligned}";
-          return { text: body, display: true };
+          return { text: body, display: true, startLine, endLine };
         }
       }
       const line = lines[lineIndex];
@@ -2017,18 +2020,22 @@ body.ps-resizing *{cursor:inherit!important}
         const view = viewRef.current;
         if (!view) { setMathPreview(null); return; }
         const lineNumber = Math.max(1, Math.min(view.state.doc.lines, cursor ? cursor.line : 1));
-        const line = view.state.doc.line(lineNumber);
-        const offset = line.from + Math.max(0, Math.min(line.length, (cursor ? cursor.col : 1) - 1));
-        const coords = view.coordsAtPos(offset);
-        if (!coords) { setMathPreview(null); return; }
+        const anchorStart = Math.max(1, Math.min(view.state.doc.lines, found.display && found.startLine ? found.startLine : lineNumber));
+        const anchorEnd = Math.max(anchorStart, Math.min(view.state.doc.lines, found.display && found.endLine ? found.endLine : anchorStart));
+        const startLine = view.state.doc.line(anchorStart);
+        const endLine = view.state.doc.line(anchorEnd);
+        const startCoords = view.coordsAtPos(startLine.from) || view.coordsAtPos(view.state.doc.line(lineNumber).from);
+        const endCoords = view.coordsAtPos(endLine.to);
+        if (!startCoords) { setMathPreview(null); return; }
         const height = 230;
-        let top = coords.bottom + 8;
-        if (top + height > (window.innerHeight || 800) - 8) top = Math.max(8, coords.top - height - 8);
+        let top = startCoords.top - height - 8;
+        if (top < 8) top = (endCoords ? endCoords.bottom : startCoords.bottom) + 8;
+        if (top + height > (window.innerHeight || 800) - 8) top = Math.max(8, (endCoords ? endCoords.top : startCoords.top) - height - 8);
         setMathPreview({
           text: found.text,
           display: found.display,
           top,
-          left: Math.max(8, Math.min(coords.left, (window.innerWidth || 1200) - 420)),
+          left: Math.max(8, Math.min(startCoords.left, (window.innerWidth || 1200) - 420)),
         });
         if (!katex) loadKatex().then((loaded) => { if (loaded) setKatex(loaded); });
       }, [tab ? tab.content : "", cursor ? cursor.line : 0, cursor ? cursor.col : 0, katex]);
@@ -3085,6 +3092,7 @@ body.ps-resizing *{cursor:inherit!important}
           h("button", { className: "ps-btn primary", type: "button", disabled, title: t("pullHint"), onClick: () => onAction("pull") }, h(Icon.pull), busy === "pull" ? "\u2026" : t("pull")),
           h("button", { className: "ps-btn", type: "button", disabled, title: t("pushHint"), onClick: () => onAction("push") }, h(Icon.push), busy === "push" ? "\u2026" : t("push")),
           h("button", { className: "ps-btn", type: "button", disabled, title: t("fetchHint"), onClick: () => onAction("fetch") }, h(Icon.fetch), busy === "fetch" ? "\u2026" : t("fetch")),
+          h("button", { className: "ps-btn", type: "button", disabled, title: t("refresh"), onClick: onRefresh }, h(Icon.refresh), t("refresh")),
           h("button", { className: "ps-btn", type: "button", disabled, onClick: onNewBranch }, h(Icon.plus), t("newBranch")),
           h("button", { className: "ps-btn danger wide", type: "button", disabled, title: t("nukeHint"), onClick: onNuke }, h(Icon.bomb), t("nuke"))),
         h("div", { className: "ps-git-hint" }, t("fetchVsPull")),
@@ -3982,7 +3990,7 @@ body.ps-resizing *{cursor:inherit!important}
       while ((match = pattern.exec(String(text || "")))) {
         const body = match[1].endsWith("\n") ? match[1].slice(0, -1) : match[1];
         const lines = body.split("\n");
-        const marker = /^\s*(?:(\d+)[.)]|[-*\u2022])\s+(.*)$/u;
+        const marker = /^\s*(?:(\d+)[.)]|([A-Za-z])[.)]|option\s+([A-Za-z0-9]+)\s*[:.)-]|[-*\u2022])\s*(.*)$/iu;
         const hasMarker = lines.some((line) => marker.test(line));
         const groups = [];
         let current = null;
@@ -3991,7 +3999,7 @@ body.ps-resizing *{cursor:inherit!important}
           const found = hasMarker ? marker.exec(line) : null;
           if (found) {
             if (current && current.length > 0) groups.push(current);
-            current = [found[2].trim()];
+            current = [(found[4] || "").trim()];
             continue;
           }
           if (!hasMarker && line.trim() === "") {
@@ -4337,7 +4345,7 @@ body.ps-resizing *{cursor:inherit!important}
         onSelectChat, onNewChat, onClose, changes, onKeepChange, onDiscardChange, onKeepAll, onDiscardAll,
         resolvedChoices, onChoose, onDeleteChat, onShowPrompt, onShowMemory, streamReasoning, thinkingMode,
         queued, onQueue, onSteer, onRemoveQueued, onShowContext, onUnpin, onSteerQueued,
-        compileApproval, onCompileDecision,
+        compileApproval, onCompileDecision, onRenameChat,
       } = props;
       const logRef = useRef(null);
       const [inputHeight, setInputHeight] = useState(() => {
@@ -4387,6 +4395,7 @@ body.ps-resizing *{cursor:inherit!important}
             className: "ps-select", value: chat ? chat.id : "", title: t("chatHistory"),
             onChange: (event) => onSelectChat(event.target.value),
           }, chats.map((item) => h("option", { key: item.id, value: item.id }, `${item.title || t("newChat")}${item.messages ? ` · ${item.messages}` : ""}`))),
+          h("button", { className: "ps-btn icon", type: "button", title: "Rename chat", "aria-label": "Rename chat", onClick: () => onRenameChat && onRenameChat() }, "✎"),
           busy ? h("span", { className: "ps-spinner", title: "Working" }) : null,
           h("button", { className: "ps-btn icon", type: "button", title: t("newChat"), onClick: onNewChat }, h(Icon.plus)),
           h("button", {
@@ -4906,6 +4915,8 @@ body.ps-resizing *{cursor:inherit!important}
           const data = await request("git/info", { query: { project: id } });
           if (projectIdRef.current !== id) return;
           setGitInfo({ data, error: "" });
+          // Rebase the editor's Git decoration against the new HEAD, including after commits.
+          for (const tab of tabsRef.current) void refreshBaseline(tab.path);
           if (options && options.diff && data.repo) {
             const diff = await request("git/diff", { query: { project: id } });
             if (projectIdRef.current === id) setGitDiff(diff.patch || "");
@@ -4913,7 +4924,7 @@ body.ps-resizing *{cursor:inherit!important}
         } catch (error) {
           setGitInfo({ data: null, error: error.message });
         }
-      }, []);
+      }, [refreshBaseline]);
 
       const openGitReview = useCallback(async () => {
         setGitReview(true);
@@ -5145,8 +5156,9 @@ body.ps-resizing *{cursor:inherit!important}
         const tab = tabsRef.current.find((item) => item.path === activeRef.current);
         if (!chat || !chatAgent || !tab) return;
         const pins = [...(chat.pins || [])];
-        if (!pins.some((pin) => pin.path === tab.path)) {
-          pins.push({ path: tab.path, startLine: 1, endLine: tab.content.split("\n").length, text: tab.content.slice(0, 8000) });
+        const endLine = tab.content.split("\n").length;
+        if (!pins.some((pin) => pin.path === tab.path && pin.startLine === 1 && pin.endLine === endLine)) {
+          pins.push({ path: tab.path, startLine: 1, endLine, text: tab.content.slice(0, 8000) });
         }
         await savePinsFor(chat, chatAgent, pins);
         notify(t("contextAdded"));
@@ -5165,8 +5177,9 @@ body.ps-resizing *{cursor:inherit!important}
             }
           } else {
             const file = await request("file", { query: { project: projectIdRef.current, path } });
-            if (!pins.some((pin) => pin.path === path)) {
-              pins.push({ path, startLine: 1, endLine: String(file.content || "").split("\n").length, text: String(file.content || "").slice(0, 8000) });
+            const endLine = String(file.content || "").split("\n").length;
+            if (!pins.some((pin) => pin.path === path && pin.startLine === 1 && pin.endLine === endLine)) {
+              pins.push({ path, startLine: 1, endLine, text: String(file.content || "").slice(0, 8000) });
             }
           }
           await savePinsFor(chat, chatAgent, pins);
@@ -5806,6 +5819,23 @@ body.ps-resizing *{cursor:inherit!important}
         }
       }, [chat, notify, t]);
 
+      const renameCurrentChat = useCallback(async () => {
+        if (!chat || !chatAgent) return;
+        const title = window.prompt("Rename chat", chat.title || "");
+        if (title === null) return;
+        const next = title.replace(/\s+/gu, " ").trim().slice(0, 120);
+        if (!next || next === chat.title) return;
+        try {
+          await request("chat/rename", { method: "POST", body: {
+            project: projectIdRef.current, agentId: chatAgent.id, agentScope: chatAgent.scope, chatId: chat.id, title: next,
+          } });
+          setChat((current) => (current ? { ...current, title: next } : current));
+          await refreshChats(chatAgent);
+        } catch (error) {
+          notify(error.message, "err");
+        }
+      }, [chat, chatAgent, notify, refreshChats]);
+
       const deleteCurrentChat = useCallback(async () => {
         const id = projectIdRef.current;
         if (!id || !chat || !chatAgent) return;
@@ -5870,6 +5900,17 @@ body.ps-resizing *{cursor:inherit!important}
         if (explorerTab !== "git" || !project) return;
         void refreshGit({ diff: gitDiffOpen });
       }, [explorerTab, project, gitDiffOpen, refreshGit]);
+
+      useEffect(() => {
+        if (!project) return undefined;
+        const refresh = () => { if (!document.hidden) void refreshGit({ diff: gitDiffOpen }); };
+        const timer = setInterval(refresh, 30_000);
+        window.addEventListener("focus", refresh);
+        return () => {
+          clearInterval(timer);
+          window.removeEventListener("focus", refresh);
+        };
+      }, [project, gitDiffOpen, refreshGit]);
 
       useEffect(() => {
         if (!dialog) return;
@@ -7539,6 +7580,7 @@ body.ps-resizing *{cursor:inherit!important}
                 onSteer: (text) => queueChat(text, true),
                 onRemoveQueued: removeQueued,
                 onShowContext: () => setDialog({ kind: "context" }),
+                onRenameChat: renameCurrentChat,
                 onUnpin: (index) => { void removePin(index); },
                 onSteerQueued: steerQueued,
                 compileApproval,

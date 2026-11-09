@@ -2157,7 +2157,10 @@ function startChatJob(project, options) {
       return;
     }
     chat.updatedAt = new Date().toISOString();
-    if (chat.messages.length === 1) chat.title = (message || chat.context?.text || "New chat").replace(/\s+/gu, " ").slice(0, 70);
+    const firstUserMessage = chat.messages.find((entry) => entry.role === "user" && !entry.kind);
+    if (!chat.titleCustom && firstUserMessage && (!chat.title || chat.title === "New chat")) {
+      chat.title = String(firstUserMessage.content || "New chat").replace(/\s+/gu, " ").trim().slice(0, 70) || "New chat";
+    }
     await writeChat(project, agent.id, chat);
     job.emit({ type: "chat", chat: chatSummary(chat) });
 
@@ -2188,7 +2191,7 @@ exact current lines, copied verbatim from the file (2-5 lines, unique to this pa
 =======
 replacement lines
 >>>>>>> REPLACE
-Do not use line numbers. One block per independent passage; never multiple alternatives for the same passage. The editor will show it with Keep/Discard buttons. Keep the user-facing answer brief; put exploration, alternatives and deliberation in your thinking rather than in the answer. If there is more than one way to rewrite the same passage, present 2-4 options in a fenced \`\`\`choices block and STOP; do not include any diff until the user chooses, then propose exactly one diff for that passage. Multiple diffs are only for independent, non-overlapping parts of the text — never several alternatives for the same passage. Pinned passages are edit targets: stay inside them unless the user explicitly asks for another region. When the user tells you to re-read something or read the whole document, you MUST request fresh reads/greps before answering; never claim a re-read without doing it. Format precedence over any older agent instructions: use fenced edit SEARCH/REPLACE blocks (not unified diffs); never edit .bib automatically; publish literature cards only from literature_card blocks; request compiles and wait for user approval. Use citation keys from the literature index. Do not modify .bib files automatically; bibliography edits are always manual. If a reference is missing, search Crossref with a fenced literature block containing either "search: title authors" or "doi: 10...". Searches only collect candidates; do not format cards while exploring. Use at most three literature searches per turn and do not repeat a query. In your final answer, for each paper you actually recommend, emit a separate fenced literature_card block containing at least a DOI (or key) and optionally title, authors, year, journal, url and abstract. Example:
+Do not use line numbers. One block per independent passage; never multiple alternatives for the same passage. The editor will show it with Keep/Discard buttons. Keep the user-facing answer brief; put exploration, alternatives and deliberation in your thinking rather than in the answer. If there is more than one way to rewrite the same passage, present 2-4 options in a fenced \`\`\`choices block and STOP; format that block as one option per line, each line beginning with 1., 2., 3., and never wrap an option across lines; do not include any diff until the user chooses, then propose exactly one diff for that passage. Multiple diffs are only for independent, non-overlapping parts of the text — never several alternatives for the same passage. Pinned passages are edit targets: stay inside them unless the user explicitly asks for another region. When the user tells you to re-read something or read the whole document, you MUST request fresh reads/greps before answering; never claim a re-read without doing it. Format precedence over any older agent instructions: use fenced edit SEARCH/REPLACE blocks (not unified diffs); never edit .bib automatically; publish literature cards only from literature_card blocks; request compiles and wait for user approval. Use citation keys from the literature index. Do not modify .bib files automatically; bibliography edits are always manual. If a reference is missing, search Crossref with a fenced literature block containing either "search: title authors" or "doi: 10...". Searches only collect candidates; do not format cards while exploring. Use at most three literature searches per turn and do not repeat a query. In your final answer, for each paper you actually recommend, emit a separate fenced literature_card block containing at least a DOI (or key) and optionally title, authors, year, journal, url and abstract. Example:
 \`\`\`literature_card
 doi: 10.1021/acs.jpcc.2c03804
 \`\`\`
@@ -3696,6 +3699,20 @@ function createHandler(token) {
           chat.updatedAt = new Date().toISOString();
           await writeChat(project, body.agentId, chat);
           return sendJson(response, 200, { ok: true, pins: chat.pins });
+        }
+        case "chat/rename": {
+          const id = String(body.project || "");
+          const project = await findProject(id);
+          if (!project) throw new HttpError(404, "Project not found");
+          const agent = await resolveAgent(project, String(body.agentId || ""), body.agentScope || "global");
+          const chat = await readChat(project, agent.id, String(body.chatId || ""));
+          const title = String(body.title || "").replace(/\s+/gu, " ").trim().slice(0, 120);
+          if (!chat || !title) throw new HttpError(400, "A title is required");
+          chat.title = title;
+          chat.titleCustom = true;
+          chat.updatedAt = new Date().toISOString();
+          await writeChat(project, agent.id, chat);
+          return sendJson(response, 200, { ok: true, title: chat.title });
         }
         case "chat/memory": {
           const project = projectRef(body.project);

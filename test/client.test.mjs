@@ -244,6 +244,11 @@ test("multiline choice descriptions do not create extra options", () => {
   assert.equal(options[0].label, "Concise");
 });
 
+test("option-labelled choices are separate options", () => {
+  const text = "```choices\noption A: first\noption B: second\noption C: third\n```";
+  assert.equal(parseChoiceBlocks(text)[0].options.length, 3);
+});
+
 test("math is split into inline and display segments", () => {
   const parts = splitMath("Inline $x^2$ and display $$y = mc^2$$.");
   assert.equal(parts.filter((part) => part.math).length, 2);
@@ -315,7 +320,7 @@ test("two-column reading order keeps each column contiguous", () => {
 
 test("equation preview finds only supported math contexts", () => {
   const display = "\\begin{equation}\nx^2+y^2\n\\end{equation}\n";
-  assert.deepEqual(equationAtCursor(display, 2, 3), { text: "x^2+y^2", display: true });
+  assert.deepEqual(equationAtCursor(display, 2, 3), { text: "x^2+y^2", display: true, startLine: 1, endLine: 2 });
   assert.equal(equationAtCursor("plain text\n", 1, 3), null);
   const inline = "before $a^2+b^2$ after\n";
   assert.deepEqual(equationAtCursor(inline, 1, 11), { text: "a^2+b^2", display: false });
